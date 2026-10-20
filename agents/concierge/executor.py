@@ -1,0 +1,53 @@
+"""Concierge's WorkflowBuilder node: stage (e), "personalize" -- the
+live/continuous variant. Personalizes each insight individually as it comes
+off the Narrator, for one fixed persona per workflow instance.
+
+This is deliberately not the only way Concierge is invoked: the same
+agents.concierge.agent.personalize() can separately be called on-demand
+with a whole match's insight list (e.g. from an API handler, per viewer
+request) for a full-match recap in whatever persona that viewer chose --
+that's a different granularity (one call per viewer session, not one call
+per insight) and doesn't belong wired into this per-tick graph. This
+executor's fixed-persona, per-insight mode exists to prove the live
+orchestration wiring end-to-end.
+"""
+from __future__ import annotations
+
+from typing import Any, Awaitable, Callable
+
+from agent_framework import Executor, WorkflowContext, handler
+
+from agents.concierge.agent import personalize
+from agents.concierge.lens import CoachLens
+from agents.concierge.persona_filter import Persona
+from agents.shared.handoff_log import HandoffLog
+from agents.shared.models import InsightCandidate, NarratedInsight
+
+PersonalizeFn = Callable[..., Awaitable[str]]
+
+
+class ConciergeExecutor(Executor):
+    def __init__(
+        self, id: str, handoff_log: HandoffLog,
+        persona: Persona = "casual_fan",
+        lens: CoachLens | None = None,
+        personalize_fn: PersonalizeFn | None = None,
+        player_names: dict[str, str] | None = None,
+    ):
+        super().__init__(id=id)
+        self._log = handoff_log
+        self._persona = persona
+        self._lens = lens
+        self._personalize_fn = personalize_fn or personalize
+        self._player_names = player_names or {}
+
+    @handler
+    async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, str]) -> None:
+        insight: InsightCandidate = narrated.insight
+        text = await self._personalize_fn(
+            [insight], self._persona, lens=self._lens, player_names=self._player_names,
+        )
+        self._log.record("concierge", insight.match_id, {
+            "persona": self._persona, "insight_id": insight.insight_id, "text_preview": text[:80],
+        })
+        await ctx.yield_output(text)

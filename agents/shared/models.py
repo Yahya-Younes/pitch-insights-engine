@@ -30,3 +30,34 @@ class InsightCandidate(BaseModel):
     related_players: list[str] = Field(default_factory=list)
     related_events: list[str] = Field(default_factory=list)
     window_summary: dict[str, float | int | str | bool] = Field(default_factory=dict)
+
+
+class NarratedInsight(BaseModel):
+    """Stage (c) output: an InsightCandidate paired with the Narrator's
+    grounded explanation of it. This is what fans out to both Broadcaster
+    (stage d) and the live/per-insight Concierge path (stage e)."""
+
+    insight: InsightCandidate
+    narrative_text: str
+
+
+class RenderDisplay(BaseModel):
+    template: str
+    duration_ms: int
+    priority: int
+
+
+class RenderPayload(BaseModel):
+    """Stage (d) output: a timecoded, broadcast-graphics-style overlay
+    payload (modeled on Chyron PRIME / Vizrt-style external data feeds),
+    deterministically built from a NarratedInsight -- no LLM involved."""
+
+    render_id: str = Field(default_factory=lambda: uuid4().hex)
+    match_id: str
+    game_clock: str
+    graphic_type: str
+    narrative_text: str
+    display: RenderDisplay
+    data_points: list[dict[str, float | int | str | bool]] = Field(default_factory=list)
+    linked_players: list[str] = Field(default_factory=list)
+    source_insight_id: str
