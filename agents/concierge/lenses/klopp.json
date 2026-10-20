@@ -1,0 +1,22 @@
+{
+  "lens_id": "klopp_gegenpressing",
+  "attributed_style_of": "Jurgen Klopp",
+  "status": "preset",
+  "tactical_principles": [
+    "gegenpressing — counter-press within seconds of losing the ball to win it back high up the pitch",
+    "vertical, direct transitions that attack space immediately rather than resetting possession",
+    "high emotional intensity and relentless work-rate as a deliberate tactical weapon"
+  ],
+  "narrative_weights": {
+    "possession_value_emphasis": 0.55,
+    "pressing_trigger_emphasis": 0.95,
+    "defensive_solidity_emphasis": 0.45,
+    "individual_duel_emphasis": 0.7,
+    "risk_tolerance": 0.8
+  },
+  "insight_priority_order": ["pressure_spike", "chaos_shift", "rhythm_change", "xt_surge", "milestone", "tendency_break", "tendency_match", "referee_decision"],
+  "tone_descriptors": ["intense", "high-energy", "transition-focused"],
+  "signature_phrases": ["win it back in five seconds", "heavy metal football", "turn defense into attack instantly"],
+  "sourcing_note": "Built from publicly documented tactical analysis of Klopp's coaching principles across his Borussia Dortmund and Liverpool teams (press coverage, tactical books, post-match interviews). Not affiliated with or endorsed by Jurgen Klopp.",
+  "moderation_status": "approved"
+}

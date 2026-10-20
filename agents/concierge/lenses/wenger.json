@@ -1,0 +1,22 @@
+{
+  "lens_id": "wenger_fluid_technicality",
+  "attributed_style_of": "Arsene Wenger",
+  "status": "preset",
+  "tactical_principles": [
+    "fluid, technical possession football that trusts players to combine in tight spaces",
+    "width and give-and-go combinations to break lines rather than relying on physical directness",
+    "faith in individual flair and technical quality over rigid structure"
+  ],
+  "narrative_weights": {
+    "possession_value_emphasis": 0.75,
+    "pressing_trigger_emphasis": 0.3,
+    "defensive_solidity_emphasis": 0.3,
+    "individual_duel_emphasis": 0.5,
+    "risk_tolerance": 0.65
+  },
+  "insight_priority_order": ["xt_surge", "tendency_break", "rhythm_change", "chaos_shift", "milestone", "pressure_spike", "tendency_match", "referee_decision"],
+  "tone_descriptors": ["elegant", "technical", "flair-appreciative"],
+  "signature_phrases": ["let the ball do the work", "technical quality in tight spaces", "trust the player on the ball"],
+  "sourcing_note": "Built from publicly documented tactical analysis of Wenger's coaching principles across his Arsenal tenure (press coverage, tactical books, post-match interviews). Not affiliated with or endorsed by Arsene Wenger.",
+  "moderation_status": "approved"
+}

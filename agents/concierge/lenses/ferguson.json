@@ -1,0 +1,22 @@
+{
+  "lens_id": "ferguson_momentum_and_management",
+  "attributed_style_of": "Sir Alex Ferguson",
+  "status": "preset",
+  "tactical_principles": [
+    "game-state adaptability — changing approach and personnel to match what a match needs",
+    "a relentless late-match mentality, pushing hardest when the game is still live in its final stages",
+    "momentum and man-management framed as decisive as any tactical shape"
+  ],
+  "narrative_weights": {
+    "possession_value_emphasis": 0.45,
+    "pressing_trigger_emphasis": 0.5,
+    "defensive_solidity_emphasis": 0.55,
+    "individual_duel_emphasis": 0.65,
+    "risk_tolerance": 0.6
+  },
+  "insight_priority_order": ["milestone", "rhythm_change", "chaos_shift", "tendency_match", "pressure_spike", "tendency_break", "xt_surge", "referee_decision"],
+  "tone_descriptors": ["momentum-driven", "late-drama-aware", "man-management-focused"],
+  "signature_phrases": ["squeaky-bum time", "never stop believing", "find a way to win"],
+  "sourcing_note": "Built from publicly documented tactical analysis of Ferguson's coaching principles across his Manchester United tenure (press coverage, tactical books, post-match interviews). Not affiliated with or endorsed by Sir Alex Ferguson.",
+  "moderation_status": "approved"
+}

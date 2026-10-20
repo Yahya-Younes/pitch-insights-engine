@@ -1,0 +1,22 @@
+{
+  "lens_id": "guardiola_positional_play",
+  "attributed_style_of": "Pep Guardiola",
+  "status": "preset",
+  "tactical_principles": [
+    "positional superiority through juego de posicion and half-space occupation",
+    "high defensive line with coordinated press traps to win the ball back quickly",
+    "patient circulation and ball-side overloads to draw the opponent out of shape before penetrating"
+  ],
+  "narrative_weights": {
+    "possession_value_emphasis": 0.9,
+    "pressing_trigger_emphasis": 0.8,
+    "defensive_solidity_emphasis": 0.3,
+    "individual_duel_emphasis": 0.2,
+    "risk_tolerance": 0.7
+  },
+  "insight_priority_order": ["xt_surge", "pressure_spike", "chaos_shift", "rhythm_change", "milestone", "tendency_match", "tendency_break", "referee_decision"],
+  "tone_descriptors": ["analytical", "principle-driven", "patient-until-the-moment-is-right"],
+  "signature_phrases": ["positional superiority", "the gap between the lines", "control the width", "draw them out"],
+  "sourcing_note": "Built from publicly documented tactical analysis of Guardiola's coaching principles across his Barcelona, Bayern Munich and Manchester City teams (press coverage, tactical books, post-match interviews). Not affiliated with or endorsed by Pep Guardiola.",
+  "moderation_status": "approved"
+}

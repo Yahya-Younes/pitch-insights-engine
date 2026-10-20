@@ -1,0 +1,22 @@
+{
+  "lens_id": "mourinho_control_the_chaos",
+  "attributed_style_of": "Jose Mourinho",
+  "status": "preset",
+  "tactical_principles": [
+    "defensive compactness and a low, organized block that denies central space",
+    "rapid counter-attacking transitions the instant possession is won",
+    "game management — controlling tempo and risk rather than chasing territory for its own sake"
+  ],
+  "narrative_weights": {
+    "possession_value_emphasis": 0.3,
+    "pressing_trigger_emphasis": 0.35,
+    "defensive_solidity_emphasis": 0.9,
+    "individual_duel_emphasis": 0.6,
+    "risk_tolerance": 0.25
+  },
+  "insight_priority_order": ["referee_decision", "chaos_shift", "pressure_spike", "milestone", "tendency_break", "tendency_match", "rhythm_change", "xt_surge"],
+  "tone_descriptors": ["pragmatic", "controlled", "game-management-focused"],
+  "signature_phrases": ["control the chaos, don't avoid it", "take what the game gives you", "discipline over spectacle"],
+  "sourcing_note": "Built from publicly documented tactical analysis of Mourinho's coaching principles across his Chelsea, Inter Milan, Real Madrid and Manchester United teams (press coverage, tactical books, post-match interviews). Not affiliated with or endorsed by Jose Mourinho.",
+  "moderation_status": "approved"
+}
