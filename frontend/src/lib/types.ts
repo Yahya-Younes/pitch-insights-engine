@@ -35,6 +35,8 @@ export interface LensSummary {
   lens_id: string;
   attributed_style_of: string;
   tone_descriptors: string[];
+  tactical_principles: string[];
+  sourcing_note: string;
 }
 
 export interface RunMatchResponse {

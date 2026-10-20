@@ -161,7 +161,13 @@ async def match_handoff(match_id: str):
 @app.get("/lenses")
 async def lenses():
     return [
-        {"lens_id": l.lens_id, "attributed_style_of": l.attributed_style_of, "tone_descriptors": l.tone_descriptors}
+        {
+            "lens_id": l.lens_id,
+            "attributed_style_of": l.attributed_style_of,
+            "tone_descriptors": l.tone_descriptors,
+            "tactical_principles": l.tactical_principles,
+            "sourcing_note": l.sourcing_note,
+        }
         for l in _state["lenses"].values()
     ]
 

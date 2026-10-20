@@ -1,22 +1,34 @@
 import type { RenderPayload } from "../lib/types";
 
 const GRAPHIC_LABEL: Record<string, string> = {
-  milestone: "GOAL",
-  pressure_spike: "PRESSING INTENSITY",
-  chaos_shift: "CONTROL / CHAOS",
-  rhythm_change: "GAME RHYTHM",
-  xt_surge: "THREAT SURGE",
-  referee_decision: "REFEREE DECISION",
-  tendency_match: "TENDENCY MATCH",
-  tendency_break: "TENDENCY BREAK",
+  milestone: "Goal",
+  pressure_spike: "Pressing Intensity",
+  chaos_shift: "Control / Chaos",
+  rhythm_change: "Game Rhythm",
+  xt_surge: "Threat Surge",
+  referee_decision: "Referee Decision",
+  tendency_match: "Tendency Match",
+  tendency_break: "Tendency Break",
+};
+
+const GRAPHIC_ICON: Record<string, string> = {
+  milestone: "⚽",
+  pressure_spike: "🔥",
+  chaos_shift: "⚡",
+  rhythm_change: "🎵",
+  xt_surge: "📈",
+  referee_decision: "🟨",
+  tendency_match: "🎯",
+  tendency_break: "❗",
 };
 
 export function OverlayCard({ payload }: { payload: RenderPayload }) {
   return (
-    <article className={`overlay-card priority-${payload.display.priority}`}>
+    <article className={`overlay-card overlay-card-in priority-${payload.display.priority}`}>
       <header>
-        <span className="game-clock">{payload.game_clock}</span>
+        <span className="overlay-icon" aria-hidden="true">{GRAPHIC_ICON[payload.graphic_type] ?? "📊"}</span>
         <span className="graphic-type">{GRAPHIC_LABEL[payload.graphic_type] ?? payload.graphic_type}</span>
+        <span className="game-clock">{payload.game_clock}</span>
       </header>
       <p className="narrative">{payload.narrative_text}</p>
       {payload.data_points.length > 0 && (

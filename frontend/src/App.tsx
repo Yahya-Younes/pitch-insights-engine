@@ -3,7 +3,10 @@ import "./App.css";
 import { fetchLenses } from "./lib/api";
 import type { LensSummary, RunMatchResponse } from "./lib/types";
 import { useOverlayFeed } from "./hooks/useOverlayFeed";
+import { Header } from "./components/Header";
 import { MatchControls } from "./components/MatchControls";
+import { PipelineStatus } from "./components/PipelineStatus";
+import { MatchHeader } from "./components/MatchHeader";
 import { OverlayCard } from "./components/OverlayCard";
 import { PersonaFeed } from "./components/PersonaFeed";
 
@@ -25,39 +28,63 @@ function App() {
     [events],
   );
 
+  const hasFeed = renderEvents.length > 0 || personalizedEvents.length > 0;
+
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>Pitch Insights Engine</h1>
-        <span className={`status-pill status-${status}`}>{status}</span>
-      </header>
+      <Header status={status} />
 
-      <MatchControls lenses={lenses} onMatchStarted={setLastMatch} />
+      <main className="app-main">
+        <MatchControls lenses={lenses} onMatchStarted={setLastMatch} />
 
-      {lastMatch && (
-        <p className="match-summary">
-          {lastMatch.home_team} vs {lastMatch.away_team} -- processing in the background, live cards will appear below as each insight is narrated.
-        </p>
-      )}
+        {lastMatch && (
+          <>
+            <PipelineStatus
+              running={Boolean(lastMatch)}
+              sawRender={renderEvents.length > 0}
+              sawPersonalized={personalizedEvents.length > 0}
+            />
+            <MatchHeader
+              homeTeam={lastMatch.home_team}
+              awayTeam={lastMatch.away_team}
+              insightCount={renderEvents.length}
+            />
+          </>
+        )}
 
-      <div className="columns">
-        <section>
-          <h2>Broadcaster Overlay (stage d)</h2>
-          {renderEvents.length === 0 && (
-            <p className="empty-state">No render payloads yet -- run a match to see the live overlay feed.</p>
-          )}
-          <div className="overlay-feed">
-            {renderEvents.map((e) => (
-              <OverlayCard key={e.data.render_id} payload={e.data} />
-            ))}
-          </div>
-        </section>
+        <div className="columns">
+          <section className="feed-panel">
+            <div className="panel-heading">
+              <h2>Broadcaster Overlay</h2>
+              <span className="panel-tag">stage d &middot; render</span>
+            </div>
+            {renderEvents.length === 0 ? (
+              <div className="empty-state">
+                <span className="empty-icon" aria-hidden="true">📺</span>
+                <p>{hasFeed ? "Waiting on the first render payload..." : "No render payloads yet. Run a match to see the live overlay feed."}</p>
+              </div>
+            ) : (
+              <div className="overlay-feed">
+                {renderEvents.map((e) => (
+                  <OverlayCard key={e.data.render_id} payload={e.data} />
+                ))}
+              </div>
+            )}
+          </section>
 
-        <section>
-          <h2>Concierge Personalization (stage e)</h2>
-          <PersonaFeed messages={personalizedEvents} />
-        </section>
-      </div>
+          <section className="feed-panel">
+            <div className="panel-heading">
+              <h2>Concierge Personalization</h2>
+              <span className="panel-tag">stage e &middot; personalize</span>
+            </div>
+            <PersonaFeed messages={personalizedEvents} />
+          </section>
+        </div>
+      </main>
+
+      <footer className="app-footer">
+        <span>Built on Microsoft Agent Framework &middot; Azure AI Foundry &middot; Container Apps &middot; Cosmos DB &middot; Event Hubs &middot; Web PubSub</span>
+      </footer>
     </div>
   );
 }
