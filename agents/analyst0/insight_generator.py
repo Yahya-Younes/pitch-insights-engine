@@ -6,6 +6,7 @@ never a flood of raw numbers it would have to editorialize over itself.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from agents.analyst0 import metrics as m
@@ -14,12 +15,16 @@ from agents.shared.models import InsightCandidate
 from datagen.schema import AnyEvent, Team
 
 PRESSURE_DROP_THRESHOLD_PCT = -25.0
+PRESSURE_MIN_SAMPLE = 8
 CHAOS_SPIKE_DELTA_PCT = 15.0
 TEMPO_ZSCORE_THRESHOLD = 1.5
 TENDENCY_MATCH_THRESHOLD = 0.6
 TENDENCY_BREAK_THRESHOLD = 0.15
 TENDENCY_MIN_SAMPLE_SIZE = 8
 TENDENCY_COOLDOWN_MIN = 5.0
+XT_SURGE_MIN_SAMPLE = 6
+XT_SURGE_ZSCORE_THRESHOLD = 1.75
+XT_SURGE_COOLDOWN_MIN = 3.0
 
 _ACTION_EVENT_TYPES = ("pass", "dribble", "carry")
 
@@ -45,25 +50,38 @@ def _compute_match_mean_ppda(events: list[AnyEvent], team: Team, duration_ms: in
 
 
 def _pressure_candidates(events, match_id, duration_ms, window_ms) -> list[InsightCandidate]:
+    """Only flags the rising edge into a press (not-over -> over), the same
+    debounce pattern _rhythm_candidates already uses below. Without it, PPDA's
+    window-to-window noise (a ratio of small integer counts) re-crosses the
+    threshold on almost every window independently, making "pressure spike"
+    fire on ~90% of a match instead of flagging genuine, sustained presses."""
     out = []
     for team in ("home", "away"):
         baseline = _compute_match_mean_ppda(events, team, duration_ms, window_ms)
         t = 0
+        prev_over = False
         while t + window_ms <= duration_ms:
-            value = m.compute_ppda(events, team, t, t + window_ms)
             t_next = t + window_ms
-            if value is not None and baseline > 0:
+            opponent_passes, defensive_actions = m.ppda_counts(events, team, t, t_next)
+            value = m.compute_ppda(events, team, t, t_next)
+
+            over = False
+            delta_pct = None
+            if opponent_passes + defensive_actions >= PRESSURE_MIN_SAMPLE and value is not None and baseline > 0:
                 delta_pct = round((value - baseline) / baseline * 100, 1)
-                if delta_pct <= PRESSURE_DROP_THRESHOLD_PCT:
-                    window_events = [e for e in events if t <= getattr(e, "match_clock_ms", -1) < t_next]
-                    related_events = [e.event_id for e in window_events if e.type in ("tackle", "interception", "foul")]
-                    out.append(InsightCandidate(
-                        match_id=match_id, window_start_min=_ms_to_min(t), window_end_min=_ms_to_min(t_next),
-                        trigger_type="pressure_spike", metric_name=f"ppda_{team}", metric_value=value,
-                        baseline_value=round(baseline, 2), delta_pct=delta_pct,
-                        related_events=related_events[:5],
-                        window_summary={"team": team},
-                    ))
+                over = delta_pct <= PRESSURE_DROP_THRESHOLD_PCT
+
+            if over and not prev_over:
+                window_events = [e for e in events if t <= getattr(e, "match_clock_ms", -1) < t_next]
+                related_events = [e.event_id for e in window_events if e.type in ("tackle", "interception", "foul")]
+                out.append(InsightCandidate(
+                    match_id=match_id, window_start_min=_ms_to_min(t), window_end_min=_ms_to_min(t_next),
+                    trigger_type="pressure_spike", metric_name=f"ppda_{team}", metric_value=value,
+                    baseline_value=round(baseline, 2), delta_pct=delta_pct,
+                    related_events=related_events[:5],
+                    window_summary={"team": team},
+                ))
+            prev_over = over
             t = t_next
     return out
 
@@ -143,6 +161,56 @@ def _referee_candidates(events, match_id) -> list[InsightCandidate]:
     return out
 
 
+def _xt_candidates(events, match_id) -> list[InsightCandidate]:
+    """Flags individual passes/carries whose Expected Threat gain is a
+    statistical outlier relative to this match's own positive-gain actions —
+    "a sequence gained unusually high Expected Threat" per the Narrator's
+    trigger guidance. Carries/dribbles without an end_location (dribbles)
+    aren't eligible; only pass/carry events have a start/end pair to compute
+    a delta from."""
+    actions: list[tuple[AnyEvent, float]] = []
+    for e in events:
+        if e.type not in ("pass", "carry"):
+            continue
+        direction = m.direction_of(e.team)
+        delta = m.action_xt_delta(e.location, e.end_location, direction)
+        if delta > 0:
+            actions.append((e, delta))
+
+    if len(actions) < XT_SURGE_MIN_SAMPLE:
+        return []
+
+    deltas = [d for _, d in actions]
+    mean = sum(deltas) / len(deltas)
+    variance = sum((d - mean) ** 2 for d in deltas) / len(deltas)
+    stddev = math.sqrt(variance) or 1e-6
+
+    out = []
+    last_emitted_min: dict[Team, float] = {}
+    for e, delta in actions:
+        z = (delta - mean) / stddev
+        if z < XT_SURGE_ZSCORE_THRESHOLD:
+            continue
+        minute = _ms_to_min(e.match_clock_ms)
+        if minute - last_emitted_min.get(e.team, -999) < XT_SURGE_COOLDOWN_MIN:
+            continue
+        last_emitted_min[e.team] = minute
+
+        related_players = [e.player_id]
+        if e.type == "pass" and e.recipient_id:
+            related_players.append(e.recipient_id)
+        delta_pct = round((delta - mean) / mean * 100, 1) if mean > 0 else None
+
+        out.append(InsightCandidate(
+            match_id=match_id, window_start_min=minute, window_end_min=minute,
+            trigger_type="xt_surge", metric_name="xt_gain", metric_value=round(delta, 4),
+            baseline_value=round(mean, 4), delta_pct=delta_pct,
+            related_players=related_players, related_events=[e.event_id],
+            window_summary={"team": e.team, "action_type": e.type, "zscore": round(z, 2)},
+        ))
+    return out
+
+
 def _action_label(e: AnyEvent) -> str | None:
     if e.type in ("pass", "dribble", "carry"):
         return e.type
@@ -196,6 +264,7 @@ def generate_insight_candidates(
     candidates += _pressure_candidates(events, match_id, match_duration_ms, window_ms)
     candidates += _chaos_candidates(events, match_id, match_duration_ms, window_ms)
     candidates += _rhythm_candidates(events, match_id, match_duration_ms)
+    candidates += _xt_candidates(events, match_id)
     candidates += _milestone_candidates(events, match_id)
     candidates += _referee_candidates(events, match_id)
     if tendency_profiles:

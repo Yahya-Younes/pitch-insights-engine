@@ -99,14 +99,31 @@ def _action_bias_for(position: Position, rng: random.Random) -> ActionBias:
     return ActionBias.model_validate(normalized)
 
 
+def _unique_name(rng: random.Random, used_names: set[str] | None) -> str:
+    """Draws a first+last name combo, resampling on collision when a
+    used_names set is tracked. With only 18x14=252 combos and ~22 players
+    on the pitch per match, an unguarded draw collides often enough (birthday
+    paradox) to visibly put two same-named players in one synthetic match."""
+    name = f"{rng.choice(_FIRST_NAMES)} {rng.choice(_LAST_NAMES)}"
+    if used_names is None:
+        return name
+    attempts = 0
+    while name in used_names and attempts < 50:
+        name = f"{rng.choice(_FIRST_NAMES)} {rng.choice(_LAST_NAMES)}"
+        attempts += 1
+    used_names.add(name)
+    return name
+
+
 def generate_player_profile(
     player_id: str,
     position: Position,
     direction: AttackingDirection,
     rng: random.Random,
+    used_names: set[str] | None = None,
 ) -> PlayerTendencyProfile:
     prior = _POSITION_PRIORS[position]
-    name = f"{rng.choice(_FIRST_NAMES)} {rng.choice(_LAST_NAMES)}"
+    name = _unique_name(rng, used_names)
     zone_bias = _zone_bias_for(position, direction, rng)
     sorted_zones = sorted(zone_bias.items(), key=lambda kv: kv[1], reverse=True)
     preferred_sprint_zones = [z for z, _ in sorted_zones[:3]]
@@ -125,9 +142,11 @@ def generate_player_profile(
     )
 
 
-def generate_squad(team: Team, rng: random.Random) -> list[PlayerTendencyProfile]:
+def generate_squad(team: Team, rng: random.Random, used_names: set[str] | None = None) -> list[PlayerTendencyProfile]:
     direction: AttackingDirection = "left_to_right" if team == "home" else "right_to_left"
+    if used_names is None:
+        used_names = set()
     return [
-        generate_player_profile(f"{team}_{idx + 1}", position, direction, rng)
+        generate_player_profile(f"{team}_{idx + 1}", position, direction, rng, used_names)
         for idx, position in enumerate(FORMATION_4_3_3)
     ]

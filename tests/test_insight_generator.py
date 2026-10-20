@@ -1,5 +1,5 @@
 from agents.analyst0.insight_generator import generate_insight_candidates
-from datagen.schema import MatchMetadataEvent, RefereeDecisionEvent, ShotEvent
+from datagen.schema import MatchMetadataEvent, PassEvent, RefereeDecisionEvent, ShotEvent
 
 MATCH_ID = "TEST-INSIGHTS"
 
@@ -46,6 +46,36 @@ def test_only_contestable_referee_decisions_become_insights():
     ref_insights = [c for c in candidates if c.trigger_type == "referee_decision"]
     assert len(ref_insights) == 1
     assert ref_insights[0].metric_value < 0.5  # poor positioning quality on the contestable one
+
+
+def _pass(minute, start, end, player_id="home_6", recipient_id="home_7"):
+    ms = minute * 60000
+    return PassEvent(
+        match_id=MATCH_ID, period=1, minute=minute, second=0, match_clock_ms=ms,
+        team="home", team_name="Home", player_id=player_id, player_name="Passer",
+        location=start, possession_id=1, end_location=end,
+        recipient_id=recipient_id, recipient_name="Receiver", outcome="complete",
+        pass_type="ground", body_part="right_foot", distance_m=10.0, angle_deg=0.0,
+        ball_speed_kmh=60.0,
+    )
+
+
+def test_xt_surge_emitted_for_outlier_progressive_pass():
+    # six 10m midfield progressions establish the baseline (small, nonzero xT gain)...
+    baseline_passes = [
+        _pass(10 + i, (20 + i * 10, 40), (30 + i * 10, 40))
+        for i in range(6)
+    ]
+    # ...then one line-breaking pass straight into the box should stand out.
+    surge_pass = _pass(40, (60, 40), (115, 42), player_id="home_8", recipient_id="home_9")
+
+    events = [_metadata(), *baseline_passes, surge_pass]
+    candidates = generate_insight_candidates(events, MATCH_ID, 90 * 60000)
+    xt_insights = [c for c in candidates if c.trigger_type == "xt_surge"]
+
+    assert len(xt_insights) == 1
+    assert xt_insights[0].related_players == ["home_8", "home_9"]
+    assert xt_insights[0].metric_value > xt_insights[0].baseline_value
 
 
 def test_no_events_produces_no_candidates():

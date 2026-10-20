@@ -35,3 +35,13 @@ def test_deterministic_given_same_seed():
     b = MatchSimulator("SYN-DET", seed=99).generate_match()
     assert len(a.events) == len(b.events)
     assert [e.type for e in a.events] == [e.type for e in b.events]
+
+
+def test_no_duplicate_player_names_across_both_squads():
+    # with only 18x14=252 first/last name combos and 22 players on the pitch,
+    # an unguarded draw collides often enough to put two same-named players
+    # in one match — a visible, confusing bug in any demo transcript.
+    for seed in (1, 2, 3, 4, 5):
+        result = MatchSimulator(f"SYN-NAMES-{seed}", seed=seed).generate_match()
+        names = [p.player_name for p in result.home_profiles + result.away_profiles]
+        assert len(names) == len(set(names)), f"duplicate player name at seed {seed}: {names}"

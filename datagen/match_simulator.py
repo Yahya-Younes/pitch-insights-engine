@@ -122,8 +122,8 @@ class MatchResult:
     away_profiles: list[PlayerTendencyProfile]
 
 
-def build_squad(team: Team, team_name: str, rng: random.Random) -> SquadState:
-    profiles_list = generate_squad(team, rng)
+def build_squad(team: Team, team_name: str, rng: random.Random, used_names: set[str] | None = None) -> SquadState:
+    profiles_list = generate_squad(team, rng, used_names)
     direction = "left_to_right" if team == "home" else "right_to_left"
     profiles = {p.player_id: p for p in profiles_list}
     expected = {pid: expected_location_from_bias(p.zone_bias) for pid, p in profiles.items()}
@@ -144,8 +144,9 @@ class MatchSimulator:
             self.home, self.away = home_squad, away_squad
         else:
             home_name, away_name = self.rng.sample(TEAM_NAME_POOL, 2)
-            self.home = build_squad("home", home_name, self.rng)
-            self.away = build_squad("away", away_name, self.rng)
+            shared_used_names: set[str] = set()
+            self.home = build_squad("home", home_name, self.rng, shared_used_names)
+            self.away = build_squad("away", away_name, self.rng, shared_used_names)
         self.referee_location: Location = (60.0, 40.0)
         self.events: list[AnyEvent] = []
         self.possession_id = 0

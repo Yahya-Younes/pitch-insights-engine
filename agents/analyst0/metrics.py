@@ -51,7 +51,12 @@ def _in_zone(x: float, zone: tuple[float, float]) -> bool:
     return zone[0] <= x <= zone[1]
 
 
-def compute_ppda(events: list[AnyEvent], pressing_team: Team, start_ms: int, end_ms: int) -> float | None:
+def ppda_counts(events: list[AnyEvent], pressing_team: Team, start_ms: int, end_ms: int) -> tuple[int, int]:
+    """Raw (opponent_passes, defensive_actions) counts behind a PPDA ratio.
+    Exposed separately from compute_ppda so callers can gate on sample size —
+    PPDA is a ratio of small integer counts over short windows, and a window
+    with e.g. 1 defensive action can swing wildly without representing a real
+    pressing-intensity change."""
     opponent = opponent_of(pressing_team)
     zone = _defensive_60pct_zone(opponent)
 
@@ -73,7 +78,11 @@ def compute_ppda(events: list[AnyEvent], pressing_team: Team, start_ms: int, end
             defensive_actions += 1
         elif e.type == "duel" and e.team == pressing_team and getattr(e, "outcome", None) == "won":
             defensive_actions += 1
+    return opponent_passes, defensive_actions
 
+
+def compute_ppda(events: list[AnyEvent], pressing_team: Team, start_ms: int, end_ms: int) -> float | None:
+    opponent_passes, defensive_actions = ppda_counts(events, pressing_team, start_ms, end_ms)
     if opponent_passes == 0 and defensive_actions == 0:
         return None
     return round(opponent_passes / max(1, defensive_actions), 2)
