@@ -5,3 +5,8 @@ agent-framework==1.22.0
 agent-framework-foundry==1.15.0
 azure-identity==1.26.0
 python-dotenv==1.2.4
+fastapi==0.121.2
+uvicorn[standard]==0.38.0
+azure-cosmos==4.9.0
+azure-eventhub==5.15.0
+azure-messaging-webpubsubservice==1.0.1

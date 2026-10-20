@@ -13,6 +13,8 @@ orchestration wiring end-to-end.
 """
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any, Awaitable, Callable
 
 from agent_framework import Executor, WorkflowContext, handler
@@ -24,6 +26,8 @@ from agents.shared.handoff_log import HandoffLog
 from agents.shared.models import InsightCandidate, NarratedInsight
 
 PersonalizeFn = Callable[..., Awaitable[str]]
+_CALL_TIMEOUT_S = 45.0
+logger = logging.getLogger("pitch.concierge.executor")
 
 
 class ConciergeExecutor(Executor):
@@ -44,9 +48,14 @@ class ConciergeExecutor(Executor):
     @handler
     async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, str]) -> None:
         insight: InsightCandidate = narrated.insight
-        text = await self._personalize_fn(
-            [insight], self._persona, lens=self._lens, player_names=self._player_names,
-        )
+        try:
+            text = await asyncio.wait_for(
+                self._personalize_fn([insight], self._persona, lens=self._lens, player_names=self._player_names),
+                timeout=_CALL_TIMEOUT_S,
+            )
+        except Exception:
+            logger.exception("personalize_fn failed or timed out for insight %s -- dropping it", insight.insight_id)
+            return
         self._log.record("concierge", insight.match_id, {
             "persona": self._persona, "insight_id": insight.insight_id, "text_preview": text[:80],
         })

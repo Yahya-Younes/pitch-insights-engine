@@ -21,7 +21,7 @@ from pathlib import Path
 
 from agent_framework import Agent
 from agent_framework_foundry import FoundryChatClient
-from azure.identity import AzureCliCredential
+from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
 from agents.concierge.lens import CoachLens
@@ -40,7 +40,9 @@ def _build_agent(persona: Persona) -> Agent:
     endpoint = os.environ["AZURE_AI_FOUNDRY_ENDPOINT"]
     model = os.environ["AZURE_AI_FOUNDRY_CHAT_DEPLOYMENT"]
     system_prompt = (_PROMPTS_DIR / f"{persona}_system.md").read_text(encoding="utf-8")
-    client = FoundryChatClient(project_endpoint=endpoint, model=model, credential=AzureCliCredential())
+    # DefaultAzureCredential falls back through az-login locally and the
+    # Container App's user-assigned managed identity (AZURE_CLIENT_ID) when deployed.
+    client = FoundryChatClient(project_endpoint=endpoint, model=model, credential=DefaultAzureCredential())
     return Agent(client=client, instructions=system_prompt, name=f"Concierge-{persona}")
 
 

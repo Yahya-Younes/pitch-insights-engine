@@ -6,6 +6,8 @@ be tested offline with a fake narrator, without live Azure calls.
 """
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Awaitable, Callable
 
 from agent_framework import Executor, WorkflowContext, handler
@@ -15,6 +17,8 @@ from agents.shared.handoff_log import HandoffLog
 from agents.shared.models import InsightCandidate, NarratedInsight
 
 NarrateFn = Callable[[InsightCandidate, dict[str, str] | None], Awaitable[str]]
+_CALL_TIMEOUT_S = 45.0
+logger = logging.getLogger("pitch.narrator.executor")
 
 
 class NarratorExecutor(Executor):
@@ -30,7 +34,13 @@ class NarratorExecutor(Executor):
 
     @handler
     async def handle(self, insight: InsightCandidate, ctx: WorkflowContext[NarratedInsight]) -> None:
-        text = await self._narrate_fn(insight, self._player_names)
+        try:
+            text = await asyncio.wait_for(
+                self._narrate_fn(insight, self._player_names), timeout=_CALL_TIMEOUT_S,
+            )
+        except Exception:
+            logger.exception("narrate_fn failed or timed out for insight %s -- dropping it", insight.insight_id)
+            return
         self._log.record("narrator", insight.match_id, {
             "insight_id": insight.insight_id, "trigger_type": insight.trigger_type, "text_preview": text[:80],
         })
