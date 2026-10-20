@@ -98,6 +98,51 @@ def check_grounding(text: str, insight: InsightCandidate, player_names: dict[str
     )
 
 
+def check_grounding_multi(
+    text: str, insights: list[InsightCandidate], player_names: dict[str, str] | None = None
+) -> GroundingResult:
+    """Grounding check for Concierge-style text that covers several insights
+    at once (unlike the Narrator, which always gets exactly one). Numeric and
+    entity checks union the allowed values/names across all given insights;
+    the vocabulary check passes if the text matches *any* of the covered
+    trigger types' vocab, since a multi-insight recap legitimately touches
+    more than one topic -- requiring every trigger's vocab to appear would be
+    too strict for a short summary, and this checker is deliberately a
+    lightweight keyword/number check, not a full NLI model (see module
+    docstring)."""
+    player_names = player_names or {}
+    allowed_numbers: list[float] = []
+    allowed_names: set[str] = set()
+    for insight in insights:
+        allowed_numbers.extend(_allowed_numeric_values(insight))
+        allowed_names |= {player_names[pid] for pid in insight.related_players if pid in player_names}
+
+    unmatched_numbers = []
+    for token in _NUMBER_RE.findall(text):
+        num = float(token)
+        if not any(
+            abs(num - a) <= NUMERIC_TOLERANCE or abs(abs(num) - abs(a)) <= NUMERIC_TOLERANCE
+            for a in allowed_numbers
+        ):
+            unmatched_numbers.append(token)
+    numeric_ok = len(unmatched_numbers) == 0
+
+    text_lower = text.lower()
+    unmatched_entities = [
+        name for pid, name in player_names.items()
+        if name.lower() in text_lower and name not in allowed_names
+    ]
+    entity_ok = len(unmatched_entities) == 0
+
+    vocabulary_ok = any(_vocabulary_check(text, insight) for insight in insights) if insights else True
+
+    combined_id = "+".join(i.insight_id for i in insights) if insights else "none"
+    return GroundingResult(
+        insight_id=combined_id, numeric_ok=numeric_ok, entity_ok=entity_ok,
+        vocabulary_ok=vocabulary_ok, unmatched_numbers=unmatched_numbers, unmatched_entities=unmatched_entities,
+    )
+
+
 def grounding_pass_rate(results: list[GroundingResult]) -> float:
     if not results:
         return 1.0
