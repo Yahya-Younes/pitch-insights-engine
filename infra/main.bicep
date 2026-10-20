@@ -272,8 +272,14 @@ resource containerApp 'Microsoft.App/containerApps@2024-03-01' = {
           // once the real service image exists (see infra/deploy.ps1).
           image: 'mcr.microsoft.com/azuredocs/containerapps-helloworld:latest'
           resources: {
-            cpu: json('0.5')
-            memory: '1Gi'
+            // agent-framework pulls in a very large dependency tree (redis,
+            // mistral, django/fastapi instrumentation, openai-agents, a2a-sdk,
+            // full opentelemetry suite, etc.) -- 0.5 vCPU/1Gi was tight enough
+            // under real request load to trigger periodic health-probe
+            // restarts that silently killed in-flight background match
+            // processing. 1.0/2Gi gives real headroom.
+            cpu: json('1.0')
+            memory: '2Gi'
           }
           env: [
             { name: 'AZURE_CLIENT_ID', value: identity.properties.clientId }

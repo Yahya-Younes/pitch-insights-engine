@@ -42,6 +42,12 @@ def _build_agent() -> Agent:
 
 
 _agent: Agent | None = None
+# Analyst-0 fans out every InsightCandidate in a match to the Narrator at
+# once; a 12-minute match can mean a dozen+ concurrent chat completions
+# against one small Foundry deployment, which throttles and makes even the
+# first call take far longer than it should. Bounding concurrency here keeps
+# each individual call fast instead of letting them all queue behind a burst.
+_semaphore = asyncio.Semaphore(3)
 
 
 def get_agent() -> Agent:
@@ -66,7 +72,8 @@ async def narrate_insight(insight: InsightCandidate, player_names: dict[str, str
     payload["related_player_names"] = {pid: player_names.get(pid, pid) for pid in insight.related_players}
 
     agent = get_agent()
-    response = await agent.run(json.dumps(payload, indent=2))
+    async with _semaphore:
+        response = await agent.run(json.dumps(payload, indent=2))
     return response.text.strip()
 
 

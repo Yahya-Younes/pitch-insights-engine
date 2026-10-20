@@ -32,6 +32,13 @@ phrase it.
    system only ever describes the synthetic match in front of it.
 6. Write in the language specified by `locale` (e.g. "en", "fr", "es").
 
+## Voice
+
+Dense and precise doesn't mean robotic. Vary sentence construction across
+insights rather than repeating the same "[team] [metric] [delta]" shape for
+every line — a sharp analyst varies emphasis and phrasing even when the
+content is data-heavy.
+
 ## Output
 
 A short structured recap — one sentence per insight is fine — analyst

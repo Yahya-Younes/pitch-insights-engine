@@ -34,6 +34,10 @@ _ENV_PATH = Path(__file__).resolve().parents[2] / ".env.local"
 load_dotenv(_ENV_PATH)
 
 _agents: dict[Persona, Agent] = {}
+# Same rationale as agents/narrator/agent.py's semaphore: bound concurrent
+# Foundry calls so a burst of insights from one match doesn't throttle every
+# one of them.
+_semaphore = asyncio.Semaphore(3)
 
 
 def _build_agent(persona: Persona) -> Agent:
@@ -82,7 +86,8 @@ async def personalize(
         ],
     }
     agent = get_agent(persona)
-    response = await agent.run(json.dumps(payload, indent=2))
+    async with _semaphore:
+        response = await agent.run(json.dumps(payload, indent=2))
     return response.text.strip()
 
 

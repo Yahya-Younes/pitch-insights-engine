@@ -7,12 +7,16 @@ import { Header } from "./components/Header";
 import { MatchControls } from "./components/MatchControls";
 import { PipelineStatus } from "./components/PipelineStatus";
 import { MatchHeader } from "./components/MatchHeader";
-import { OverlayCard } from "./components/OverlayCard";
+import { HeroStage } from "./components/HeroStage";
+import { Timeline } from "./components/Timeline";
+import { HistoryRail } from "./components/HistoryRail";
 import { PersonaFeed } from "./components/PersonaFeed";
 
 function App() {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
   const [lastMatch, setLastMatch] = useState<RunMatchResponse | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [followLive, setFollowLive] = useState(true);
   const { events, status } = useOverlayFeed();
 
   useEffect(() => {
@@ -20,7 +24,7 @@ function App() {
   }, []);
 
   const renderEvents = useMemo(
-    () => events.filter((e): e is Extract<typeof e, { kind: "render" }> => e.kind === "render"),
+    () => events.filter((e): e is Extract<typeof e, { kind: "render" }> => e.kind === "render").map((e) => e.data),
     [events],
   );
   const personalizedEvents = useMemo(
@@ -28,14 +32,32 @@ function App() {
     [events],
   );
 
-  const hasFeed = renderEvents.length > 0 || personalizedEvents.length > 0;
+  const latest = renderEvents[renderEvents.length - 1] ?? null;
+
+  useEffect(() => {
+    if (followLive && latest) setSelectedId(latest.render_id);
+  }, [followLive, latest]);
+
+  const selected = renderEvents.find((p) => p.render_id === selectedId) ?? latest;
+  const isBehindLive = !followLive && latest && selected?.render_id !== latest.render_id;
+
+  function selectManually(renderId: string) {
+    setSelectedId(renderId);
+    setFollowLive(renderId === latest?.render_id);
+  }
+
+  function handleMatchStarted(summary: RunMatchResponse) {
+    setLastMatch(summary);
+    setSelectedId(null);
+    setFollowLive(true);
+  }
 
   return (
     <div className="app">
       <Header status={status} />
 
       <main className="app-main">
-        <MatchControls lenses={lenses} onMatchStarted={setLastMatch} />
+        <MatchControls lenses={lenses} onMatchStarted={handleMatchStarted} />
 
         {lastMatch && (
           <>
@@ -52,29 +74,37 @@ function App() {
           </>
         )}
 
+        {selected ? (
+          <div className="broadcast-block">
+            <HeroStage payload={selected} homeTeam={lastMatch?.home_team ?? ""} awayTeam={lastMatch?.away_team ?? ""} />
+            {isBehindLive && (
+              <button className="jump-live-button" onClick={() => setFollowLive(true)}>
+                ● Jump to live -- {renderEvents.length - renderEvents.findIndex((p) => p.render_id === selectedId) - 1} newer
+              </button>
+            )}
+            <Timeline payloads={renderEvents} selectedId={selectedId} onSelect={selectManually} />
+          </div>
+        ) : (
+          lastMatch && (
+            <div className="hero-stage hero-stage-waiting">
+              <span className="spinner spinner-lg" />
+              Waiting for the first insight to clear the Narrator...
+            </div>
+          )
+        )}
+
         <div className="columns">
           <section className="feed-panel">
             <div className="panel-heading">
-              <h2>Broadcaster Overlay</h2>
+              <h2>Broadcast History</h2>
               <span className="panel-tag">stage d &middot; render</span>
             </div>
-            {renderEvents.length === 0 ? (
-              <div className="empty-state">
-                <span className="empty-icon" aria-hidden="true">📺</span>
-                <p>{hasFeed ? "Waiting on the first render payload..." : "No render payloads yet. Run a match to see the live overlay feed."}</p>
-              </div>
-            ) : (
-              <div className="overlay-feed">
-                {renderEvents.map((e) => (
-                  <OverlayCard key={e.data.render_id} payload={e.data} />
-                ))}
-              </div>
-            )}
+            <HistoryRail payloads={renderEvents} selectedId={selectedId} onSelect={selectManually} />
           </section>
 
           <section className="feed-panel">
             <div className="panel-heading">
-              <h2>Concierge Personalization</h2>
+              <h2>Live Commentary</h2>
               <span className="panel-tag">stage e &middot; personalize</span>
             </div>
             <PersonaFeed messages={personalizedEvents} />

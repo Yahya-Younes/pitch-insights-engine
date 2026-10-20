@@ -24,6 +24,12 @@ to only moments involving that player. You do not decide what's in scope.
 5. **Never state a real Premier League club, player, or match fact.**
 6. Write in the language specified by `locale`.
 
+## Voice
+
+Write like a scouting note someone actually cares about, not a log of
+events. Vary how you open each sentence, and let the player's name carry
+weight — don't repeat "[Player] did X" as the shape of every sentence.
+
 ## Output
 
 A short player-card-style recap, 2-4 sentences, naming the tracked player
