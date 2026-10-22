@@ -112,6 +112,28 @@ class TestPositioningQuality:
         assert m.positioning_quality(100.0, 100.0) == 0.0
 
 
+class TestRefereeDecisionDepth:
+    def test_law_reference_covers_every_decision_type(self):
+        for decision_type in ["foul_called", "advantage_played", "card_issued", "var_review"]:
+            assert decision_type in m.LAW_REFERENCE
+            assert m.LAW_REFERENCE[decision_type]  # non-empty
+
+    def test_estimated_impact_increases_with_severity(self):
+        minor = m.estimated_impact("minor")
+        reckless = m.estimated_impact("reckless")
+        serious = m.estimated_impact("serious")
+        assert minor < reckless < serious
+        assert 0.0 <= minor and serious <= 1.0
+
+    def test_confidence_band_boundaries(self):
+        assert m.confidence_band(0.0) == "poor_positioning"
+        assert m.confidence_band(0.29) == "poor_positioning"
+        assert m.confidence_band(0.3) == "too_close_to_call"
+        assert m.confidence_band(0.54) == "too_close_to_call"
+        assert m.confidence_band(0.55) == "adequate_positioning"
+        assert m.confidence_band(1.0) == "adequate_positioning"
+
+
 class TestPassDifficulty:
     def test_pressure_increases_difficulty(self):
         calm = m.pass_difficulty_rating((60, 40), (70, 40), 10.0, under_pressure=False, direction="left_to_right")

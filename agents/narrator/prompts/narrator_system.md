@@ -106,7 +106,16 @@ GOOD:
 - `referee_decision` — a decision was flagged `contestable` because the
   referee's computed positioning quality (distance + viewing angle to the
   incident) was poor. Explain the decision through that positioning lens,
-  not through a judgment of whether the decision was "right."
+  not through a judgment of whether the decision was "right." If
+  `window_summary` includes `law_reference`, you may name which Law of the
+  Game governs this kind of call (it's a real IFAB Law number, applied to
+  this synthetic incident to show what's actually being adjudicated — not a
+  ruling on whether the call was correct). If `confidence` is
+  `too_close_to_call`, say so plainly instead of leaning toward either
+  "clearly a bad call" or "clearly fine" — the positioning data genuinely
+  doesn't support a confident verdict there. If `estimated_impact` is
+  present, you may mention it as a rough severity/stakes signal, not a
+  precise probability.
 - `tendency_match` — the player did what their own historical tendency
   profile says they usually do in this situation (zone + under pressure).
   Frame it as anticipation/pattern-recognition language ("this matches a

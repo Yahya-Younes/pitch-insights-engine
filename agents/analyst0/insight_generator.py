@@ -156,6 +156,9 @@ def _referee_candidates(events, match_id) -> list[InsightCandidate]:
             window_summary={
                 "decision_type": e.decision_type, "distance_m": e.referee_distance_to_incident_m,
                 "angle_deg": e.referee_viewing_angle_deg, "severity": e.incident_severity,
+                "law_reference": m.LAW_REFERENCE.get(e.decision_type, "Law 5 (The Referee)"),
+                "estimated_impact": m.estimated_impact(e.incident_severity),
+                "confidence": m.confidence_band(quality),
             },
         ))
     return out

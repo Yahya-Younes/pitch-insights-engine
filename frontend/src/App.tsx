@@ -4,6 +4,7 @@ import { fetchLenses } from "./lib/api";
 import type { LensSummary, RunMatchResponse } from "./lib/types";
 import { useOverlayFeed } from "./hooks/useOverlayFeed";
 import { Header } from "./components/Header";
+import { StatsBadge } from "./components/StatsBadge";
 import { MatchControls } from "./components/MatchControls";
 import { PipelineStatus } from "./components/PipelineStatus";
 import { MatchHeader } from "./components/MatchHeader";
@@ -55,6 +56,7 @@ function App() {
   return (
     <div className="app">
       <Header status={status} />
+      <StatsBadge />
 
       <main className="app-main">
         <MatchControls lenses={lenses} onMatchStarted={handleMatchStarted} />

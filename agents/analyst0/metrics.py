@@ -308,3 +308,41 @@ def pass_difficulty_rating(location: Location, end_location: Location, distance_
 
 def positioning_quality(distance_m: float, angle_deg: float) -> float:
     return round(_clip(1.0 - (distance_m / 35.0) * 0.6 - (angle_deg / 90.0) * 0.4, 0.0, 1.0), 3)
+
+
+# These three add depth to the referee_decision insight beyond the raw
+# positioning score: which Law actually governs this kind of call, how much
+# the decision plausibly mattered, and -- just as important -- an honest
+# admission of when positioning quality is too ambiguous to call either way,
+# rather than defaulting to a confident verdict either direction.
+
+# Real IFAB Law numbers (Law 5 = the referee, incl. the VAR protocol; Law 12
+# = fouls and misconduct) applied to a synthetic incident -- illustrative of
+# which law governs this kind of call, not an official ruling on it.
+LAW_REFERENCE: dict[str, str] = {
+    "foul_called": "Law 12 (Fouls and Misconduct)",
+    "advantage_played": "Law 5 (The Referee) -- advantage",
+    "card_issued": "Law 12 (Fouls and Misconduct) -- cautionable/sending-off offences",
+    "var_review": "Law 5 (The Referee) -- VAR protocol",
+}
+
+_IMPACT_BY_SEVERITY = {"minor": 0.2, "reckless": 0.55, "serious": 0.85}
+
+
+def estimated_impact(severity: str) -> float:
+    """A deliberately simple severity-based heuristic, not a true expected-
+    points or xG-swing model -- honestly documented as such, the same way
+    the chaos composite and xT grid are."""
+    return _IMPACT_BY_SEVERITY.get(severity, 0.4)
+
+
+def confidence_band(quality: float) -> str:
+    """Positioning quality alone rarely supports a confident verdict in
+    either direction in the 0.3-0.55 band -- flagging that honestly, rather
+    than always presenting a confident contestable/clear call, is the point
+    of this function."""
+    if quality < 0.3:
+        return "poor_positioning"
+    if quality < 0.55:
+        return "too_close_to_call"
+    return "adequate_positioning"

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { LensSummary, Persona, RunMatchResponse } from "../lib/types";
+import type { LensSummary, Locale, Persona, RunMatchResponse } from "../lib/types";
 import { runMatch } from "../lib/api";
 import { PersonaTabs } from "./PersonaTabs";
 import { LensPicker } from "./LensPicker";
@@ -9,9 +9,17 @@ interface Props {
   onMatchStarted: (summary: RunMatchResponse) => void;
 }
 
+const LOCALES: { value: Locale; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "fr", label: "Francais" },
+  { value: "es", label: "Espanol" },
+  { value: "de", label: "Deutsch" },
+];
+
 export function MatchControls({ lenses, onMatchStarted }: Props) {
   const [persona, setPersona] = useState<Persona>("casual_fan");
   const [lensId, setLensId] = useState<string | null>(null);
+  const [locale, setLocale] = useState<Locale>("en");
   const [injectFault, setInjectFault] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,7 +28,7 @@ export function MatchControls({ lenses, onMatchStarted }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const summary = await runMatch({ persona, lensId, injectFault });
+      const summary = await runMatch({ persona, lensId, injectFault, locale });
       onMatchStarted(summary);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -36,6 +44,27 @@ export function MatchControls({ lenses, onMatchStarted }: Props) {
           <span className="control-label">Viewer Persona</span>
         </div>
         <PersonaTabs value={persona} onChange={setPersona} />
+      </div>
+
+      <div className="control-row">
+        <div className="control-label-row">
+          <span className="control-label">Commentary Language</span>
+          <span className="control-hint">the live commentary panel only -- the broadcast overlay stays in English, like a canonical studio feed</span>
+        </div>
+        <div className="locale-tabs" role="tablist" aria-label="Commentary language">
+          {LOCALES.map((l) => (
+            <button
+              key={l.value}
+              type="button"
+              role="tab"
+              aria-selected={locale === l.value}
+              className={`locale-tab ${locale === l.value ? "locale-tab-active" : ""}`}
+              onClick={() => setLocale(l.value)}
+            >
+              {l.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="control-row">

@@ -44,6 +44,7 @@ class ConciergeExecutor(Executor):
         lens: CoachLens | None = None,
         personalize_fn: PersonalizeFn | None = None,
         player_names: dict[str, str] | None = None,
+        locale: str = "en",
     ):
         super().__init__(id=id)
         self._log = handoff_log
@@ -51,20 +52,24 @@ class ConciergeExecutor(Executor):
         self._lens = lens
         self._personalize_fn = personalize_fn or personalize
         self._player_names = player_names or {}
+        self._locale = locale
 
     @handler
     async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, str]) -> None:
         insight: InsightCandidate = narrated.insight
         try:
             text = await asyncio.wait_for(
-                self._personalize_fn([insight], self._persona, lens=self._lens, player_names=self._player_names),
+                self._personalize_fn(
+                    [insight], self._persona, lens=self._lens, player_names=self._player_names,
+                    locale=self._locale,
+                ),
                 timeout=_CALL_TIMEOUT_S,
             )
         except Exception:
             logger.exception("personalize_fn failed or timed out for insight %s -- dropping it", insight.insight_id)
             return
 
-        result = check_grounding_multi(text, [insight], self._player_names)
+        result = check_grounding_multi(text, [insight], self._player_names, locale=self._locale)
         fact_checked = result.passed
         if not fact_checked:
             logger.warning(

@@ -27,6 +27,7 @@ def build_workflow(
     narrate_fn: NarrateFn | None = None,
     personalize_fn: PersonalizeFn | None = None,
     inject_fault: bool = False,
+    locale: str = "en",
 ) -> tuple[Workflow, HandoffLog]:
     """Builds the 5-stage workflow graph. Pass narrate_fn/personalize_fn to
     substitute fakes for offline testing -- by default both use the real,
@@ -43,7 +44,7 @@ def build_workflow(
     broadcaster = BroadcasterExecutor("broadcaster", log)
     concierge = ConciergeExecutor(
         "concierge", log, persona=persona, lens=lens,
-        personalize_fn=personalize_fn, player_names=player_names,
+        personalize_fn=personalize_fn, player_names=player_names, locale=locale,
     )
 
     workflow = (

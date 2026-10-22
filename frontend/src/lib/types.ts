@@ -48,3 +48,5 @@ export interface RunMatchResponse {
 }
 
 export type Persona = "analyst" | "casual_fan" | "player_tracker";
+
+export type Locale = "en" | "fr" | "es" | "de";

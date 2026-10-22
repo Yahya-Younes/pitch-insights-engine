@@ -52,11 +52,17 @@ class CosmosHandoffLog:
         except RuntimeError:
             _write()
 
-    def entries(self, match_id: str | None = None) -> list[HandoffEntry]:
+    def entries(self, match_id: str | None = None, limit: int | None = None) -> list[HandoffEntry]:
         if match_id is not None:
             query = "SELECT * FROM c WHERE c.match_id = @match_id ORDER BY c.timestamp"
             params = [{"name": "@match_id", "value": match_id}]
             items = self._container.query_items(query=query, parameters=params, partition_key=match_id)
+        elif limit:
+            # Most-recent-first and capped: used for the live /stats rollup,
+            # which only needs a representative recent sample, not the full
+            # history of every match ever run.
+            query = f"SELECT TOP {int(limit)} * FROM c ORDER BY c.timestamp DESC"
+            items = self._container.query_items(query=query, enable_cross_partition_query=True)
         else:
             query = "SELECT * FROM c ORDER BY c.timestamp"
             items = self._container.query_items(query=query, enable_cross_partition_query=True)

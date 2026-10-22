@@ -15,7 +15,21 @@ from dataclasses import dataclass, field
 
 from agents.shared.models import InsightCandidate
 
-_NUMBER_RE = re.compile(r"-?\d+(?:\.\d+)?")
+_NUMBER_RE = re.compile(r"-?\d+(?:[.,]\d+)?")
+
+
+def _extract_numbers(text: str) -> list[str]:
+    """Matches both '0.005' and the French/German-style '0,005' as one
+    number token -- without this, a comma decimal separator gets split into
+    two unrelated integers ('0' and '005') and every localized number looks
+    unmatched. Assumes comma-as-decimal, not comma-as-thousands-separator,
+    which fits the small decimal/percentage values this system's narration
+    actually produces."""
+    return _NUMBER_RE.findall(text)
+
+
+def _to_float(token: str) -> float:
+    return float(token.replace(",", "."))
 
 TRIGGER_VOCAB: dict[str, set[str]] = {
     "pressure_spike": {"press", "pressure", "squeeze", "high line", "closing down", "pressed", "pressing"},
@@ -26,7 +40,7 @@ TRIGGER_VOCAB: dict[str, set[str]] = {
         "xt_surge", "xt surge", "lit up", "carved",
     },
     "milestone": {"goal", "scores", "scored", "milestone"},
-    "referee_decision": {"referee", "contestable", "positioning", "angle", "call", "decision", "away"},
+    "referee_decision": {"referee", "contestable", "positioning", "angle", "call", "decision", "away", "law"},
     "tendency_match": {"anticipated", "knew", "known", "pattern", "typical", "usual", "matches", "matched", "consistent with"},
     "tendency_break": {
         "out of character", "against his", "against her", "surprising", "unusual", "caught", "instead",
@@ -53,20 +67,36 @@ class GroundingResult:
 
 def _allowed_numeric_values(insight: InsightCandidate) -> list[float]:
     values = [insight.window_start_min, insight.window_end_min]
+    # match_id ("DEMO-<timestamp>-<seed>") is a legitimate, if unusual, thing
+    # for the dense/precise analyst persona to cite -- its embedded digits
+    # shouldn't look like a fabricated stat.
+    values.extend(_to_float(tok) for tok in _extract_numbers(insight.match_id))
     for v in (insight.metric_value, insight.baseline_value, insight.delta_pct):
         if v is not None:
             values.append(float(v))
     for v in insight.window_summary.values():
         if isinstance(v, (int, float)) and not isinstance(v, bool):
             values.append(float(v))
+        elif isinstance(v, str):
+            # A number can legitimately live inside a string field too (e.g.
+            # window_summary["law_reference"] = "Law 12 (...)") -- it still
+            # traces back to the InsightCandidate, just not through a
+            # numeric field, so it should count as grounded.
+            values.extend(_to_float(tok) for tok in _extract_numbers(v))
+    for pid in insight.related_players:
+        # The analyst persona in particular is instructed to be dense and
+        # precise, and reasonably cites internal ids like "(home_7)" -- the
+        # embedded 7 is a real, traceable fact about the insight, not a
+        # fabricated number, even though it never appears in a numeric field.
+        values.extend(_to_float(tok) for tok in _extract_numbers(pid))
     return values
 
 
 def _numeric_check(text: str, insight: InsightCandidate) -> tuple[bool, list[str]]:
     allowed = _allowed_numeric_values(insight)
     unmatched = []
-    for token in _NUMBER_RE.findall(text):
-        num = float(token)
+    for token in _extract_numbers(text):
+        num = _to_float(token)
         if not any(
             abs(num - a) <= NUMERIC_TOLERANCE or abs(abs(num) - abs(a)) <= NUMERIC_TOLERANCE
             for a in allowed
@@ -105,7 +135,8 @@ def check_grounding(text: str, insight: InsightCandidate, player_names: dict[str
 
 
 def check_grounding_multi(
-    text: str, insights: list[InsightCandidate], player_names: dict[str, str] | None = None
+    text: str, insights: list[InsightCandidate], player_names: dict[str, str] | None = None,
+    locale: str = "en",
 ) -> GroundingResult:
     """Grounding check for Concierge-style text that covers several insights
     at once (unlike the Narrator, which always gets exactly one). Numeric and
@@ -115,7 +146,15 @@ def check_grounding_multi(
     more than one topic -- requiring every trigger's vocab to appear would be
     too strict for a short summary, and this checker is deliberately a
     lightweight keyword/number check, not a full NLI model (see module
-    docstring)."""
+    docstring).
+
+    TRIGGER_VOCAB is English-only. For any other locale the vocabulary check
+    is skipped rather than translated -- translating a dozen keyword lists
+    into every supported language and keeping them in sync wasn't worth
+    the risk of silently weakening the check with a bad translation. Numbers
+    and player names don't change across languages, so numeric_ok/entity_ok
+    -- the checks that actually catch a fabricated or wrong claim -- still
+    apply in full."""
     player_names = player_names or {}
     allowed_numbers: list[float] = []
     allowed_names: set[str] = set()
@@ -124,8 +163,8 @@ def check_grounding_multi(
         allowed_names |= {player_names[pid] for pid in insight.related_players if pid in player_names}
 
     unmatched_numbers = []
-    for token in _NUMBER_RE.findall(text):
-        num = float(token)
+    for token in _extract_numbers(text):
+        num = _to_float(token)
         if not any(
             abs(num - a) <= NUMERIC_TOLERANCE or abs(abs(num) - abs(a)) <= NUMERIC_TOLERANCE
             for a in allowed_numbers
@@ -140,7 +179,10 @@ def check_grounding_multi(
     ]
     entity_ok = len(unmatched_entities) == 0
 
-    vocabulary_ok = any(_vocabulary_check(text, insight) for insight in insights) if insights else True
+    if locale == "en":
+        vocabulary_ok = any(_vocabulary_check(text, insight) for insight in insights) if insights else True
+    else:
+        vocabulary_ok = True
 
     combined_id = "+".join(i.insight_id for i in insights) if insights else "none"
     return GroundingResult(
