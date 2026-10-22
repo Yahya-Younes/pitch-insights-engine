@@ -2,6 +2,7 @@ import type { DataPoint, RenderPayload } from "../lib/types";
 import { themeFor } from "../lib/triggerTheme";
 import { useCountUp } from "../hooks/useCountUp";
 import { TeamCrest } from "./TeamCrest";
+import { VoiceButton } from "./VoiceButton";
 
 interface Props {
   payload: RenderPayload;
@@ -52,6 +53,7 @@ export function HeroStage({ payload, homeTeam, awayTeam }: Props) {
             ⚠ Auto-corrected by grounding check
           </span>
         )}
+        <VoiceButton audioBase64={payload.audio_base64} autoPlay />
       </div>
 
       <div className="hero-body">

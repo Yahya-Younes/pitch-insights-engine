@@ -28,6 +28,13 @@ export function StatsBadge() {
           <span className="stats-chip-sub">({stats.grounding.sample_size} live insights)</span>
         </span>
       )}
+      <span
+        className="stats-chip"
+        title="Deliberately corrupted narrations (fabricated numbers, wrong-but-real player names, off-topic phrasing) run through the live grounding checker on every page load -- not a static claim."
+      >
+        <strong>{stats.robustness.corruptions_caught}/{stats.robustness.corruptions_total}</strong> fabrications caught
+        <span className="stats-chip-sub">({stats.robustness.false_positives} false positives)</span>
+      </span>
     </div>
   );
 }

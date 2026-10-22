@@ -12,6 +12,7 @@ import { HeroStage } from "./components/HeroStage";
 import { Timeline } from "./components/Timeline";
 import { HistoryRail } from "./components/HistoryRail";
 import { PersonaFeed } from "./components/PersonaFeed";
+import { AskTheMatch } from "./components/AskTheMatch";
 
 function App() {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
@@ -24,13 +25,23 @@ function App() {
     fetchLenses().then(setLenses).catch(() => setLenses([]));
   }, []);
 
+  // Web PubSub's send_to_all has no concept of "room" -- every connected
+  // client gets every match's broadcasts. Without filtering by the current
+  // match_id, a still-processing earlier match's events bleed into whatever
+  // match is currently selected, showing cards that never happened in it.
   const renderEvents = useMemo(
-    () => events.filter((e): e is Extract<typeof e, { kind: "render" }> => e.kind === "render").map((e) => e.data),
-    [events],
+    () => events
+      .filter((e): e is Extract<typeof e, { kind: "render" }> => e.kind === "render")
+      .map((e) => e.data)
+      .filter((d) => !lastMatch || d.match_id === lastMatch.match_id),
+    [events, lastMatch],
   );
   const personalizedEvents = useMemo(
-    () => events.filter((e): e is Extract<typeof e, { kind: "personalized" }> => e.kind === "personalized").map((e) => e.data),
-    [events],
+    () => events
+      .filter((e): e is Extract<typeof e, { kind: "personalized" }> => e.kind === "personalized")
+      .map((e) => e.data)
+      .filter((d) => !lastMatch || d.match_id === lastMatch.match_id),
+    [events, lastMatch],
   );
 
   const latest = renderEvents[renderEvents.length - 1] ?? null;
@@ -111,6 +122,8 @@ function App() {
             </div>
             <PersonaFeed messages={personalizedEvents} />
           </section>
+
+          <AskTheMatch matchId={lastMatch?.match_id ?? null} />
         </div>
       </main>
 

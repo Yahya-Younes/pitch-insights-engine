@@ -1,4 +1,5 @@
 import type { PersonalizedMessage } from "../lib/types";
+import { VoiceButton } from "./VoiceButton";
 
 const PERSONA_AVATAR: Record<string, string> = {
   casual_fan: "🙌",
@@ -24,6 +25,7 @@ export function PersonaFeed({ messages }: { messages: PersonalizedMessage[] }) {
           <div className="commentary-bubble">
             <span className="persona-tag">{m.persona.replace("_", " ")}</span>
             <p>{m.text}</p>
+            <VoiceButton audioBase64={m.audio_base64} autoPlay={i === 0} />
           </div>
         </li>
       ))}

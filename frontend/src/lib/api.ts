@@ -33,8 +33,23 @@ export function runMatch(opts: {
 export interface StatsResponse {
   tendency_recovery: { dominant_action_recovery_accuracy: number; n_players_evaluated: number; method: string };
   grounding: { narrator_pass_rate: number | null; concierge_pass_rate: number | null; combined_pass_rate: number | null; sample_size: number };
+  robustness: { corruptions_caught: number; corruptions_total: number; catch_rate: number; false_positives: number; legitimate_total: number; method: string };
 }
 
 export function fetchStats(): Promise<StatsResponse> {
   return fetch(`${API_BASE}/stats`).then(asJson<StatsResponse>);
+}
+
+export interface AskResponse {
+  answer: string;
+  fact_checked: boolean;
+  audio_base64: string | null;
+}
+
+export function askMatch(matchId: string, question: string, locale: Locale = "en"): Promise<AskResponse> {
+  return fetch(`${API_BASE}/matches/${matchId}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ question, locale }),
+  }).then(asJson<AskResponse>);
 }

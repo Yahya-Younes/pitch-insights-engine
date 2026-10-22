@@ -20,12 +20,14 @@ export interface RenderPayload {
   linked_players: string[];
   source_insight_id: string;
   fact_checked: boolean;
+  audio_base64: string | null;
 }
 
 export interface PersonalizedMessage {
   match_id: string;
   persona: string;
   text: string;
+  audio_base64: string | null;
 }
 
 export type OverlayEvent =

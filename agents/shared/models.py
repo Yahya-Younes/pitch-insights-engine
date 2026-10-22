@@ -66,3 +66,9 @@ class RenderPayload(BaseModel):
     linked_players: list[str] = Field(default_factory=list)
     source_insight_id: str
     fact_checked: bool = True
+    audio_base64: str | None = None
+    """Base64-encoded mp3 of narrative_text via Azure AI Speech, attached at
+    publish time (not here -- this stays a pure, deterministic build from a
+    NarratedInsight; speech synthesis is a network call, not a render rule).
+    None when speech synthesis isn't configured or the call failed -- the
+    overlay card still renders, just silently."""

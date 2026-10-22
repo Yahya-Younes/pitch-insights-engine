@@ -77,4 +77,11 @@ class NarratorExecutor(Executor):
             "insight_id": insight.insight_id, "trigger_type": insight.trigger_type, "text_preview": text[:80],
             "fact_checked": fact_checked,
         })
+        # A second, fuller record alongside the one above -- the "narrator"
+        # entry stays a short preview for the handoff trace UI, but the "Ask
+        # the match" Q&A agent needs the complete InsightCandidate and the
+        # untruncated narrative text to answer questions grounded in real
+        # match evidence, so it gets its own entry rather than overloading
+        # the existing one's shape.
+        self._log.record("insight", insight.match_id, {**insight.model_dump(), "narrative_text": text, "fact_checked": fact_checked})
         await ctx.send_message(NarratedInsight(insight=insight, narrative_text=text, fact_checked=fact_checked))

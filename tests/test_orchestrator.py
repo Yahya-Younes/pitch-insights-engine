@@ -73,8 +73,10 @@ def test_full_pipeline_runs_end_to_end_with_fakes():
     entries = log.entries()
     assert entries[0].stage == "scout"
     assert entries[1].stage == "analyst0"
-    # every insight fans out through narrator -> {broadcaster, concierge}
-    assert len(entries) == 2 + 3 * len(render_payloads)
+    # every insight fans out through narrator (which logs both a "narrator"
+    # preview entry and a fuller "insight" entry for the Q&A agent) ->
+    # {broadcaster, concierge}
+    assert len(entries) == 2 + 4 * len(render_payloads)
 
     scout_entry = entries[0]
     assert scout_entry.summary["accepted"] == 2  # metadata + goal

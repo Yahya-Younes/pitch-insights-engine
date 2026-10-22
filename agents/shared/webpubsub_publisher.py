@@ -27,9 +27,13 @@ class WebPubSubPublisher:
             content_type="application/json",
         )
 
-    def publish_personalized(self, match_id: str, persona: str, text: str) -> None:
+    def publish_personalized(
+        self, match_id: str, persona: str, text: str, audio_base64: str | None = None,
+    ) -> None:
         self._client.send_to_all(
-            message={"kind": "personalized", "data": {"match_id": match_id, "persona": persona, "text": text}},
+            message={"kind": "personalized", "data": {
+                "match_id": match_id, "persona": persona, "text": text, "audio_base64": audio_base64,
+            }},
             content_type="application/json",
         )
 

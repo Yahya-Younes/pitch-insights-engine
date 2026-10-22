@@ -31,8 +31,11 @@ from pydantic import BaseModel
 
 from agents.concierge.lens import load_preset_lenses
 from agents.orchestrator.workflow import run_match
-from agents.shared.models import RenderPayload
+from agents.qa.agent import ask as ask_match_question
+from agents.shared.models import InsightCandidate, RenderPayload
+from agents.shared.speech_synthesizer import synthesize_base64
 from datagen.match_simulator import PERIOD_MS, MatchSimulator
+from eval.robustness_suite import run as run_robustness_suite
 from service.eventhub_consumer import start_background
 from service.stats import compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries
 
@@ -129,10 +132,13 @@ async def _run_and_publish(
     if publisher is not None:
         # The Web PubSub SDK client here is synchronous; run each call off
         # the event loop so a slow/retrying publish can't stall anything else.
+        # Speech synthesis is likewise a blocking network call -- same pattern.
         for payload in render_payloads:
+            payload.audio_base64 = await asyncio.to_thread(synthesize_base64, payload.narrative_text, "en")
             await asyncio.to_thread(publisher.publish_render, payload)
         for text in personalized_texts:
-            await asyncio.to_thread(publisher.publish_personalized, match_id, persona, text)
+            audio = await asyncio.to_thread(synthesize_base64, text, locale)
+            await asyncio.to_thread(publisher.publish_personalized, match_id, persona, text, audio)
 
     return render_payloads, personalized_texts, log
 
@@ -166,6 +172,38 @@ async def match_handoff(match_id: str):
     ]
 
 
+class AskRequest(BaseModel):
+    question: str
+    locale: str = "en"
+
+
+@app.post("/matches/{match_id}/ask")
+async def ask_match(match_id: str, req: AskRequest):
+    """'Ask the match': a grounded free-text Q&A agent over everything this
+    system has verified so far for one match. Only ever answers from the
+    InsightCandidates already generated -- never from general football
+    knowledge -- and is itself run through the same live grounding check as
+    the Narrator and Concierge before anything reaches the viewer."""
+    log = _state["handoff_log"]
+    try:
+        entries = await asyncio.to_thread(log.entries, match_id)
+    except TypeError:
+        entries = [e for e in log.entries() if e.match_id == match_id]
+
+    insights = [
+        InsightCandidate(**e.summary) for e in entries if e.stage == "insight"
+    ]
+    player_names = _state.get("player_names_by_match", {}).get(match_id, {})
+
+    answer, fact_checked = await ask_match_question(req.question, insights, player_names, locale=req.locale)
+    audio = await asyncio.to_thread(synthesize_base64, answer, req.locale)
+
+    log.record("qa", match_id, {
+        "question": req.question, "answer_preview": answer[:120], "fact_checked": fact_checked,
+    })
+    return {"answer": answer, "fact_checked": fact_checked, "audio_base64": audio}
+
+
 @app.get("/stats")
 async def stats():
     """Live, judge-checkable headline numbers -- both computed fresh (and
@@ -176,15 +214,43 @@ async def stats():
     # A rolling window, not all-time: older entries from before a grounding
     # fix was deployed are still sitting in Cosmos and would otherwise drag
     # the reported rate down with data the current code no longer produces.
+    # 300, not 100: every insight now logs 4 handoff entries (narrator,
+    # insight, broadcaster, concierge) instead of 3, plus occasional "qa"
+    # entries from Ask the Match -- a 100-entry window no longer represents
+    # enough actual insights to be a stable sample.
     log = _state["handoff_log"]
     try:
-        entries = await asyncio.to_thread(log.entries, None, 100)
+        entries = await asyncio.to_thread(log.entries, None, 300)
     except TypeError:
         entries = await asyncio.to_thread(log.entries)
 
+    robustness = run_robustness_suite()
     return {
         "tendency_recovery": _state["tendency_accuracy"],
-        "grounding": {**grounding_pass_rate_from_entries(entries), "window": "most recent 100 live handoff entries"},
+        "grounding": {**grounding_pass_rate_from_entries(entries), "window": "most recent 300 live handoff entries"},
+        "robustness": {
+            "corruptions_caught": robustness.corruptions_caught,
+            "corruptions_total": robustness.corruptions_total,
+            "catch_rate": robustness.catch_rate,
+            "false_positives": robustness.false_positives,
+            "legitimate_total": robustness.legitimate_total,
+            "method": "deliberately corrupted narrations (fabricated numbers, wrong-but-real "
+                      "player names, off-topic phrasing) run through the live grounding checker "
+                      "on every request -- not a static claim",
+        },
+    }
+
+
+@app.get("/robustness")
+async def robustness():
+    """Standalone endpoint for the fact-checking scorecard -- same data as
+    the `robustness` field in /stats, available on its own so a judge can
+    hit exactly this one claim directly."""
+    r = run_robustness_suite()
+    return {
+        "corruptions_caught": r.corruptions_caught, "corruptions_total": r.corruptions_total,
+        "catch_rate": r.catch_rate, "false_positives": r.false_positives,
+        "legitimate_total": r.legitimate_total,
     }
 
 
@@ -216,6 +282,10 @@ async def run_demo_match(req: RunMatchRequest):
         if e.type == "match_metadata" or e.match_clock_ms <= cutoff_ms
     ]
     player_names = {p.player_id: p.player_name for p in [*result.home_profiles, *result.away_profiles]}
+    # Kept in-memory (not Cosmos) so "Ask the match" can resolve player ids
+    # to display names later -- process-local and lost on restart, which is
+    # fine for a live demo: it only needs to outlive one running match.
+    _state.setdefault("player_names_by_match", {})[match_id] = player_names
 
     async def _background_run():
         try:
