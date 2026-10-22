@@ -44,6 +44,16 @@ export function HeroStage({ payload, homeTeam, awayTeam }: Props) {
         <span className="hero-clock">{payload.game_clock}</span>
       </div>
 
+      <div className="hero-verify-row">
+        {payload.fact_checked ? (
+          <span className="verify-badge verify-badge-ok">✓ Fact-checked live</span>
+        ) : (
+          <span className="verify-badge verify-badge-corrected" title="The model's original claim failed the live grounding check and was replaced with a verified, data-only sentence.">
+            ⚠ Auto-corrected by grounding check
+          </span>
+        )}
+      </div>
+
       <div className="hero-body">
         <p className="hero-narrative">{payload.narrative_text}</p>
 

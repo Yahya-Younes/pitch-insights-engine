@@ -21,11 +21,17 @@ TRIGGER_VOCAB: dict[str, set[str]] = {
     "pressure_spike": {"press", "pressure", "squeeze", "high line", "closing down", "pressed", "pressing"},
     "chaos_shift": {"chaotic", "chaos", "scrappy", "control", "momentum", "disjointed", "frantic", "turnover"},
     "rhythm_change": {"tempo", "rhythm", "pace", "slowed", "sped up", "surge", "slower", "faster"},
-    "xt_surge": {"threat", "dangerous", "chance", "territory", "threatening"},
+    "xt_surge": {
+        "threat", "dangerous", "danger", "chance", "territory", "threatening", "threatened",
+        "xt_surge", "xt surge", "lit up", "carved",
+    },
     "milestone": {"goal", "scores", "scored", "milestone"},
     "referee_decision": {"referee", "contestable", "positioning", "angle", "call", "decision", "away"},
-    "tendency_match": {"anticipated", "knew", "known", "pattern", "typical", "usual", "matches"},
-    "tendency_break": {"out of character", "against his", "against her", "surprising", "unusual", "caught", "instead"},
+    "tendency_match": {"anticipated", "knew", "known", "pattern", "typical", "usual", "matches", "matched", "consistent with"},
+    "tendency_break": {
+        "out of character", "against his", "against her", "surprising", "unusual", "caught", "instead",
+        "diverged", "deviat", "departed from", "atypical", "uncharacteristic",
+    },
 }
 
 NUMERIC_TOLERANCE = 0.6

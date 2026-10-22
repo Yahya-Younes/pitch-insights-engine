@@ -36,7 +36,7 @@ def _game_clock(minute_float: float) -> str:
     return f"{minutes:02d}:{seconds:02d}"
 
 
-def build_render_payload(insight: InsightCandidate, narrative_text: str) -> RenderPayload:
+def build_render_payload(insight: InsightCandidate, narrative_text: str, fact_checked: bool = True) -> RenderPayload:
     data_points: list[dict] = [{"label": insight.metric_name, "value": insight.metric_value}]
     if insight.baseline_value is not None:
         data_points.append({"label": "baseline", "value": insight.baseline_value})
@@ -58,4 +58,5 @@ def build_render_payload(insight: InsightCandidate, narrative_text: str) -> Rend
         data_points=data_points,
         linked_players=list(insight.related_players),
         source_insight_id=insight.insight_id,
+        fact_checked=fact_checked,
     )

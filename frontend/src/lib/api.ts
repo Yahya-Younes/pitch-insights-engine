@@ -17,10 +17,12 @@ export function negotiate(): Promise<{ url: string }> {
   return fetch(`${API_BASE}/negotiate`).then(asJson<{ url: string }>);
 }
 
-export function runMatch(opts: { persona: Persona; lensId: string | null; seed?: number }): Promise<RunMatchResponse> {
+export function runMatch(opts: { persona: Persona; lensId: string | null; seed?: number; injectFault?: boolean }): Promise<RunMatchResponse> {
   return fetch(`${API_BASE}/matches/run`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ persona: opts.persona, lens_id: opts.lensId, seed: opts.seed }),
+    body: JSON.stringify({
+      persona: opts.persona, lens_id: opts.lensId, seed: opts.seed, inject_fault: opts.injectFault ?? false,
+    }),
   }).then(asJson<RunMatchResponse>);
 }

@@ -12,6 +12,7 @@ interface Props {
 export function MatchControls({ lenses, onMatchStarted }: Props) {
   const [persona, setPersona] = useState<Persona>("casual_fan");
   const [lensId, setLensId] = useState<string | null>(null);
+  const [injectFault, setInjectFault] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -19,7 +20,7 @@ export function MatchControls({ lenses, onMatchStarted }: Props) {
     setBusy(true);
     setError(null);
     try {
-      const summary = await runMatch({ persona, lensId });
+      const summary = await runMatch({ persona, lensId, injectFault });
       onMatchStarted(summary);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -59,6 +60,10 @@ export function MatchControls({ lenses, onMatchStarted }: Props) {
             </>
           )}
         </button>
+        <label className="fault-toggle" title="Deliberately corrupts the first insight's narration with a fabricated stat, so you can watch the live grounding check catch and auto-correct it.">
+          <input type="checkbox" checked={injectFault} onChange={(e) => setInjectFault(e.target.checked)} />
+          Demo: inject a false claim
+        </label>
         {error && <p className="error">{error}</p>}
       </div>
     </div>

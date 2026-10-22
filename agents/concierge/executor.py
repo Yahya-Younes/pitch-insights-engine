@@ -10,6 +10,12 @@ that's a different granularity (one call per viewer session, not one call
 per insight) and doesn't belong wired into this per-tick graph. This
 executor's fixed-persona, per-insight mode exists to prove the live
 orchestration wiring end-to-end.
+
+Like the Narrator, every personalized recap is verified live against
+eval.grounding_check before it ships -- a persona's phrasing can still
+invent a number or a name, so the same safety net applies here, falling
+back to the Narrator's original (already-verified) text if the persona's
+rewrite can't be confirmed grounded.
 """
 from __future__ import annotations
 
@@ -24,6 +30,7 @@ from agents.concierge.lens import CoachLens
 from agents.concierge.persona_filter import Persona
 from agents.shared.handoff_log import HandoffLog
 from agents.shared.models import InsightCandidate, NarratedInsight
+from eval.grounding_check import check_grounding_multi
 
 PersonalizeFn = Callable[..., Awaitable[str]]
 _CALL_TIMEOUT_S = 45.0
@@ -56,7 +63,18 @@ class ConciergeExecutor(Executor):
         except Exception:
             logger.exception("personalize_fn failed or timed out for insight %s -- dropping it", insight.insight_id)
             return
+
+        result = check_grounding_multi(text, [insight], self._player_names)
+        fact_checked = result.passed
+        if not fact_checked:
+            logger.warning(
+                "grounding check failed for concierge/%s on insight %s: unmatched_numbers=%s unmatched_entities=%s -- using narrator's text",
+                self._persona, insight.insight_id, result.unmatched_numbers, result.unmatched_entities,
+            )
+            text = narrated.narrative_text
+
         self._log.record("concierge", insight.match_id, {
             "persona": self._persona, "insight_id": insight.insight_id, "text_preview": text[:80],
+            "fact_checked": fact_checked,
         })
         await ctx.yield_output(text)

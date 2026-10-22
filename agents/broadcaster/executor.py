@@ -21,9 +21,9 @@ class BroadcasterExecutor(Executor):
 
     @handler
     async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, RenderPayload]) -> None:
-        payload = build_render_payload(narrated.insight, narrated.narrative_text)
+        payload = build_render_payload(narrated.insight, narrated.narrative_text, fact_checked=narrated.fact_checked)
         self._log.record("broadcaster", narrated.insight.match_id, {
             "render_id": payload.render_id, "graphic_type": payload.graphic_type,
-            "template": payload.display.template,
+            "template": payload.display.template, "fact_checked": payload.fact_checked,
         })
         await ctx.yield_output(payload)

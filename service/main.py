@@ -94,6 +94,10 @@ class RunMatchRequest(BaseModel):
     persona: str = "casual_fan"
     lens_id: str | None = None
     minutes: float = 12.0
+    inject_fault: bool = False
+    """Demo/debug hook: deliberately corrupts the first insight's narration
+    so the live grounding check visibly catches and corrects it -- proves
+    the fact-checking claim instead of asking judges to trust it."""
 
 
 class RunMatchResponse(BaseModel):
@@ -105,12 +109,13 @@ class RunMatchResponse(BaseModel):
 
 async def _run_and_publish(
     raw_events: list[dict], match_id: str, duration_ms: int, persona: str,
-    lens_id: str | None, player_names: dict[str, str],
+    lens_id: str | None, player_names: dict[str, str], inject_fault: bool = False,
 ):
     lens = _state["lenses"].get(lens_id) if lens_id else None
     result, log = await run_match(
         raw_events=raw_events, match_id=match_id, duration_ms=duration_ms,
         handoff_log=_state["handoff_log"], persona=persona, lens=lens, player_names=player_names,
+        inject_fault=inject_fault,
     )
 
     publisher = _state["publisher"]
@@ -189,7 +194,10 @@ async def run_demo_match(req: RunMatchRequest):
 
     async def _background_run():
         try:
-            await _run_and_publish(raw_events, match_id, int(cutoff_ms), req.persona, req.lens_id, player_names)
+            await _run_and_publish(
+                raw_events, match_id, int(cutoff_ms), req.persona, req.lens_id, player_names,
+                inject_fault=req.inject_fault,
+            )
             logger.info("match %s finished processing", match_id)
         except Exception:
             logger.exception("match %s failed during background processing", match_id)

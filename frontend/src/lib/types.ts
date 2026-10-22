@@ -19,6 +19,7 @@ export interface RenderPayload {
   data_points: DataPoint[];
   linked_players: string[];
   source_insight_id: string;
+  fact_checked: boolean;
 }
 
 export interface PersonalizedMessage {

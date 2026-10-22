@@ -271,6 +271,20 @@
   gap: 1rem;
 }
 
+.fault-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  cursor: pointer;
+  user-select: none;
+}
+.fault-toggle input {
+  accent-color: var(--danger);
+  cursor: pointer;
+}
+
 .run-button {
   display: inline-flex;
   align-items: center;
@@ -606,6 +620,32 @@
   backdrop-filter: blur(6px);
 }
 
+.hero-verify-row {
+  position: relative;
+  z-index: 1;
+  margin-top: 0.6rem;
+}
+
+.verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+}
+
+.verify-badge-ok {
+  background: rgba(34, 197, 94, 0.18);
+  color: #bbf7d0;
+}
+
+.verify-badge-corrected {
+  background: rgba(239, 68, 68, 0.22);
+  color: #fecaca;
+}
+
 .hero-badge-icon {
   font-size: 0.9rem;
 }
@@ -802,6 +842,11 @@
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text);
+}
+
+.history-chip-corrected {
+  font-size: 0.75rem;
+  margin-left: 0.2rem;
 }
 
 /* ---------- Commentary feed ---------- */

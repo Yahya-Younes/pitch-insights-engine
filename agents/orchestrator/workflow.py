@@ -26,15 +26,20 @@ def build_workflow(
     player_names: dict[str, str] | None = None,
     narrate_fn: NarrateFn | None = None,
     personalize_fn: PersonalizeFn | None = None,
+    inject_fault: bool = False,
 ) -> tuple[Workflow, HandoffLog]:
     """Builds the 5-stage workflow graph. Pass narrate_fn/personalize_fn to
     substitute fakes for offline testing -- by default both use the real,
-    live Azure AI Foundry-backed agents."""
+    live Azure AI Foundry-backed agents. inject_fault corrupts the first
+    insight's narrated text so the live grounding check visibly catches and
+    corrects it -- a demo/debug hook, see NarratorExecutor."""
     log = handoff_log if handoff_log is not None else InMemoryHandoffLog()
 
     scout = ScoutExecutor("scout", log)
     analyst0 = Analyst0Executor("analyst0", log)
-    narrator = NarratorExecutor("narrator", log, narrate_fn=narrate_fn, player_names=player_names)
+    narrator = NarratorExecutor(
+        "narrator", log, narrate_fn=narrate_fn, player_names=player_names, inject_fault=inject_fault,
+    )
     broadcaster = BroadcasterExecutor("broadcaster", log)
     concierge = ConciergeExecutor(
         "concierge", log, persona=persona, lens=lens,

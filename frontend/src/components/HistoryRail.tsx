@@ -35,6 +35,9 @@ export function HistoryRail({ payloads, selectedId, onSelect }: Props) {
               <span className="history-chip-clock">{p.game_clock}</span>
               <span className="history-chip-label">{theme.label}</span>
             </div>
+            {!p.fact_checked && (
+              <span className="history-chip-corrected" title="Auto-corrected by the live grounding check">⚠</span>
+            )}
           </button>
         );
       })}

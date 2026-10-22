@@ -39,6 +39,10 @@ class NarratedInsight(BaseModel):
 
     insight: InsightCandidate
     narrative_text: str
+    fact_checked: bool = True
+    """False when the model's own text failed the live grounding check and
+    was replaced by agents.narrator.fallback.fallback_narration -- carried
+    through to RenderPayload so the UI can show it was auto-corrected."""
 
 
 class RenderDisplay(BaseModel):
@@ -61,3 +65,4 @@ class RenderPayload(BaseModel):
     data_points: list[dict[str, float | int | str | bool]] = Field(default_factory=list)
     linked_players: list[str] = Field(default_factory=list)
     source_insight_id: str
+    fact_checked: bool = True
