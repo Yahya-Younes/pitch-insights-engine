@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { LensSummary, Locale, Persona, RunMatchResponse } from "../lib/types";
-import { runMatch } from "../lib/api";
+import { fetchMatchStatus, resumeMatch, runMatch } from "../lib/api";
 import { PersonaTabs } from "./PersonaTabs";
 import { LensPicker } from "./LensPicker";
 
@@ -21,19 +21,62 @@ export function MatchControls({ lenses, onMatchStarted }: Props) {
   const [lensId, setLensId] = useState<string | null>(null);
   const [locale, setLocale] = useState<Locale>("en");
   const [injectFault, setInjectFault] = useState(false);
+  const [injectCrash, setInjectCrash] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [crashedMatchId, setCrashedMatchId] = useState<string | null>(null);
+  const [resuming, setResuming] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, []);
+
+  function pollForCrash(matchId: string) {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = setInterval(async () => {
+      try {
+        const status = await fetchMatchStatus(matchId);
+        if (status.status === "crashed") {
+          setCrashedMatchId(matchId);
+          if (pollRef.current) clearInterval(pollRef.current);
+        } else if (status.status === "done" || status.status === "failed") {
+          if (pollRef.current) clearInterval(pollRef.current);
+        }
+      } catch {
+        // transient -- keep polling until the interval naturally stops above
+      }
+    }, 2000);
+  }
 
   async function handleRun() {
     setBusy(true);
     setError(null);
+    setCrashedMatchId(null);
     try {
-      const summary = await runMatch({ persona, lensId, injectFault, locale });
+      const summary = await runMatch({ persona, lensId, injectFault, injectCrash, locale });
       onMatchStarted(summary);
+      if (injectCrash) pollForCrash(summary.match_id);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function handleResume() {
+    if (!crashedMatchId) return;
+    setResuming(true);
+    setError(null);
+    try {
+      await resumeMatch(crashedMatchId);
+      setCrashedMatchId(null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setResuming(false);
     }
   }
 
@@ -93,6 +136,22 @@ export function MatchControls({ lenses, onMatchStarted }: Props) {
           <input type="checkbox" checked={injectFault} onChange={(e) => setInjectFault(e.target.checked)} />
           Demo: inject a false claim
         </label>
+        <label className="fault-toggle" title="Deliberately crashes mid-match so you can watch the workflow resume from its last checkpoint instead of losing the run -- a live demo of real crash recovery, not just a claim.">
+          <input type="checkbox" checked={injectCrash} onChange={(e) => setInjectCrash(e.target.checked)} />
+          Demo: crash + recover mid-match
+        </label>
+        {crashedMatchId && (
+          <button className="run-button resume-button" onClick={handleResume} disabled={resuming}>
+            {resuming ? (
+              <>
+                <span className="spinner" />
+                Resuming from checkpoint...
+              </>
+            ) : (
+              <>⟲ Resume crashed match from checkpoint</>
+            )}
+          </button>
+        )}
         {error && <p className="error">{error}</p>}
       </div>
     </div>

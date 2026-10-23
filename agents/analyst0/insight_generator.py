@@ -209,7 +209,17 @@ def _xt_candidates(events, match_id) -> list[InsightCandidate]:
             trigger_type="xt_surge", metric_name="xt_gain", metric_value=round(delta, 4),
             baseline_value=round(mean, 4), delta_pct=delta_pct,
             related_players=related_players, related_events=[e.event_id],
-            window_summary={"team": e.team, "action_type": e.type, "zscore": round(z, 2)},
+            window_summary={
+                "team": e.team, "action_type": e.type, "zscore": round(z, 2),
+                # Flattened scalars, not a nested location tuple -- kept
+                # consistent with window_summary's dict[str, scalar] type.
+                # Lets agents.analyst0.whatif recompute action_xt_delta
+                # against a hypothetical alternate end location later,
+                # without needing the raw event (which isn't itself
+                # persisted anywhere queryable after this).
+                "start_x": e.location[0], "start_y": e.location[1],
+                "end_x": e.end_location[0], "end_y": e.end_location[1],
+            },
         ))
     return out
 
@@ -251,8 +261,19 @@ def _tendency_candidates(events, match_id, tendency_profiles: dict[str, Inferred
             trigger_type=trigger_type, metric_name="tendency_alignment_score", metric_value=round(score, 3),
             baseline_value=TENDENCY_MATCH_THRESHOLD if trigger_type == "tendency_match" else TENDENCY_BREAK_THRESHOLD,
             related_players=[e.player_id], related_events=[e.event_id],
-            window_summary={"actual_action": label, "dominant_expected_action": max(
-                profile.action_bias_under_pressure, key=lambda k: profile.action_bias_under_pressure[k])},
+            window_summary={
+                "actual_action": label, "dominant_expected_action": max(
+                    profile.action_bias_under_pressure, key=lambda k: profile.action_bias_under_pressure[k]),
+                # Flattened, not the nested action_bias_under_pressure dict
+                # itself -- kept consistent with window_summary's
+                # dict[str, scalar] type. Lets agents.analyst0.whatif
+                # recompute tendency_alignment_score against a
+                # hypothetical alternate action later.
+                "bias_pass": profile.action_bias_under_pressure.get("pass", 0.0),
+                "bias_dribble": profile.action_bias_under_pressure.get("dribble", 0.0),
+                "bias_carry": profile.action_bias_under_pressure.get("carry", 0.0),
+                "bias_lose_possession": profile.action_bias_under_pressure.get("lose_possession", 0.0),
+            },
         ))
     return out
 

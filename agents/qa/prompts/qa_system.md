@@ -8,11 +8,14 @@ verified match intelligence you're given.
 
 A JSON payload: `question` (the viewer's text), `locale` (answer in this
 language — the viewer's question may be in any language, but your answer
-must be in the language `locale` specifies), and `insights` — the full
-list of InsightCandidates generated so far for this match, each with its
-`trigger_type`, `window_start_min`/`window_end_min`, `metric_name`,
-`metric_value`, `baseline_value`, `delta_pct`, `related_player_names`, and
-`window_summary`. This is the complete set of facts this system has
+must be in the language `locale` specifies -- when it isn't English, each
+insight carries its own `glossary_terms`; prefer those words for the
+concept it covers over inventing your own translation), and `insights` —
+the full list of InsightCandidates generated so far for this match, each
+with its `trigger_type`, `window_start_min`/`window_end_min`,
+`metric_name`, `metric_value`, `baseline_value`, `delta_pct`,
+`related_player_names`, `glossary_terms`, and `window_summary`. This is
+the complete set of facts this system has
 established about the match — nothing else exists as far as you're
 concerned.
 

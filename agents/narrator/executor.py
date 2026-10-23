@@ -23,6 +23,7 @@ from agents.narrator.agent import narrate_insight
 from agents.narrator.fallback import fallback_narration
 from agents.shared.handoff_log import HandoffLog
 from agents.shared.models import InsightCandidate, NarratedInsight
+from agents.shared.tracing import current_trace_id
 from eval.grounding_check import check_grounding
 
 NarrateFn = Callable[[InsightCandidate, dict[str, str] | None], Awaitable[str]]
@@ -36,6 +37,7 @@ class NarratorExecutor(Executor):
         narrate_fn: NarrateFn | None = None,
         player_names: dict[str, str] | None = None,
         inject_fault: bool = False,
+        inject_crash: bool = False,
     ):
         super().__init__(id=id)
         self._log = handoff_log
@@ -49,33 +51,67 @@ class NarratorExecutor(Executor):
         # still demonstrates normal, unforced grounded output.
         self._inject_fault = inject_fault
         self._fault_injected = False
+        # A second, separate demo/debug hook: deliberately raises on the
+        # *first* insight instead of corrupting its text, so a resumed run
+        # (agents.orchestrator.workflow.run_match's checkpoint_id path) can
+        # demonstrate picking back up without re-running Scout/Analyst-0 or
+        # re-narrating insights already committed before the crash.
+        self._inject_crash = inject_crash
+        self._crash_injected = False
+
+    async def _narrate_with_retry(self, insight: InsightCandidate) -> str | None:
+        """Tries narrate_fn twice before giving up -- a transient Foundry
+        throttle/timeout shouldn't cost an insight its narration when a
+        second attempt would likely succeed. Returns None only after both
+        attempts fail, at which point the caller falls back to a
+        deterministic template rather than dropping the insight."""
+        for attempt in range(2):
+            try:
+                return await asyncio.wait_for(
+                    self._narrate_fn(insight, self._player_names), timeout=_CALL_TIMEOUT_S,
+                )
+            except Exception:
+                logger.exception(
+                    "narrate_fn failed or timed out for insight %s (attempt %d/2)",
+                    insight.insight_id, attempt + 1,
+                )
+        return None
 
     @handler
     async def handle(self, insight: InsightCandidate, ctx: WorkflowContext[NarratedInsight]) -> None:
-        try:
-            text = await asyncio.wait_for(
-                self._narrate_fn(insight, self._player_names), timeout=_CALL_TIMEOUT_S,
-            )
-        except Exception:
-            logger.exception("narrate_fn failed or timed out for insight %s -- dropping it", insight.insight_id)
-            return
+        if self._inject_crash and not self._crash_injected:
+            self._crash_injected = True
+            raise RuntimeError(f"Demo: simulated crash while narrating insight {insight.insight_id}")
 
-        if self._inject_fault and not self._fault_injected:
-            self._fault_injected = True
-            text = f"{text} (a fabricated 48271% spike also occurred, unrelated to the above)"
-
-        result = check_grounding(text, insight, self._player_names)
-        fact_checked = result.passed
-        if not fact_checked:
-            logger.warning(
-                "grounding check failed for insight %s (trigger=%s): unmatched_numbers=%s unmatched_entities=%s -- using fallback",
-                insight.insight_id, insight.trigger_type, result.unmatched_numbers, result.unmatched_entities,
-            )
+        text = await self._narrate_with_retry(insight)
+        if text is None:
+            # Both attempts failed -- previously this just dropped the
+            # insight entirely (no downstream message, no log entry). Now it
+            # still ships, via the same zero-LLM fallback the grounding
+            # check itself falls back to, and the failure is recorded rather
+            # than silently disappearing from the trace.
+            self._log.record("narrator_failed", insight.match_id, {
+                "insight_id": insight.insight_id, "trigger_type": insight.trigger_type,
+            })
             text = fallback_narration(insight)
+            fact_checked = False
+        else:
+            if self._inject_fault and not self._fault_injected:
+                self._fault_injected = True
+                text = f"{text} (a fabricated 48271% spike also occurred, unrelated to the above)"
+
+            result = check_grounding(text, insight, self._player_names)
+            fact_checked = result.passed
+            if not fact_checked:
+                logger.warning(
+                    "grounding check failed for insight %s (trigger=%s): unmatched_numbers=%s unmatched_entities=%s -- using fallback",
+                    insight.insight_id, insight.trigger_type, result.unmatched_numbers, result.unmatched_entities,
+                )
+                text = fallback_narration(insight)
 
         self._log.record("narrator", insight.match_id, {
             "insight_id": insight.insight_id, "trigger_type": insight.trigger_type, "text_preview": text[:80],
-            "fact_checked": fact_checked,
+            "fact_checked": fact_checked, "trace_id": current_trace_id(),
         })
         # A second, fuller record alongside the one above -- the "narrator"
         # entry stays a short preview for the handoff trace UI, but the "Ask

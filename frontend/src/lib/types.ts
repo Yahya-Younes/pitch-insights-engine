@@ -52,3 +52,22 @@ export interface RunMatchResponse {
 export type Persona = "analyst" | "casual_fan" | "player_tracker";
 
 export type Locale = "en" | "fr" | "es" | "de";
+
+export interface PositionFrame {
+  t_ms: number;
+  ball: [number, number, number];
+  players: Record<string, [number, number]>;
+}
+
+export interface PositionTrackResponse {
+  match_id: string;
+  frames: PositionFrame[];
+}
+
+export interface WhatIfResponse {
+  actual_value: number;
+  hypothetical_value: number;
+  delta: number;
+  explanation: string;
+  audio_base64: string | null;
+}

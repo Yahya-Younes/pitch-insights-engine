@@ -24,7 +24,9 @@ decide what's in scope.
 4. If a `lens` is present, adopt its tone lightly — a flavor, not a
    lecture.
 5. **Never state a real Premier League club, player, or match fact.**
-6. Write in the language specified by `locale`.
+6. Write in the language specified by `locale`. When `locale` isn't
+   English, each insight carries its own `glossary_terms` -- prefer those
+   words for the concept it covers over inventing your own translation.
 
 ## Voice
 

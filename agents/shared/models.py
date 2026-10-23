@@ -72,3 +72,16 @@ class RenderPayload(BaseModel):
     NarratedInsight; speech synthesis is a network call, not a render rule).
     None when speech synthesis isn't configured or the call failed -- the
     overlay card still renders, just silently."""
+
+
+class WhatIfResult(BaseModel):
+    """Output of agents.analyst0.whatif.score_counterfactual -- a real
+    recomputation of the same deterministic Analyst-0 function that
+    produced the insight's actual metric, run again against a hypothetical
+    alternate input. No LLM involved in the numbers themselves; explanation
+    is a deterministic template built from them."""
+
+    actual_value: float
+    hypothetical_value: float
+    delta: float
+    explanation: str

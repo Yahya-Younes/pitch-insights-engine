@@ -13,6 +13,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from agents.shared.glossary import TRIGGER_GLOSSARY
 from agents.shared.models import InsightCandidate
 
 _NUMBER_RE = re.compile(r"-?\d+(?:[.,]\d+)?")
@@ -123,6 +124,21 @@ def _vocabulary_check(text: str, insight: InsightCandidate) -> bool:
     return any(kw in text_lower for kw in vocab)
 
 
+def _vocabulary_check_localized(text: str, insight: InsightCandidate, locale: str) -> bool:
+    """Same check as _vocabulary_check, but against TRIGGER_GLOSSARY's
+    locale-specific terms instead of the English-only TRIGGER_VOCAB.
+    Returns True (skips the check) only for a genuinely unsupported locale
+    -- not for every non-English locale, the way this used to work before
+    TRIGGER_GLOSSARY existed."""
+    if locale == "en":
+        return _vocabulary_check(text, insight)
+    vocab = TRIGGER_GLOSSARY.get(locale, {}).get(insight.trigger_type)
+    if not vocab:
+        return True
+    text_lower = text.lower()
+    return any(kw in text_lower for kw in vocab)
+
+
 def check_grounding(text: str, insight: InsightCandidate, player_names: dict[str, str] | None = None) -> GroundingResult:
     player_names = player_names or {}
     numeric_ok, unmatched_numbers = _numeric_check(text, insight)
@@ -148,13 +164,13 @@ def check_grounding_multi(
     lightweight keyword/number check, not a full NLI model (see module
     docstring).
 
-    TRIGGER_VOCAB is English-only. For any other locale the vocabulary check
-    is skipped rather than translated -- translating a dozen keyword lists
-    into every supported language and keeping them in sync wasn't worth
-    the risk of silently weakening the check with a bad translation. Numbers
-    and player names don't change across languages, so numeric_ok/entity_ok
-    -- the checks that actually catch a fabricated or wrong claim -- still
-    apply in full."""
+    TRIGGER_VOCAB is English-only, but agents.shared.glossary.TRIGGER_GLOSSARY
+    mirrors it for fr/es/de, so the vocabulary check runs for real in those
+    locales too instead of being unconditionally skipped -- it only skips
+    (vocabulary_ok=True) for a genuinely unsupported locale now. Numbers and
+    player names don't change across languages, so numeric_ok/entity_ok --
+    the checks that actually catch a fabricated or wrong claim -- always
+    apply in full regardless of locale."""
     player_names = player_names or {}
     allowed_numbers: list[float] = []
     allowed_names: set[str] = set()
@@ -179,10 +195,9 @@ def check_grounding_multi(
     ]
     entity_ok = len(unmatched_entities) == 0
 
-    if locale == "en":
-        vocabulary_ok = any(_vocabulary_check(text, insight) for insight in insights) if insights else True
-    else:
-        vocabulary_ok = True
+    vocabulary_ok = (
+        any(_vocabulary_check_localized(text, insight, locale) for insight in insights) if insights else True
+    )
 
     combined_id = "+".join(i.insight_id for i in insights) if insights else "none"
     return GroundingResult(

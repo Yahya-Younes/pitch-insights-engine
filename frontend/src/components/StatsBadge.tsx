@@ -35,6 +35,18 @@ export function StatsBadge() {
         <strong>{stats.robustness.corruptions_caught}/{stats.robustness.corruptions_total}</strong> fabrications caught
         <span className="stats-chip-sub">({stats.robustness.false_positives} false positives)</span>
       </span>
+      <span
+        className="stats-chip"
+        title={
+          "Our generator's basic match stats (pressing intensity, pass completion, shot volume, possession split) "
+          + "compared against small, publicly reported real-world ranges -- not our own hand-calibrated xT model, "
+          + "and not a precise proprietary dataset. Reported honestly either way: "
+          + stats.realism.metrics.map((m) => `${m.metric}=${m.value} (range ${m.reference_range[0]}-${m.reference_range[1]}, ${m.in_range ? "in range" : "out of range"})`).join("; ")
+        }
+      >
+        <strong>{stats.realism.in_range_count}/{stats.realism.total_count}</strong> stats within real-world range
+        <span className="stats-chip-sub">(vs. public EPL-range benchmarks)</span>
+      </span>
     </div>
   );
 }

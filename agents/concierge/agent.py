@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 
 from agents.concierge.lens import CoachLens
 from agents.concierge.persona_filter import Persona, filter_for_persona
+from agents.shared.glossary import glossary_terms_for
 from agents.shared.models import InsightCandidate
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -81,6 +82,13 @@ async def personalize(
             {
                 **c.model_dump(),
                 "related_player_names": {pid: player_names.get(pid, pid) for pid in c.related_players},
+                # Empty for "en" (TRIGGER_VOCAB already covers English) or
+                # an unsupported locale -- steers the model toward
+                # vocabulary the restored, locale-aware grounding check
+                # (eval.grounding_check.check_grounding_multi) will
+                # actually recognize, instead of translating freeform and
+                # then failing that check.
+                "glossary_terms": glossary_terms_for(locale, c.trigger_type),
             }
             for c in selected
         ],

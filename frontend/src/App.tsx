@@ -13,6 +13,8 @@ import { Timeline } from "./components/Timeline";
 import { HistoryRail } from "./components/HistoryRail";
 import { PersonaFeed } from "./components/PersonaFeed";
 import { AskTheMatch } from "./components/AskTheMatch";
+import { PitchView } from "./components/PitchView";
+import { WhatIfPanel } from "./components/WhatIfPanel";
 
 function App() {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
@@ -106,6 +108,8 @@ function App() {
           )
         )}
 
+        <PitchView matchId={lastMatch?.match_id ?? null} />
+
         <div className="columns">
           <section className="feed-panel">
             <div className="panel-heading">
@@ -124,6 +128,7 @@ function App() {
           </section>
 
           <AskTheMatch matchId={lastMatch?.match_id ?? null} />
+          <WhatIfPanel matchId={lastMatch?.match_id ?? null} insights={renderEvents} />
         </div>
       </main>
 

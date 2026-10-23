@@ -376,6 +376,15 @@
   font-size: 0.75rem;
 }
 
+.resume-button {
+  background: var(--warning);
+  color: #1a1400;
+}
+.resume-button:hover:not(:disabled) {
+  background: var(--warning);
+  filter: brightness(1.1);
+}
+
 .spinner {
   width: 14px;
   height: 14px;
@@ -549,15 +558,16 @@
 
 .columns {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 1.25rem;
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1500px) {
   .columns {
     grid-template-columns: 1fr 1fr;
   }
-  .ask-panel {
+  .ask-panel,
+  .whatif-panel {
     grid-column: 1 / -1;
   }
 }
@@ -566,7 +576,8 @@
   .columns {
     grid-template-columns: 1fr;
   }
-  .ask-panel {
+  .ask-panel,
+  .whatif-panel {
     grid-column: auto;
   }
 }
@@ -616,6 +627,69 @@
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+.pitch-panel {
+  min-height: 0;
+}
+
+.pitch-svg {
+  width: 100%;
+  aspect-ratio: 120 / 80;
+  border-radius: var(--radius-md);
+  background: #0d3a1f;
+}
+
+.pitch-grass {
+  fill: #0d3a1f;
+}
+
+.pitch-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.3;
+}
+
+.pitch-dot {
+  stroke: rgba(0, 0, 0, 0.35);
+  stroke-width: 0.15;
+}
+
+.pitch-dot-home {
+  fill: var(--accent);
+}
+
+.pitch-dot-away {
+  fill: #e85d75;
+}
+
+.pitch-ball {
+  fill: #fff;
+  stroke: rgba(0, 0, 0, 0.5);
+}
+
+.pitch-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.pitch-play-button {
+  padding: 0.35rem 0.9rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.pitch-play-button:hover {
+  background: var(--surface-hover);
+}
+
+.pitch-speed-note {
+  font-size: 0.72rem;
+  color: var(--text-faint);
 }
 
 .hero-stage {
@@ -1190,4 +1264,78 @@
 
 .qa-badge {
   flex-shrink: 0;
+}
+
+.whatif-row {
+  display: flex;
+}
+
+.whatif-select {
+  flex: 1;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.55rem 0.8rem;
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.whatif-knob-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.whatif-knob-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.whatif-knob-row input,
+.whatif-knob-row select {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.55rem;
+  color: var(--text);
+  font-size: 0.82rem;
+  width: 90px;
+}
+
+.whatif-result {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.whatif-explanation {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
+.whatif-values {
+  display: flex;
+  gap: 0.9rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.whatif-delta-up {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.whatif-delta-down {
+  color: var(--danger);
+  font-weight: 600;
 }

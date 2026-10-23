@@ -30,6 +30,7 @@ from agents.concierge.lens import CoachLens
 from agents.concierge.persona_filter import Persona
 from agents.shared.handoff_log import HandoffLog
 from agents.shared.models import InsightCandidate, NarratedInsight
+from agents.shared.tracing import current_trace_id
 from eval.grounding_check import check_grounding_multi
 
 PersonalizeFn = Callable[..., Awaitable[str]]
@@ -54,32 +55,54 @@ class ConciergeExecutor(Executor):
         self._player_names = player_names or {}
         self._locale = locale
 
+    async def _personalize_with_retry(self, insight: InsightCandidate) -> str | None:
+        """Tries personalize_fn twice before giving up, same rationale as
+        NarratorExecutor._narrate_with_retry -- a transient throttle/timeout
+        shouldn't cost an insight its personalized recap. Returns None only
+        after both attempts fail; the caller falls back to the Narrator's
+        already-verified text rather than dropping the insight."""
+        for attempt in range(2):
+            try:
+                return await asyncio.wait_for(
+                    self._personalize_fn(
+                        [insight], self._persona, lens=self._lens, player_names=self._player_names,
+                        locale=self._locale,
+                    ),
+                    timeout=_CALL_TIMEOUT_S,
+                )
+            except Exception:
+                logger.exception(
+                    "personalize_fn failed or timed out for insight %s (attempt %d/2)",
+                    insight.insight_id, attempt + 1,
+                )
+        return None
+
     @handler
     async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, str]) -> None:
         insight: InsightCandidate = narrated.insight
-        try:
-            text = await asyncio.wait_for(
-                self._personalize_fn(
-                    [insight], self._persona, lens=self._lens, player_names=self._player_names,
-                    locale=self._locale,
-                ),
-                timeout=_CALL_TIMEOUT_S,
-            )
-        except Exception:
-            logger.exception("personalize_fn failed or timed out for insight %s -- dropping it", insight.insight_id)
-            return
-
-        result = check_grounding_multi(text, [insight], self._player_names, locale=self._locale)
-        fact_checked = result.passed
-        if not fact_checked:
-            logger.warning(
-                "grounding check failed for concierge/%s on insight %s: unmatched_numbers=%s unmatched_entities=%s -- using narrator's text",
-                self._persona, insight.insight_id, result.unmatched_numbers, result.unmatched_entities,
-            )
+        text = await self._personalize_with_retry(insight)
+        if text is None:
+            # Both attempts failed -- previously this just dropped the
+            # insight entirely (no output, no log entry). Now it still
+            # ships, via the Narrator's already-verified text, and the
+            # failure is recorded rather than silently disappearing.
+            self._log.record("concierge_failed", insight.match_id, {
+                "persona": self._persona, "insight_id": insight.insight_id,
+            })
             text = narrated.narrative_text
+            fact_checked = False
+        else:
+            result = check_grounding_multi(text, [insight], self._player_names, locale=self._locale)
+            fact_checked = result.passed
+            if not fact_checked:
+                logger.warning(
+                    "grounding check failed for concierge/%s on insight %s: unmatched_numbers=%s unmatched_entities=%s -- using narrator's text",
+                    self._persona, insight.insight_id, result.unmatched_numbers, result.unmatched_entities,
+                )
+                text = narrated.narrative_text
 
         self._log.record("concierge", insight.match_id, {
             "persona": self._persona, "insight_id": insight.insight_id, "text_preview": text[:80],
-            "fact_checked": fact_checked,
+            "fact_checked": fact_checked, "trace_id": current_trace_id(),
         })
         await ctx.yield_output(text)

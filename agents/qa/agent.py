@@ -22,6 +22,7 @@ from agent_framework_foundry import FoundryChatClient
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
+from agents.shared.glossary import glossary_terms_for
 from agents.shared.models import InsightCandidate
 from eval.grounding_check import check_grounding_multi
 
@@ -67,7 +68,11 @@ async def ask(
         "question": question,
         "locale": locale,
         "insights": [
-            {**c.model_dump(), "related_player_names": {pid: player_names.get(pid, pid) for pid in c.related_players}}
+            {
+                **c.model_dump(),
+                "related_player_names": {pid: player_names.get(pid, pid) for pid in c.related_players},
+                "glossary_terms": glossary_terms_for(locale, c.trigger_type),
+            }
             for c in insights
         ],
     }

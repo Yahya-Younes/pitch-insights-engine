@@ -55,14 +55,28 @@ class EventHubIngestConsumer:
             return
 
         buffer = self._buffers.setdefault(match_id, MatchBuffer())
-        if raw.get("type") == "_stream_end":
-            buffer.duration_ms = raw.get("duration_ms", buffer.duration_ms)
-            events, duration_ms = buffer.events, buffer.duration_ms
-            del self._buffers[match_id]
-            await self._on_match_complete(match_id, events, duration_ms)
-        else:
+        if raw.get("type") != "_stream_end":
             buffer.events.append(raw)
+            # Checkpointing is deferred to stream-end (below), not done per
+            # event. Event Hubs checkpoints are a monotonic per-partition
+            # offset -- checkpointing every event would mark them
+            # unreplayable even if processing the match later crashes,
+            # leaving a restart to reprocess that match_id against an empty
+            # buffer. Deferring keeps the whole match replayable as a unit
+            # until it's actually done.
+            return
 
+        buffer.duration_ms = raw.get("duration_ms", buffer.duration_ms)
+        events, duration_ms = buffer.events, buffer.duration_ms
+        try:
+            await self._on_match_complete(match_id, events, duration_ms)
+        except Exception:
+            logger.exception(
+                "match %s failed to process -- leaving its buffer and checkpoint in place so it replays from the start on restart",
+                match_id,
+            )
+            return
+        del self._buffers[match_id]
         await partition_context.update_checkpoint(event)
 
     async def run(self) -> None:

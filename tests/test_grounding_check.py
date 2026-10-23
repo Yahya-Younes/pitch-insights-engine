@@ -73,3 +73,36 @@ def test_multi_insight_grounding_catches_unrelated_player_across_insights():
 def test_multi_insight_grounding_empty_list_passes_trivially():
     result = check_grounding_multi("", [], PLAYER_NAMES)
     assert result.passed
+
+
+def test_non_english_vocabulary_check_now_actually_runs():
+    """Before agents.shared.glossary.TRIGGER_GLOSSARY existed, every
+    non-English locale unconditionally set vocabulary_ok=True -- an
+    off-topic translation would have incorrectly passed. It must now
+    correctly fail, the same way the English wrong-topic case does."""
+    text_fr = "À la minute 61, l'arbitre se trouvait à 23 mètres de l'incident, un appel discutable."
+    result = check_grounding_multi(text_fr, [_pressure_insight()], PLAYER_NAMES, locale="fr")
+    assert not result.vocabulary_ok
+
+
+def test_glossary_anchored_non_english_text_passes():
+    """A translation that actually uses TRIGGER_GLOSSARY's fr/es/de terms
+    for the insight's trigger_type must pass -- proving the restored check
+    isn't just failing everything non-English by accident."""
+    text_fr = "À la 61e minute, le pressing de Thornbury s'est intensifié, le PPDA est tombé à 4.1."
+    result = check_grounding_multi(text_fr, [_pressure_insight()], PLAYER_NAMES, locale="fr")
+    assert result.vocabulary_ok
+
+    text_es = "En el minuto 61, la presión de Thornbury se intensificó, el PPDA cayó a 4.1."
+    result_es = check_grounding_multi(text_es, [_pressure_insight()], PLAYER_NAMES, locale="es")
+    assert result_es.vocabulary_ok
+
+    text_de = "In der 61. Minute verstärkte sich das Pressing von Thornbury, der PPDA fiel auf 4.1."
+    result_de = check_grounding_multi(text_de, [_pressure_insight()], PLAYER_NAMES, locale="de")
+    assert result_de.vocabulary_ok
+
+
+def test_unsupported_locale_still_skips_the_vocabulary_check():
+    text = "Totally off-topic text about nothing in particular."
+    result = check_grounding_multi(text, [_pressure_insight()], PLAYER_NAMES, locale="xx")
+    assert result.vocabulary_ok
