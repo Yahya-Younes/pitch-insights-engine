@@ -89,7 +89,9 @@ async def get_match_stats() -> dict:
     same data GET /stats on the REST API reports, computed fresh from the
     actual running system, not asserted anywhere statically."""
     from eval.realism_check import run as run_realism_check
-    from service.stats import compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries
+    from service.stats import (
+        compute_formation_detection_accuracy, compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
+    )
 
     tendency = STATE.get("tendency_accuracy")
     if tendency is None:
@@ -99,6 +101,10 @@ async def get_match_stats() -> dict:
     if realism is None:
         realism = await asyncio.to_thread(run_realism_check)
         STATE["realism_check"] = realism
+    formation_detection = STATE.get("formation_detection_accuracy")
+    if formation_detection is None:
+        formation_detection = await asyncio.to_thread(compute_formation_detection_accuracy)
+        STATE["formation_detection_accuracy"] = formation_detection
 
     entries = await asyncio.to_thread(_entries_for, None, 300)
     robustness = run_robustness_suite()
@@ -116,7 +122,37 @@ async def get_match_stats() -> dict:
             "legitimate_total": robustness.legitimate_total,
         },
         "realism": realism,
+        "formation_detection": formation_detection,
     }
+
+
+@mcp.tool()
+async def get_match_tactics(match_id: str) -> dict:
+    """Each team's inferred tactical shape over the course of one match --
+    a formation-shorthand timeline, any detected mid-match shifts, and
+    individual player role changes -- inferred purely from observed event
+    locations, never from the generator's hidden ground truth."""
+    tactics = STATE.get("tactics_by_match", {}).get(match_id)
+    if tactics is None:
+        return {"error": f"no tactics recorded for match {match_id!r}"}
+    player_names = STATE.get("player_names_by_match", {}).get(match_id, {})
+
+    def _serialize(timeline):
+        return {
+            "team": timeline.team,
+            "starting_formation": timeline.starting_formation,
+            "windows": [{"start_min": w.start_min, "end_min": w.end_min, "label": w.label} for w in timeline.windows],
+            "shifts": [{"at_min": s.at_min, "from_label": s.from_label, "to_label": s.to_label} for s in timeline.shifts],
+            "role_changes": [
+                {
+                    "player_id": r.player_id, "player_name": player_names.get(r.player_id, r.player_id),
+                    "at_min": r.at_min, "from_zone": r.from_zone, "to_zone": r.to_zone,
+                }
+                for r in timeline.role_changes
+            ],
+        }
+
+    return {"home": _serialize(tactics["home"]), "away": _serialize(tactics["away"])}
 
 
 @mcp.tool()

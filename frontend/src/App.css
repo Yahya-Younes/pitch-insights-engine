@@ -1,5 +1,5 @@
 .app {
-  max-width: 1280px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 0 1.5rem 3rem;
   display: flex;
@@ -55,16 +55,15 @@
 }
 
 .brand-mark {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-md);
-  background: linear-gradient(135deg, var(--accent), #7c3aed);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #fff;
   flex-shrink: 0;
-  box-shadow: 0 2px 12px rgba(40, 153, 245, 0.35);
 }
 
 .brand h1 {
@@ -349,16 +348,15 @@
   display: inline-flex;
   align-items: center;
   gap: 0.55rem;
-  padding: 0.7rem 1.4rem;
+  padding: 0.6rem 1.3rem;
   background: var(--accent);
   border: none;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: #fff;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   cursor: pointer;
-  box-shadow: 0 2px 10px rgba(40, 153, 245, 0.3);
-  transition: background 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease;
 }
 
 .run-button:hover:not(:disabled) {
@@ -497,7 +495,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 0.75rem;
-  background: linear-gradient(135deg, var(--surface), var(--surface-2));
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 1.1rem 1.5rem;
@@ -695,14 +693,15 @@
 .hero-stage {
   position: relative;
   overflow: hidden;
+  background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  padding: 1.75rem 2rem;
-  min-height: 230px;
+  padding: 1.5rem 1.75rem;
+  min-height: 210px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: var(--shadow-pop);
 }
 
 .hero-stage-waiting {
@@ -721,18 +720,6 @@
   border-width: 2.5px;
   border-color: rgba(255, 255, 255, 0.15);
   border-top-color: var(--accent);
-}
-
-.hero-glow {
-  position: absolute;
-  top: -40%;
-  right: -10%;
-  width: 60%;
-  height: 160%;
-  border-radius: 999px;
-  filter: blur(60px);
-  pointer-events: none;
-  opacity: 0.8;
 }
 
 .hero-stage-in {
@@ -756,14 +743,12 @@
   display: inline-flex;
   align-items: center;
   gap: 0.4rem;
-  padding: 0.35rem 0.8rem;
-  border-radius: 999px;
-  border: 1px solid;
-  font-size: 0.75rem;
-  font-weight: 700;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  backdrop-filter: blur(6px);
+  letter-spacing: 0.03em;
 }
 
 .hero-verify-row {
@@ -801,11 +786,10 @@
 }
 
 .hero-clock {
-  font-size: 1.1rem;
-  font-weight: 700;
+  font-size: 1.05rem;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: rgba(255, 255, 255, 0.85);
-  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.4);
+  color: var(--text-dim);
 }
 
 .hero-body {
@@ -818,11 +802,10 @@
 }
 
 .hero-narrative {
-  font-size: 1.45rem;
-  line-height: 1.35;
+  font-size: 1.25rem;
+  line-height: 1.4;
   font-weight: 600;
-  color: #fff;
-  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  color: var(--text);
   max-width: 44rem;
 }
 
@@ -839,34 +822,33 @@
   align-items: center;
   gap: 0.6rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.9);
-  font-size: 0.95rem;
+  color: var(--text);
+  font-size: 0.92rem;
 }
 
 .hero-stat {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  background: rgba(0, 0, 0, 0.25);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  padding: 0.5rem 1rem;
-  backdrop-filter: blur(6px);
+  padding: 0.45rem 0.9rem;
 }
 
 .hero-stat-value {
-  font-size: 1.6rem;
-  font-weight: 800;
-  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text);
   font-variant-numeric: tabular-nums;
   line-height: 1.1;
 }
 
 .hero-stat-label {
-  font-size: 0.68rem;
+  font-size: 0.66rem;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-faint);
 }
 
 .jump-live-button {
@@ -1338,4 +1320,128 @@
 .whatif-delta-down {
   color: var(--danger);
   font-weight: 600;
+}
+
+/* ---------- Tactical Evolution ---------- */
+
+.tactics-panel {
+  min-height: 0;
+}
+
+.tactics-teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+}
+
+@media (max-width: 860px) {
+  .tactics-teams {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tactics-team {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.tactics-team-header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.tactics-team-name {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tactics-formation-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.tactics-formation-badge-current {
+  background: var(--accent-soft);
+  border-color: var(--accent-border);
+  color: var(--accent);
+}
+
+.tactics-window-strip {
+  display: flex;
+  gap: 0.3rem;
+  overflow-x: auto;
+  padding-bottom: 0.2rem;
+}
+
+.tactics-window-chip {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.3rem 0.5rem;
+  min-width: 3.6rem;
+}
+
+.tactics-window-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.tactics-window-time {
+  font-size: 0.62rem;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.tactics-shift-list,
+.tactics-role-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.tactics-shift-item {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-border);
+  border-radius: var(--radius-sm);
+  padding: 0.4rem 0.6rem;
+}
+
+.tactics-shift-icon {
+  color: var(--accent);
+}
+
+.tactics-role-item {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.4;
+}
+
+.tactics-no-change {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-faint);
 }

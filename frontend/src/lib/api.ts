@@ -1,4 +1,6 @@
-import type { LensSummary, Locale, Persona, PositionTrackResponse, RunMatchResponse, WhatIfResponse } from "./types";
+import type {
+  LensSummary, Locale, MatchTacticsResponse, Persona, PositionTrackResponse, RunMatchResponse, WhatIfResponse,
+} from "./types";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
 
@@ -51,6 +53,10 @@ export function fetchPositions(matchId: string): Promise<PositionTrackResponse> 
   return fetch(`${API_BASE}/matches/${matchId}/positions`).then(asJson<PositionTrackResponse>);
 }
 
+export function fetchTactics(matchId: string): Promise<MatchTacticsResponse> {
+  return fetch(`${API_BASE}/matches/${matchId}/tactics`).then(asJson<MatchTacticsResponse>);
+}
+
 export function whatIf(matchId: string, insightId: string, knob: Record<string, unknown>): Promise<WhatIfResponse> {
   return fetch(`${API_BASE}/matches/${matchId}/whatif`, {
     method: "POST",
@@ -71,6 +77,10 @@ export interface StatsResponse {
   grounding: { narrator_pass_rate: number | null; concierge_pass_rate: number | null; combined_pass_rate: number | null; sample_size: number };
   robustness: { corruptions_caught: number; corruptions_total: number; catch_rate: number; false_positives: number; legitimate_total: number; method: string };
   realism: { metrics: RealismMetric[]; in_range_count: number; total_count: number; n_matches_averaged: number; method: string };
+  formation_detection: {
+    shift_detection_rate: number | null; mean_timing_error_min: number | null;
+    n_team_matches_with_a_real_shift: number; method: string;
+  };
 }
 
 export function fetchStats(): Promise<StatsResponse> {

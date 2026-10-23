@@ -5,18 +5,28 @@ re-derive an estimate purely from observed events, the way a real scout would.
 """
 from __future__ import annotations
 
+import math
 import random
-from dataclasses import dataclass
 from typing import Literal
 
-from datagen.pitch_grid import ZONE_COLS, ZONE_LABELS, ZONE_ROWS
-from datagen.schema import ActionBias, PlayerTendencyProfile, Team
+from datagen.formations import FORMATIONS, slot_to_location
+from datagen.pitch_grid import ZONE_LABELS, zone_center
+from datagen.schema import ActionBias, Location, PlayerTendencyProfile, Team
 
 Position = Literal["GK", "CB", "FB", "CM", "WM", "FW"]
 AttackingDirection = Literal["left_to_right", "right_to_left"]
 
-# 4-3-3: GK, 2x CB, 2x FB, 3x CM, 2x WM, 1x FW
-FORMATION_4_3_3: list[Position] = ["GK", "CB", "CB", "FB", "FB", "CM", "CM", "CM", "WM", "WM", "FW"]
+# Kept for any external code still referencing the old always-4-3-3 default --
+# generate_squad now takes an explicit formation name instead (see FORMATIONS
+# in datagen/formations.py, which this is now derived from, not the reverse).
+FORMATION_4_3_3: list[Position] = [slot[0] for slot in FORMATIONS["4-3-3"]]  # type: ignore[misc]
+
+# How tightly a position's zone-bias cloud hugs its formation slot -- wider
+# for roles that roam more (wingers, forwards), tighter for roles that hold
+# a line (center-backs, the keeper).
+_SPREAD_BY_POSITION: dict[str, float] = {
+    "GK": 0.5, "CB": 0.75, "FB": 1.05, "CM": 1.0, "WM": 1.2, "FW": 1.1,
+}
 
 _FIRST_NAMES = [
     "Jamal", "Lucas", "Mateo", "Kian", "Theo", "Idris", "Noah", "Finn", "Tariq",
@@ -43,44 +53,24 @@ _POSITION_PRIORS: dict[Position, dict] = {
 }
 
 
-@dataclass
-class ZoneWeight:
-    col: int
-    row: int
-    weight: float
-
-
 def _clip01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
 
-def _attacking_third_cols(direction: AttackingDirection) -> tuple[int, int]:
-    """Returns (defensive_edge_col, attacking_edge_col) for bias weighting."""
-    return (0, ZONE_COLS - 1) if direction == "left_to_right" else (ZONE_COLS - 1, 0)
-
-
-def _zone_bias_for(position: Position, direction: AttackingDirection, rng: random.Random) -> dict[str, float]:
-    prior = _POSITION_PRIORS[position]
-    def_col, atk_col = _attacking_third_cols(direction)
-    col_center = {
-        "GK": def_col,
-        "CB": def_col + (1 if direction == "left_to_right" else -1),
-        "FB": 2 if direction == "left_to_right" else 3,
-        "CM": (ZONE_COLS - 1) / 2,
-        "WM": 3 if direction == "left_to_right" else 2,
-        "FW": atk_col,
-    }[position]
+def _zone_bias_for_location(target: Location, position: Position, rng: random.Random) -> dict[str, float]:
+    """A zone-bias cloud centered on target (an explicit formation-slot
+    pitch location, already left/right-differentiated -- see
+    datagen/formations.py), not a generic per-position-label formula. Two
+    center-backs or two wide players now get genuinely different zone
+    biases because they have genuinely different slot coordinates, not
+    just independent random jitter around the same shared target."""
+    spread = _SPREAD_BY_POSITION.get(position, 1.0)
+    tx, ty = target
     weights: dict[str, float] = {}
     for label in ZONE_LABELS:
-        col = int(label[1:].split("_")[0])
-        row = int(label.split("_")[1])
-        col_dist = abs(col - col_center)
-        row_component = 1.0
-        if prior["row_wide"]:
-            row_component = 1.6 if row in (0, ZONE_ROWS - 1) else 0.6
-        else:
-            row_component = 1.4 if row in (1, 2) else 0.6
-        w = row_component / (1.0 + col_dist) + rng.uniform(0.0, 0.15)
+        zx, zy = zone_center(label)
+        d2 = ((zx - tx) / (18.0 * spread)) ** 2 + ((zy - ty) / (14.0 * spread)) ** 2
+        w = math.exp(-d2) + rng.uniform(0.0, 0.06)
         weights[label] = w
     total = sum(weights.values())
     return {label: w / total for label, w in weights.items()}
@@ -118,13 +108,13 @@ def _unique_name(rng: random.Random, used_names: set[str] | None) -> str:
 def generate_player_profile(
     player_id: str,
     position: Position,
-    direction: AttackingDirection,
+    slot_location: Location,
     rng: random.Random,
     used_names: set[str] | None = None,
 ) -> PlayerTendencyProfile:
     prior = _POSITION_PRIORS[position]
     name = _unique_name(rng, used_names)
-    zone_bias = _zone_bias_for(position, direction, rng)
+    zone_bias = _zone_bias_for_location(slot_location, position, rng)
     sorted_zones = sorted(zone_bias.items(), key=lambda kv: kv[1], reverse=True)
     preferred_sprint_zones = [z for z, _ in sorted_zones[:3]]
     return PlayerTendencyProfile(
@@ -142,11 +132,16 @@ def generate_player_profile(
     )
 
 
-def generate_squad(team: Team, rng: random.Random, used_names: set[str] | None = None) -> list[PlayerTendencyProfile]:
+def generate_squad(
+    team: Team, rng: random.Random, used_names: set[str] | None = None, formation: str = "4-3-3",
+) -> list[PlayerTendencyProfile]:
     direction: AttackingDirection = "left_to_right" if team == "home" else "right_to_left"
     if used_names is None:
         used_names = set()
+    slots = FORMATIONS[formation]
     return [
-        generate_player_profile(f"{team}_{idx + 1}", position, direction, rng, used_names)
-        for idx, position in enumerate(FORMATION_4_3_3)
+        generate_player_profile(
+            f"{team}_{idx + 1}", slot[0], slot_to_location(slot, direction), rng, used_names,  # type: ignore[arg-type]
+        )
+        for idx, slot in enumerate(slots)
     ]

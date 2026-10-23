@@ -34,11 +34,10 @@ export function HeroStage({ payload, homeTeam, awayTeam }: Props) {
     <div
       key={payload.render_id}
       className="hero-stage hero-stage-in"
-      style={{ background: theme.gradient, borderColor: theme.color }}
+      style={{ borderLeftColor: theme.color }}
     >
-      <div className="hero-glow" style={{ background: theme.colorSoft }} />
       <div className="hero-top">
-        <span className="hero-badge" style={{ background: theme.colorSoft, color: theme.color, borderColor: theme.color }}>
+        <span className="hero-badge" style={{ background: theme.colorSoft, color: theme.color }}>
           <span className="hero-badge-icon">{theme.icon}</span>
           {theme.label}
         </span>

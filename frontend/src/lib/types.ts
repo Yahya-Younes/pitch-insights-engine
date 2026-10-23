@@ -64,6 +64,39 @@ export interface PositionTrackResponse {
   frames: PositionFrame[];
 }
 
+export interface FormationWindow {
+  start_min: number;
+  end_min: number;
+  label: string | null;
+}
+
+export interface FormationShift {
+  at_min: number;
+  from_label: string;
+  to_label: string;
+}
+
+export interface RoleChange {
+  player_id: string;
+  player_name: string;
+  at_min: number;
+  from_zone: string;
+  to_zone: string;
+}
+
+export interface TacticalTimelineResponse {
+  team: string;
+  starting_formation: string;
+  windows: FormationWindow[];
+  shifts: FormationShift[];
+  role_changes: RoleChange[];
+}
+
+export interface MatchTacticsResponse {
+  home: TacticalTimelineResponse;
+  away: TacticalTimelineResponse;
+}
+
 export interface WhatIfResponse {
   actual_value: number;
   hypothetical_value: number;

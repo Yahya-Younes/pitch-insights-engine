@@ -14,6 +14,7 @@ import { HistoryRail } from "./components/HistoryRail";
 import { PersonaFeed } from "./components/PersonaFeed";
 import { AskTheMatch } from "./components/AskTheMatch";
 import { PitchView } from "./components/PitchView";
+import { TacticalEvolution } from "./components/TacticalEvolution";
 import { WhatIfPanel } from "./components/WhatIfPanel";
 
 function App() {
@@ -109,6 +110,12 @@ function App() {
         )}
 
         <PitchView matchId={lastMatch?.match_id ?? null} />
+
+        <TacticalEvolution
+          matchId={lastMatch?.match_id ?? null}
+          homeTeam={lastMatch?.home_team ?? "Home"}
+          awayTeam={lastMatch?.away_team ?? "Away"}
+        />
 
         <div className="columns">
           <section className="feed-panel">

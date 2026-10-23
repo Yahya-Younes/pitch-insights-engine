@@ -217,8 +217,8 @@ def _xt_candidates(events, match_id) -> list[InsightCandidate]:
                 # against a hypothetical alternate end location later,
                 # without needing the raw event (which isn't itself
                 # persisted anywhere queryable after this).
-                "start_x": e.location[0], "start_y": e.location[1],
-                "end_x": e.end_location[0], "end_y": e.end_location[1],
+                "start_x": round(e.location[0], 1), "start_y": round(e.location[1], 1),
+                "end_x": round(e.end_location[0], 1), "end_y": round(e.end_location[1], 1),
             },
         ))
     return out

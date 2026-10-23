@@ -38,10 +38,13 @@ from agents.shared.models import InsightCandidate, RenderPayload
 from agents.shared.speech_synthesizer import synthesize_base64
 from datagen.match_simulator import PERIOD_MS, MatchSimulator
 from datagen.trajectory import generate_positions
+from agents.analyst0.formation_tracker import build_tactical_timeline
 from eval.realism_check import run as run_realism_check
 from eval.robustness_suite import run as run_robustness_suite
 from service.eventhub_consumer import start_background
-from service.stats import compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries
+from service.stats import (
+    compute_formation_detection_accuracy, compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
+)
 from service.mcp_server import mcp
 from service.state import STATE as _state
 from service.state import build_checkpoint_storage, build_handoff_log, build_publisher
@@ -61,6 +64,15 @@ async def lifespan(app: FastAPI):
     if os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING"):
         from azure.monitor.opentelemetry import configure_azure_monitor
         configure_azure_monitor()
+        # The Azure Monitor distro's logging correlation otherwise lets
+        # azure-core's own per-HTTP-call request/response logging (normally
+        # hidden at DEBUG) through at a visible level -- every Cosmos/Web
+        # PubSub/Foundry call then dumps its full headers into Log
+        # Analytics, drowning out this app's own trace of what actually
+        # happened. Keep it at WARNING; our own "pitch.*" loggers are
+        # unaffected since this only raises the floor for the azure SDK's
+        # own namespace, not the root logger.
+        logging.getLogger("azure").setLevel(logging.WARNING)
 
     _state["handoff_log"] = build_handoff_log()
     _state["publisher"] = build_publisher()
@@ -257,6 +269,44 @@ async def whatif(match_id: str, req: WhatIfRequest):
     return {**result.model_dump(), "audio_base64": audio}
 
 
+@app.get("/matches/{match_id}/tactics")
+async def match_tactics(match_id: str):
+    """Each team's inferred tactical shape over the course of the match --
+    a formation-shorthand timeline, any detected mid-match shifts, and
+    individual player role changes -- inferred purely from observed event
+    locations (agents.analyst0.formation_tracker), never from the
+    generator's own hidden ground truth. See /stats's formation_detection
+    field for how accurately this inference recovers that hidden truth,
+    scored offline the same honest way as tendency recovery."""
+    tactics = _state.get("tactics_by_match", {}).get(match_id)
+    if tactics is None:
+        raise HTTPException(404, f"no tactics recorded for match {match_id!r}")
+    player_names = _state.get("player_names_by_match", {}).get(match_id, {})
+
+    def _serialize(timeline):
+        return {
+            "team": timeline.team,
+            "starting_formation": timeline.starting_formation,
+            "windows": [
+                {"start_min": w.start_min, "end_min": w.end_min, "label": w.label}
+                for w in timeline.windows
+            ],
+            "shifts": [
+                {"at_min": s.at_min, "from_label": s.from_label, "to_label": s.to_label}
+                for s in timeline.shifts
+            ],
+            "role_changes": [
+                {
+                    "player_id": r.player_id, "player_name": player_names.get(r.player_id, r.player_id),
+                    "at_min": r.at_min, "from_zone": r.from_zone, "to_zone": r.to_zone,
+                }
+                for r in timeline.role_changes
+            ],
+        }
+
+    return {"home": _serialize(tactics["home"]), "away": _serialize(tactics["away"])}
+
+
 class AskRequest(BaseModel):
     question: str
     locale: str = "en"
@@ -297,6 +347,8 @@ async def stats():
         _state["tendency_accuracy"] = await asyncio.to_thread(compute_tendency_recovery_accuracy)
     if "realism_check" not in _state:
         _state["realism_check"] = await asyncio.to_thread(run_realism_check)
+    if "formation_detection_accuracy" not in _state:
+        _state["formation_detection_accuracy"] = await asyncio.to_thread(compute_formation_detection_accuracy)
 
     # A rolling window, not all-time: older entries from before a grounding
     # fix was deployed are still sitting in Cosmos and would otherwise drag
@@ -326,6 +378,7 @@ async def stats():
                       "on every request -- not a static claim",
         },
         "realism": _state["realism_check"],
+        "formation_detection": _state["formation_detection_accuracy"],
     }
 
 
@@ -382,6 +435,21 @@ async def run_demo_match(req: RunMatchRequest):
     on_pitch_events = [e for e in result.events if e.type != "match_metadata" and e.match_clock_ms <= cutoff_ms]
     positions = generate_positions(match_id, on_pitch_events, result.home_profiles, result.away_profiles, int(cutoff_ms))
     _state.setdefault("positions_by_match", {})[match_id] = positions
+
+    # Same reasoning as positions above -- pure CPU, no LLM, computed
+    # eagerly so "Tactical Evolution" has data immediately rather than
+    # waiting on the insight pipeline (which these formation timelines are
+    # entirely independent of).
+    metadata = next(e for e in result.events if e.type == "match_metadata")
+    tactics = {
+        "home": build_tactical_timeline(
+            on_pitch_events, "home", "left_to_right", metadata.home_formation, int(cutoff_ms),
+        ),
+        "away": build_tactical_timeline(
+            on_pitch_events, "away", "right_to_left", metadata.away_formation, int(cutoff_ms),
+        ),
+    }
+    _state.setdefault("tactics_by_match", {})[match_id] = tactics
 
     _state.setdefault("match_status", {})[match_id] = {
         "status": "running", "home_team": result.home_name, "away_team": result.away_name,

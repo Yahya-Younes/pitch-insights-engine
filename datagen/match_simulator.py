@@ -18,7 +18,7 @@ import math
 import random
 from dataclasses import dataclass
 
-from datagen.pitch_grid import expected_location_from_bias
+from datagen.formations import FORMATIONS, formation_names, plausible_shift_target, slot_to_location
 from datagen.player_profiles import generate_squad
 from datagen.schema import (
     AnyEvent,
@@ -99,17 +99,81 @@ def _weighted_choice(rng: random.Random, weights: dict[str, float]) -> str:
 
 @dataclass
 class SquadState:
+    """A reusable squad definition -- its starting formation and
+    expected_locations never change, so the same SquadState can safely back
+    several different MatchSimulator runs (e.g. service/stats.py's
+    tendency-history simulation reuses one home/away SquadState across 6
+    matches). Per-match mutable state (a possible mid-match tactical shift)
+    lives on MatchTeamState instead, never here."""
+
     team: Team
     team_name: str
     direction: str
     profiles: dict[str, PlayerTendencyProfile]
     expected_locations: dict[str, Location]
+    starting_formation: str
+
+
+@dataclass
+class TacticalShiftTruth:
+    """Hidden ground truth for one team's mid-match tactical reshuffle --
+    analogous to PlayerTendencyProfile's hidden parameters: the live
+    pipeline never sees this directly, it exists so Analyst-0's
+    event-location-only shift *inference* (agents/analyst0/formation_tracker.py)
+    can be scored against something real, the same honest evaluation
+    pattern already used for player tendencies."""
+
+    at_ms: int
+    from_formation: str
+    to_formation: str
+    role_changes: dict[str, tuple[str, str]]  # player_id -> (old_position, new_position)
+
+
+@dataclass
+class MatchTeamState:
+    """Per-match, mutable tactical state for one team -- wraps a reusable
+    SquadState with this match's own current positions (which may swap
+    mid-match if a tactical shift was rolled) without ever mutating the
+    shared SquadState itself."""
+
+    squad: SquadState
+    locations: dict[str, Location]
+    starting_formation: str
+    shift: TacticalShiftTruth | None = None
+    shift_locations: dict[str, Location] | None = None
+    shifted: bool = False
+
+    @property
+    def team(self) -> Team:
+        return self.squad.team
+
+    @property
+    def team_name(self) -> str:
+        return self.squad.team_name
+
+    @property
+    def direction(self) -> str:
+        return self.squad.direction
+
+    @property
+    def profiles(self) -> dict[str, PlayerTendencyProfile]:
+        return self.squad.profiles
 
     def nearest_player(self, location: Location, rng: random.Random, exclude: set[str] | None = None) -> str:
         exclude = exclude or set()
         candidates = [pid for pid in self.profiles if pid not in exclude]
-        jittered = {pid: _jitter(self.expected_locations[pid], rng) for pid in candidates}
+        jittered = {pid: _jitter(self.locations[pid], rng) for pid in candidates}
         return min(candidates, key=lambda pid: _distance(jittered[pid], location))
+
+    def maybe_apply_shift(self, total_ms: int) -> bool:
+        """Swaps in the post-shift locations once total_ms reaches the
+        shift's timestamp -- called every tick for both teams; a no-op
+        every time except the one tick it actually triggers on."""
+        if self.shift is None or self.shifted or total_ms < self.shift.at_ms or self.shift_locations is None:
+            return False
+        self.locations = self.shift_locations
+        self.shifted = True
+        return True
 
 
 @dataclass
@@ -120,15 +184,69 @@ class MatchResult:
     events: list[AnyEvent]
     home_profiles: list[PlayerTendencyProfile]
     away_profiles: list[PlayerTendencyProfile]
+    home_tactical_shift: TacticalShiftTruth | None = None
+    away_tactical_shift: TacticalShiftTruth | None = None
 
 
-def build_squad(team: Team, team_name: str, rng: random.Random, used_names: set[str] | None = None) -> SquadState:
-    profiles_list = generate_squad(team, rng, used_names)
+def build_squad(
+    team: Team, team_name: str, rng: random.Random, used_names: set[str] | None = None, formation: str | None = None,
+) -> SquadState:
+    if formation is None:
+        formation = rng.choice(formation_names())
+    profiles_list = generate_squad(team, rng, used_names, formation=formation)
     direction = "left_to_right" if team == "home" else "right_to_left"
     profiles = {p.player_id: p for p in profiles_list}
-    expected = {pid: expected_location_from_bias(p.zone_bias) for pid, p in profiles.items()}
+    slots = FORMATIONS[formation]
+    expected = {p.player_id: slot_to_location(slot, direction) for p, slot in zip(profiles_list, slots)}
     return SquadState(team=team, team_name=team_name, direction=direction,
-                       profiles=profiles, expected_locations=expected)
+                       profiles=profiles, expected_locations=expected, starting_formation=formation)
+
+
+# Probability either team has a mid-match reshuffle at all -- independent
+# per team, so a match might see one team shift, both, or neither.
+_SHIFT_PROBABILITY = 0.6
+
+
+def _build_tactical_shift(
+    squad: SquadState, duration_ms: int, rng: random.Random,
+) -> tuple[TacticalShiftTruth | None, dict[str, Location] | None]:
+    if rng.random() >= _SHIFT_PROBABILITY:
+        return None, None
+    targets = plausible_shift_target(squad.starting_formation)
+    if not targets:
+        return None, None
+    to_formation = rng.choice(targets)
+    at_ms = int(duration_ms * rng.uniform(0.28, 0.72))
+    new_slots = FORMATIONS[to_formation]
+    # dict preserves insertion order -- profiles was built via
+    # {p.player_id: p for p in profiles_list}, so this iterates home_1..home_11
+    # in the same order the original formation's slots were assigned in,
+    # letting index position double as the old-slot-to-new-slot mapping
+    # (e.g. a winger's index landing on a new formation's CM slot reads as
+    # "that player tucked inside into central midfield" -- a plausible,
+    # legible role change, not an arbitrary reassignment).
+    player_ids = list(squad.profiles.keys())
+    role_changes: dict[str, tuple[str, str]] = {}
+    new_locations: dict[str, Location] = {}
+    for idx, pid in enumerate(player_ids):
+        old_position = squad.profiles[pid].position
+        new_slot = new_slots[idx] if idx < len(new_slots) else new_slots[-1]
+        new_position = new_slot[0]
+        new_locations[pid] = slot_to_location(new_slot, squad.direction)
+        if new_position != old_position:
+            role_changes[pid] = (old_position, new_position)
+    shift = TacticalShiftTruth(
+        at_ms=at_ms, from_formation=squad.starting_formation, to_formation=to_formation, role_changes=role_changes,
+    )
+    return shift, new_locations
+
+
+def _build_team_state(squad: SquadState, duration_ms: int, rng: random.Random) -> MatchTeamState:
+    shift, shift_locations = _build_tactical_shift(squad, duration_ms, rng)
+    return MatchTeamState(
+        squad=squad, locations=dict(squad.expected_locations), starting_formation=squad.starting_formation,
+        shift=shift, shift_locations=shift_locations,
+    )
 
 
 class MatchSimulator:
@@ -140,22 +258,27 @@ class MatchSimulator:
     def __init__(self, match_id: str, seed: int, home_squad: SquadState | None = None, away_squad: SquadState | None = None):
         self.match_id = match_id
         self.rng = random.Random(seed)
-        if home_squad is not None and away_squad is not None:
-            self.home, self.away = home_squad, away_squad
-        else:
+        if home_squad is None or away_squad is None:
             home_name, away_name = self.rng.sample(TEAM_NAME_POOL, 2)
             shared_used_names: set[str] = set()
-            self.home = build_squad("home", home_name, self.rng, shared_used_names)
-            self.away = build_squad("away", away_name, self.rng, shared_used_names)
+            home_squad = build_squad("home", home_name, self.rng, shared_used_names)
+            away_squad = build_squad("away", away_name, self.rng, shared_used_names)
+        duration_ms = 2 * PERIOD_MS
+        # Wrapped into a fresh per-match MatchTeamState even when the squad
+        # is reused across several matches (service/stats.py's tendency-
+        # history simulation does this) -- a tactical shift must never
+        # mutate the shared, reusable SquadState itself.
+        self.home = _build_team_state(home_squad, duration_ms, self.rng)
+        self.away = _build_team_state(away_squad, duration_ms, self.rng)
         self.referee_location: Location = (60.0, 40.0)
         self.events: list[AnyEvent] = []
         self.possession_id = 0
         self._last_ref_position_ms: int | None = None
 
-    def _squad_for(self, team: Team) -> SquadState:
+    def _squad_for(self, team: Team) -> MatchTeamState:
         return self.home if team == "home" else self.away
 
-    def _opponent_of(self, team: Team) -> SquadState:
+    def _opponent_of(self, team: Team) -> MatchTeamState:
         return self.away if team == "home" else self.home
 
     def _global_clock(self, period: int, within_period_ms: int) -> tuple[int, int, int]:
@@ -172,8 +295,8 @@ class MatchSimulator:
             weather="Overcast, 14C, light wind",
             home_team=self.home.team_name,
             away_team=self.away.team_name,
-            home_formation="4-3-3",
-            away_formation="4-3-3",
+            home_formation=self.home.starting_formation,
+            away_formation=self.away.starting_formation,
             home_lineup=[p.player_name for p in self.home.profiles.values()],
             away_lineup=[p.player_name for p in self.away.profiles.values()],
             referee_name=self.rng.choice(REFEREE_NAME_POOL),
@@ -237,6 +360,9 @@ class MatchSimulator:
             within_ms += self.rng.randint(*TICK_MS_RANGE)
             total_ms, minute, second = self._global_clock(period, min(within_ms, PERIOD_MS))
 
+            self.home.maybe_apply_shift(total_ms)
+            self.away.maybe_apply_shift(total_ms)
+
             self._update_referee(ball_location)
             if self._last_ref_position_ms is None or total_ms - self._last_ref_position_ms >= REFEREE_POSITION_INTERVAL_MS:
                 self.events.append(RefereePositionEvent(
@@ -255,7 +381,16 @@ class MatchSimulator:
             pressure_prob = 0.3 + (0.12 if own_defensive else 0.0)
             under_pressure = self.rng.random() < pressure_prob
 
-            shot_prob = (carrier.shot_on_sight + 0.14) * (0.75 if under_pressure else 1.05)
+            # Proximity to goal now meaningfully gates the decision to shoot
+            # at all (tapering to ~0 at the edge of the 28-unit radius),
+            # not just the shot's quality via _xg() -- without this, a
+            # player 27 units out had the same ~50% chance to pull the
+            # trigger each tick as one standing in the six-yard box, which
+            # (once real formation spacing let an attacker legitimately
+            # camp near the edge of this radius for several consecutive
+            # ticks) produced wildly unrealistic shot counts.
+            shot_distance_factor = _clip(1.0 - dist_to_goal / 28.0, 0.0, 1.0) ** 1.25
+            shot_prob = (carrier.shot_on_sight * 0.85 + 0.07) * shot_distance_factor * (0.75 if under_pressure else 1.0)
             if dist_to_goal < 28 and self.rng.random() < shot_prob:
                 ball_location, carrier_id, possessing = self._handle_shot(
                     carrier, carrier_id, possessing, opponent, ball_location, goal,
@@ -296,9 +431,10 @@ class MatchSimulator:
             match_id=self.match_id, home_name=self.home.team_name, away_name=self.away.team_name,
             events=self.events, home_profiles=list(self.home.profiles.values()),
             away_profiles=list(self.away.profiles.values()),
+            home_tactical_shift=self.home.shift, away_tactical_shift=self.away.shift,
         )
 
-    def _emit_possession_change(self, total_ms, period, minute, second, team: SquadState, reason: str, location: Location,
+    def _emit_possession_change(self, total_ms, period, minute, second, team: MatchTeamState, reason: str, location: Location,
                                  player_id: str = "", player_name: str = "", under_pressure: bool = False) -> None:
         self.possession_id += 1
         self.events.append(PossessionChangeEvent(
@@ -394,18 +530,32 @@ class MatchSimulator:
         return new_location, carrier_id, possessing
 
     def _handle_pass(self, carrier, carrier_id, possessing, opponent, ball_location, under_pressure, total_ms, period, minute, second):
-        teammates = [pid for pid in possessing.profiles if pid != carrier_id]
         forward = 1 if possessing.direction == "left_to_right" else -1
 
-        def score(pid: str) -> float:
-            loc = _jitter(possessing.expected_locations[pid], self.rng)
-            forward_gain = (loc[0] - ball_location[0]) * forward
-            return max(0.1, 1.0 / (1.0 + _distance(ball_location, loc))) + carrier.directness * max(0.0, forward_gain) * 0.02
+        # Real passers don't meaningfully weigh all 10 outfield teammates as
+        # live options -- only the handful who are actually in a realistic
+        # passing lane at that moment. Restricting the candidate pool to the
+        # nearest few (then weighting among just those) is what actually
+        # keeps the average pass short-to-medium once player positions are
+        # spread into a real formation shape; weighting the full 10-player
+        # pool by distance alone still let the long diagonal option win too
+        # often simply because most of the pool is far away by construction.
+        teammates = [pid for pid in possessing.profiles if pid != carrier_id]
+        by_distance = sorted(teammates, key=lambda pid: _distance(ball_location, possessing.locations[pid]))
+        candidates = by_distance[:3]
 
-        weights = {pid: score(pid) for pid in teammates}
+        def score(pid: str) -> float:
+            loc = _jitter(possessing.locations[pid], self.rng)
+            dist = _distance(ball_location, loc)
+            proximity = math.exp(-dist / 13.0)
+            forward_gain = (loc[0] - ball_location[0]) * forward
+            forward_bonus = 1.0 + carrier.directness * 0.25 * _clip(forward_gain / 40.0, -1.0, 1.0)
+            return max(0.01, proximity * forward_bonus)
+
+        weights = {pid: score(pid) for pid in candidates}
         recipient_id = _weighted_choice(self.rng, weights)
         recipient = possessing.profiles[recipient_id]
-        end_location = _jitter(possessing.expected_locations[recipient_id], self.rng)
+        end_location = _jitter(possessing.locations[recipient_id], self.rng)
 
         distance_m = _distance(ball_location, end_location)
         angle_deg = round(math.degrees(math.atan2(end_location[1] - ball_location[1], end_location[0] - ball_location[0])), 1)
@@ -415,7 +565,7 @@ class MatchSimulator:
         ball_speed = round((distance_m / flight_time) * 3.6, 1)
 
         accuracy_base = 0.88
-        distance_penalty = min(0.5, distance_m / 100 * 0.6)
+        distance_penalty = min(0.45, distance_m / 100 * 0.45)
         pressure_penalty = 0.15 if under_pressure else 0.0
         prob_complete = _clip(accuracy_base - distance_penalty - pressure_penalty + self.rng.uniform(-0.05, 0.05), 0.05, 0.97)
         complete = self.rng.random() < prob_complete
@@ -457,7 +607,7 @@ class MatchSimulator:
 
         reason = "out_of_play"
         new_carrier = opponent.nearest_player(end_location, self.rng)
-        if outcome == "incomplete" and self.rng.random() < 0.7:
+        if outcome == "incomplete" and self.rng.random() < 0.35:
             self.events.append(InterceptionEvent(
                 match_id=self.match_id, period=period, minute=minute, second=second, match_clock_ms=total_ms,
                 team=opponent.team, team_name=opponent.team_name, player_id=new_carrier,

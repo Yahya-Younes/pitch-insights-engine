@@ -47,6 +47,17 @@ export function StatsBadge() {
         <strong>{stats.realism.in_range_count}/{stats.realism.total_count}</strong> stats within real-world range
         <span className="stats-chip-sub">(vs. public EPL-range benchmarks)</span>
       </span>
+      {stats.formation_detection.shift_detection_rate !== null && (
+        <span
+          className="stats-chip"
+          title="Both teams independently roll a possible mid-match tactical reshuffle in our synthetic history; this is how often analyst0's formation tracker actually detects it, and how far off the detected timing typically is -- inferred purely from observed event locations, scored against the generator's own hidden shift timestamp."
+        >
+          <strong>{Math.round(stats.formation_detection.shift_detection_rate * 100)}%</strong> tactical shifts detected
+          <span className="stats-chip-sub">
+            (±{stats.formation_detection.mean_timing_error_min?.toFixed(0)}min timing)
+          </span>
+        </span>
+      )}
     </div>
   );
 }
