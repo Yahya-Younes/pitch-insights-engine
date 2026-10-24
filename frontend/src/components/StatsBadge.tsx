@@ -60,6 +60,32 @@ export function StatsBadge() {
           </span>
         </span>
       )}
+      {stats.fine_tuned_narrator.available ? (
+        <span
+          className="stats-chip"
+          title={
+            `Fine-tuned ${stats.fine_tuned_narrator.base_model} (job ${stats.fine_tuned_narrator.job_id}, `
+            + `${stats.fine_tuned_narrator.training_examples} self-distilled training examples -- our own Narrator's `
+            + `real, live grounding-checked outputs, never hand-written templates). The most recently run match's `
+            + `latest verified insight, narrated fresh by this deployment just now and independently re-checked: `
+            + `"${stats.fine_tuned_narrator.fine_tuned_narration}" -- vs. production: "${stats.fine_tuned_narrator.production_narration}"`
+          }
+        >
+          <strong>{stats.fine_tuned_narrator.fine_tuned_grounded ? "Grounded" : "Ungrounded"}</strong> fine-tuned narrator output
+          <span className="stats-chip-sub">(live sample, {stats.fine_tuned_narrator.base_model})</span>
+        </span>
+      ) : (
+        <span
+          className="stats-chip"
+          title={
+            `Fine-tuned narrator comparison currently unavailable: ${stats.fine_tuned_narrator.reason}`
+            + (stats.fine_tuned_narrator.job_id ? ` (training job ${stats.fine_tuned_narrator.job_id} succeeded)` : "")
+          }
+        >
+          <strong>Fine-tuned narrator</strong>
+          <span className="stats-chip-sub">(not live right now)</span>
+        </span>
+      )}
     </div>
   );
 }

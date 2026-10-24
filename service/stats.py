@@ -17,6 +17,11 @@ from agents.analyst0.tendency_model import accuracy_report, infer_all_profiles
 from agents.shared.handoff_log import HandoffEntry
 from datagen.match_simulator import MatchSimulator, build_squad
 
+FINE_TUNED_JOB_ID = "ftjob-90ab75cf1fb2459fa91ffbcd10a1fb2f"
+FINE_TUNED_DEPLOYMENT_NAME = "pitch-narrator-ft"
+FINE_TUNED_BASE_MODEL = "gpt-4.1-mini"
+FINE_TUNED_TRAINING_EXAMPLES = 752
+
 
 def compute_tendency_recovery_accuracy(n_matches: int = 6, seed: int = 123) -> dict:
     """Simulates a small synthetic match history for one squad pairing,
@@ -106,4 +111,115 @@ def grounding_pass_rate_from_entries(entries: list[HandoffEntry]) -> dict:
         "concierge_pass_rate": _rate(by_stage["concierge"]),
         "combined_pass_rate": _rate(all_values),
         "sample_size": len(all_values),
+    }
+
+
+def _call_finetuned_narrator(insight, player_names: dict[str, str]) -> str:
+    """Same input contract as agents.narrator.agent.narrate_insight, against
+    the fine-tuned deployment instead of production. Imports kept local --
+    this is the only code path in the whole service that needs the openai
+    SDK's AzureOpenAI client directly (everywhere else goes through
+    agent_framework_foundry), so there's no reason to pay that import cost
+    on every cold start."""
+    import json
+    from pathlib import Path
+
+    from azure.identity import DefaultAzureCredential, get_bearer_token_provider
+    from openai import AzureOpenAI
+
+    system_prompt = (
+        Path(__file__).resolve().parents[1] / "agents" / "narrator" / "prompts" / "narrator_system.md"
+    ).read_text(encoding="utf-8")
+    payload = insight.model_dump()
+    payload["related_player_names"] = {pid: player_names.get(pid, pid) for pid in insight.related_players}
+
+    token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
+    client = AzureOpenAI(
+        azure_endpoint="https://pitch-insights-engine.cognitiveservices.azure.com/",
+        azure_ad_token_provider=token_provider,
+        api_version="2024-10-21",
+    )
+    response = client.chat.completions.create(
+        model=FINE_TUNED_DEPLOYMENT_NAME,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(payload, indent=2)},
+        ],
+        timeout=20,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def compute_finetuned_narrator_comparison(state: dict) -> dict:
+    """Live, on-demand proof that the fine-tuned model (gpt-4.1-mini, trained
+    via self-distillation -- see tools/export_finetune_dataset.py and
+    tools/launch_finetune.py) actually works, not just a claim that a
+    training job once succeeded. Takes the most recent real, already
+    grounding-checked insight from a live-run match, narrates it fresh with
+    the fine-tuned deployment, and independently re-verifies that output
+    against the same live grounding checker production insights go through
+    -- the fine-tuned output is never pre-approved or cached as a static
+    example.
+
+    Deliberately NOT cached in `state` the way the other /stats fields are:
+    the point here is to show it still works right now, and the deployment
+    itself is Azure's Developer tier (evaluation-only, auto-expires ~24h
+    after creation -- see tools/deploy_finetuned_model.py), so a frozen
+    cached "available: true" would go stale and misleading well before the
+    rest of this process's cache would. Any failure (expired deployment,
+    throttling, no live insights yet) is caught and reported honestly
+    rather than crashing the rest of /stats."""
+    log = state.get("handoff_log")
+    if log is None:
+        return {"available": False, "reason": "no handoff log configured"}
+
+    try:
+        entries = log.entries(None, 200)
+    except TypeError:
+        entries = log.entries()
+
+    insight_entries = [e for e in entries if e.stage == "insight" and e.summary.get("fact_checked")]
+    if not insight_entries:
+        return {
+            "available": False,
+            "reason": "no verified live insights yet -- run a match first",
+            "job_id": FINE_TUNED_JOB_ID,
+        }
+
+    entry = sorted(insight_entries, key=lambda e: e.timestamp)[-1]
+    summary = entry.summary
+    production_text = summary["narrative_text"]
+    insight_fields = {k: v for k, v in summary.items() if k not in ("narrative_text", "fact_checked")}
+
+    from agents.shared.models import InsightCandidate
+    from eval.grounding_check import check_grounding
+
+    insight = InsightCandidate(**insight_fields)
+    player_names = state.get("player_names_by_match", {}).get(insight.match_id, {})
+
+    try:
+        fine_tuned_text = _call_finetuned_narrator(insight, player_names)
+    except Exception as exc:
+        return {
+            "available": False,
+            "reason": f"fine-tuned deployment unreachable (Developer-tier deployments are "
+                      f"evaluation-only and auto-expire ~24h after creation -- redeploy with "
+                      f"tools/deploy_finetuned_model.py if it's been a while): {exc}",
+            "job_id": FINE_TUNED_JOB_ID,
+        }
+
+    result = check_grounding(fine_tuned_text, insight, player_names)
+    return {
+        "available": True,
+        "job_id": FINE_TUNED_JOB_ID,
+        "base_model": FINE_TUNED_BASE_MODEL,
+        "deployment_name": FINE_TUNED_DEPLOYMENT_NAME,
+        "training_examples": FINE_TUNED_TRAINING_EXAMPLES,
+        "trigger_type": insight.trigger_type,
+        "production_narration": production_text,
+        "fine_tuned_narration": fine_tuned_text,
+        "fine_tuned_grounded": result.passed,
+        "method": "Same real, already-verified insight from the most recently run match, narrated fresh "
+                  "by the fine-tuned deployment just now and independently re-checked against the live "
+                  "grounding checker -- not a pre-approved static example.",
     }

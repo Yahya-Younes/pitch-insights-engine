@@ -43,7 +43,8 @@ from eval.realism_check import run as run_realism_check
 from eval.robustness_suite import run as run_robustness_suite
 from service.eventhub_consumer import start_background
 from service.stats import (
-    compute_formation_detection_accuracy, compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
+    compute_finetuned_narrator_comparison, compute_formation_detection_accuracy,
+    compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
 )
 from service.mcp_server import mcp
 from service.state import STATE as _state
@@ -364,8 +365,10 @@ async def stats():
         entries = await asyncio.to_thread(log.entries)
 
     robustness = run_robustness_suite()
+    fine_tuned_narrator = await asyncio.to_thread(compute_finetuned_narrator_comparison, _state)
     return {
         "tendency_recovery": _state["tendency_accuracy"],
+        "fine_tuned_narrator": fine_tuned_narrator,
         "grounding": {**grounding_pass_rate_from_entries(entries), "window": "most recent 300 live handoff entries"},
         "robustness": {
             "corruptions_caught": robustness.corruptions_caught,

@@ -90,7 +90,8 @@ async def get_match_stats() -> dict:
     actual running system, not asserted anywhere statically."""
     from eval.realism_check import run as run_realism_check
     from service.stats import (
-        compute_formation_detection_accuracy, compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
+        compute_finetuned_narrator_comparison, compute_formation_detection_accuracy,
+        compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
     )
 
     tendency = STATE.get("tendency_accuracy")
@@ -108,8 +109,10 @@ async def get_match_stats() -> dict:
 
     entries = await asyncio.to_thread(_entries_for, None, 300)
     robustness = run_robustness_suite()
+    fine_tuned_narrator = await asyncio.to_thread(compute_finetuned_narrator_comparison, STATE)
     return {
         "tendency_recovery": tendency,
+        "fine_tuned_narrator": fine_tuned_narrator,
         "grounding": {
             **grounding_pass_rate_from_entries(entries),
             "window": "most recent 300 live handoff entries",

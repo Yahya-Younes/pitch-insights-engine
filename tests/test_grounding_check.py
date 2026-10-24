@@ -106,3 +106,36 @@ def test_unsupported_locale_still_skips_the_vocabulary_check():
     text = "Totally off-topic text about nothing in particular."
     result = check_grounding_multi(text, [_pressure_insight()], PLAYER_NAMES, locale="xx")
     assert result.vocabulary_ok
+
+
+def _xt_surge_insight():
+    return InsightCandidate(
+        match_id="M1", window_start_min=40.0, window_end_min=43.0, trigger_type="xt_surge",
+        metric_name="xt_gain", metric_value=1417.6, baseline_value=320.0, delta_pct=343.0,
+        related_players=["home_9"], window_summary={"zone": "final_third"},
+    )
+
+
+def test_comma_thousands_separator_is_not_mistaken_for_a_fabricated_number():
+    """Regression test: English narration legitimately writes a large number
+    with a comma thousands-separator (e.g. "1,417.6"). The old single regex
+    assumed comma-as-decimal everywhere, parsing "1,417.6" as two garbage
+    tokens ("1,417" -> 1.417, "6" -> 6) instead of the real value 1417.6,
+    and failing grounding on a correct number."""
+    text = "Between minutes 40 and 43 the home side's threat spiked to 1,417.6, up from a baseline of 320."
+    result = check_grounding(text, _xt_surge_insight(), PLAYER_NAMES)
+    assert result.numeric_ok, result.unmatched_numbers
+
+
+def test_plain_comma_grouped_integer_also_parses_correctly():
+    text = "Their threat jumped to 1,417 in that window, miles above the 320 baseline."
+    result = check_grounding(text, _xt_surge_insight(), PLAYER_NAMES)
+    assert "1,417" not in result.unmatched_numbers
+
+
+def test_european_decimal_comma_still_parses_correctly_for_non_english_locale():
+    """The fr/es/de locales use a bare comma as the decimal point -- make
+    sure the English-vs-European parsing split didn't break that path."""
+    text_fr = "En le minute 61, le pressing de Thornbury s'est intensifié, le PPDA est tombé à 4,1."
+    result = check_grounding_multi(text_fr, [_pressure_insight()], PLAYER_NAMES, locale="fr")
+    assert result.numeric_ok, result.unmatched_numbers

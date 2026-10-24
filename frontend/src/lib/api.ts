@@ -87,6 +87,14 @@ export interface StatsResponse {
     shift_detection_rate: number | null; mean_timing_error_min: number | null;
     n_team_matches_with_a_real_shift: number; method: string;
   };
+  fine_tuned_narrator:
+    | {
+        available: true; job_id: string; base_model: string; deployment_name: string;
+        training_examples: number; trigger_type: string;
+        production_narration: string; fine_tuned_narration: string; fine_tuned_grounded: boolean;
+        method: string;
+      }
+    | { available: false; reason: string; job_id?: string };
 }
 
 export function fetchStats(): Promise<StatsResponse> {

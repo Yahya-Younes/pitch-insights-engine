@@ -16,21 +16,25 @@ from dataclasses import dataclass, field
 from agents.shared.glossary import TRIGGER_GLOSSARY
 from agents.shared.models import InsightCandidate
 
-_NUMBER_RE = re.compile(r"-?\d+(?:[.,]\d+)?")
+# English narration (Narrator is English-only; Concierge's English path uses
+# this too) groups large numbers with comma thousands-separators and a period
+# decimal point (e.g. "1,417.6") -- the opposite convention from fr/es/de,
+# where a bare comma is the decimal separator (e.g. "0,005"). Using one
+# pattern for both locales silently mis-parses whichever convention it
+# doesn't match: "1,417" read as a European decimal becomes 1.417 instead of
+# 1417, which then looks like a fabricated number and fails grounding even
+# though it's the correct value, just formatted differently.
+_NUMBER_RE_EN = re.compile(r"-?\d{1,3}(?:,\d{3})+(?:\.\d+)?|-?\d+(?:\.\d+)?")
+_NUMBER_RE_EU = re.compile(r"-?\d+(?:[.,]\d+)?")
 
 
-def _extract_numbers(text: str) -> list[str]:
-    """Matches both '0.005' and the French/German-style '0,005' as one
-    number token -- without this, a comma decimal separator gets split into
-    two unrelated integers ('0' and '005') and every localized number looks
-    unmatched. Assumes comma-as-decimal, not comma-as-thousands-separator,
-    which fits the small decimal/percentage values this system's narration
-    actually produces."""
-    return _NUMBER_RE.findall(text)
+def _extract_numbers(text: str, locale: str = "en") -> list[str]:
+    pattern = _NUMBER_RE_EN if locale == "en" else _NUMBER_RE_EU
+    return pattern.findall(text)
 
 
-def _to_float(token: str) -> float:
-    return float(token.replace(",", "."))
+def _to_float(token: str, locale: str = "en") -> float:
+    return float(token.replace(",", "")) if locale == "en" else float(token.replace(",", "."))
 
 TRIGGER_VOCAB: dict[str, set[str]] = {
     "pressure_spike": {"press", "pressure", "squeeze", "high line", "closing down", "pressed", "pressing"},
@@ -66,12 +70,12 @@ class GroundingResult:
         return self.numeric_ok and self.entity_ok and self.vocabulary_ok
 
 
-def _allowed_numeric_values(insight: InsightCandidate) -> list[float]:
+def _allowed_numeric_values(insight: InsightCandidate, locale: str = "en") -> list[float]:
     values = [insight.window_start_min, insight.window_end_min]
     # match_id ("DEMO-<timestamp>-<seed>") is a legitimate, if unusual, thing
     # for the dense/precise analyst persona to cite -- its embedded digits
     # shouldn't look like a fabricated stat.
-    values.extend(_to_float(tok) for tok in _extract_numbers(insight.match_id))
+    values.extend(_to_float(tok, locale) for tok in _extract_numbers(insight.match_id, locale))
     for v in (insight.metric_value, insight.baseline_value, insight.delta_pct):
         if v is not None:
             values.append(float(v))
@@ -83,21 +87,21 @@ def _allowed_numeric_values(insight: InsightCandidate) -> list[float]:
             # window_summary["law_reference"] = "Law 12 (...)") -- it still
             # traces back to the InsightCandidate, just not through a
             # numeric field, so it should count as grounded.
-            values.extend(_to_float(tok) for tok in _extract_numbers(v))
+            values.extend(_to_float(tok, locale) for tok in _extract_numbers(v, locale))
     for pid in insight.related_players:
         # The analyst persona in particular is instructed to be dense and
         # precise, and reasonably cites internal ids like "(home_7)" -- the
         # embedded 7 is a real, traceable fact about the insight, not a
         # fabricated number, even though it never appears in a numeric field.
-        values.extend(_to_float(tok) for tok in _extract_numbers(pid))
+        values.extend(_to_float(tok, locale) for tok in _extract_numbers(pid, locale))
     return values
 
 
-def _numeric_check(text: str, insight: InsightCandidate) -> tuple[bool, list[str]]:
-    allowed = _allowed_numeric_values(insight)
+def _numeric_check(text: str, insight: InsightCandidate, locale: str = "en") -> tuple[bool, list[str]]:
+    allowed = _allowed_numeric_values(insight, locale)
     unmatched = []
-    for token in _extract_numbers(text):
-        num = _to_float(token)
+    for token in _extract_numbers(text, locale):
+        num = _to_float(token, locale)
         if not any(
             abs(num - a) <= NUMERIC_TOLERANCE or abs(abs(num) - abs(a)) <= NUMERIC_TOLERANCE
             for a in allowed
@@ -140,8 +144,11 @@ def _vocabulary_check_localized(text: str, insight: InsightCandidate, locale: st
 
 
 def check_grounding(text: str, insight: InsightCandidate, player_names: dict[str, str] | None = None) -> GroundingResult:
+    """Always English -- the Narrator (this function's only caller) never
+    writes any other language, so number parsing always uses the
+    comma-thousands/period-decimal convention (see _NUMBER_RE_EN)."""
     player_names = player_names or {}
-    numeric_ok, unmatched_numbers = _numeric_check(text, insight)
+    numeric_ok, unmatched_numbers = _numeric_check(text, insight, locale="en")
     entity_ok, unmatched_entities = _entity_check(text, insight, player_names)
     vocabulary_ok = _vocabulary_check(text, insight)
     return GroundingResult(
@@ -175,12 +182,12 @@ def check_grounding_multi(
     allowed_numbers: list[float] = []
     allowed_names: set[str] = set()
     for insight in insights:
-        allowed_numbers.extend(_allowed_numeric_values(insight))
+        allowed_numbers.extend(_allowed_numeric_values(insight, locale))
         allowed_names |= {player_names[pid] for pid in insight.related_players if pid in player_names}
 
     unmatched_numbers = []
-    for token in _extract_numbers(text):
-        num = _to_float(token)
+    for token in _extract_numbers(text, locale):
+        num = _to_float(token, locale)
         if not any(
             abs(num - a) <= NUMERIC_TOLERANCE or abs(abs(num) - abs(a)) <= NUMERIC_TOLERANCE
             for a in allowed_numbers
