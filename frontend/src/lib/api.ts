@@ -76,7 +76,13 @@ export interface StatsResponse {
   tendency_recovery: { dominant_action_recovery_accuracy: number; n_players_evaluated: number; method: string };
   grounding: { narrator_pass_rate: number | null; concierge_pass_rate: number | null; combined_pass_rate: number | null; sample_size: number };
   robustness: { corruptions_caught: number; corruptions_total: number; catch_rate: number; false_positives: number; legitimate_total: number; method: string };
-  realism: { metrics: RealismMetric[]; in_range_count: number; total_count: number; n_matches_averaged: number; method: string };
+  realism: {
+    metrics: RealismMetric[]; in_range_count: number; total_count: number; n_matches_averaged: number; method: string;
+    real_data_source: {
+      source: string; attribution: string; seasons_sampled_from: string[];
+      n_matches: number; n_matches_available_total: number; generated_at: string;
+    };
+  };
   formation_detection: {
     shift_detection_rate: number | null; mean_timing_error_min: number | null;
     n_team_matches_with_a_real_shift: number; method: string;

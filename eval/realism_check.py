@@ -1,13 +1,16 @@
-"""Statistical sanity-check against publicly reported real-world football
-ranges -- an honest substitute for "validated against real match data." We
-don't have access to a real tracking dataset (a competitor's headline claim
-is validation against 1,446 real league matches; we have no such dataset),
-so instead of claiming that, this checks whether our own synthetic
-generator's basic countable aggregates -- pressing intensity, pass
-completion, shot volume, possession balance -- fall within small, clearly
-cited publicly reported ranges, hand-collected from EPL/top-5-league
-analytics writeups (StatsBomb/Opta-based overviews), not a precise
-proprietary dataset.
+"""Statistical sanity-check against real match data -- our own generator's
+basic countable aggregates (pressing intensity, pass completion, shot
+volume, possession balance) compared against the same aggregates computed
+directly from a real sample of StatsBomb Open Data Premier League matches
+(see eval/real_data_validation.py and tools/fetch_real_data_validation.py),
+not a hand-typed table of publicly reported numbers.
+
+A competitor's headline claim here is validation against 1,446 real league
+matches from two proprietary/academic tracking datasets (Wyscout, Sportec);
+we don't have access to those, so this uses a different real, free,
+citable source instead -- StatsBomb Open Data, sampled from the two fully
+event-logged Premier League seasons they've released (2003/04 and
+2015/16) -- and says so plainly rather than overstating the sample.
 
 Deliberately excludes our own xT model from this comparison: it's
 hand-calibrated (agents/analyst0/metrics.py says so plainly) and was never
@@ -23,13 +26,8 @@ from dataclasses import dataclass
 from agents.analyst0.metrics import compute_ppda
 from datagen.match_simulator import MatchSimulator, build_squad
 from datagen.schema import AnyEvent
-
-REAL_WORLD_REFERENCE_RANGES: dict[str, tuple[float, float]] = {
-    "ppda": (6.0, 18.0),
-    "pass_completion_pct": (70.0, 90.0),
-    "shots_per_team": (6.0, 20.0),
-    "possession_pct": (30.0, 70.0),
-}
+from eval.real_data_validation import citation as real_data_citation
+from eval.real_data_validation import reference_ranges as real_world_reference_ranges
 
 
 @dataclass
@@ -69,10 +67,10 @@ def compute_match_aggregates(events: list[AnyEvent], duration_ms: int) -> dict[s
     }
 
 
-def compare_to_reference(aggregates: dict[str, float]) -> list[RealismResult]:
+def compare_to_reference(aggregates: dict[str, float], reference_ranges: dict[str, tuple[float, float]]) -> list[RealismResult]:
     return [
-        RealismResult(metric=k, value=v, reference_range=REAL_WORLD_REFERENCE_RANGES[k])
-        for k, v in aggregates.items() if k in REAL_WORLD_REFERENCE_RANGES
+        RealismResult(metric=k, value=v, reference_range=reference_ranges[k])
+        for k, v in aggregates.items() if k in reference_ranges
     ]
 
 
@@ -86,6 +84,8 @@ def run(n_matches: int = 6, seed: int = 321) -> dict:
     home = build_squad("home", "Thornbury United", rng)
     away = build_squad("away", "Castlefield FC", rng)
 
+    reference_ranges = real_world_reference_ranges()
+
     per_match_aggregates: list[dict[str, float]] = []
     for i in range(n_matches):
         sim = MatchSimulator(f"REALISM-{i}", seed=seed + i, home_squad=home, away_squad=away)
@@ -95,9 +95,10 @@ def run(n_matches: int = 6, seed: int = 321) -> dict:
 
     averaged = {
         key: round(sum(a[key] for a in per_match_aggregates) / len(per_match_aggregates), 2)
-        for key in REAL_WORLD_REFERENCE_RANGES
+        for key in reference_ranges
     }
-    results = compare_to_reference(averaged)
+    results = compare_to_reference(averaged, reference_ranges)
+    citation = real_data_citation()
     return {
         "metrics": [
             {"metric": r.metric, "value": r.value, "reference_range": list(r.reference_range), "in_range": r.in_range}
@@ -106,9 +107,11 @@ def run(n_matches: int = 6, seed: int = 321) -> dict:
         "in_range_count": sum(1 for r in results if r.in_range),
         "total_count": len(results),
         "n_matches_averaged": n_matches,
+        "real_data_source": citation,
         "method": (
-            f"{n_matches}-match synthetic average compared against small, hand-collected, "
-            "publicly reported EPL/top-5-league ranges -- not a precise proprietary dataset "
-            "and not our own hand-calibrated xT model, which isn't fit to any real dataset's scale."
+            f"{n_matches}-match synthetic average compared against the literal min-max range observed "
+            f"across {citation['n_matches']} real {', '.join(citation['seasons_sampled_from'])} matches "
+            f"(sampled from {citation['n_matches_available_total']} available) -- {citation['attribution']}. "
+            "Excludes our own hand-calibrated xT model, which isn't fit to any real dataset's scale."
         ),
     }

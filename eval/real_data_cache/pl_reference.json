@@ -1,0 +1,89 @@
+{
+  "source": "StatsBomb Open Data (https://github.com/statsbomb/open-data)",
+  "attribution": "Data courtesy of StatsBomb (https://statsbomb.com/what-we-do/hub/free-data/)",
+  "seasons_sampled_from": [
+    "Premier League 2015/16",
+    "Premier League 2003/04"
+  ],
+  "n_matches": 50,
+  "n_matches_available_total": 418,
+  "match_ids": [
+    3754261,
+    3754075,
+    3754167,
+    3754315,
+    3754011,
+    3754200,
+    3754017,
+    3754163,
+    3754077,
+    3749196,
+    3754282,
+    3749108,
+    3754066,
+    3754102,
+    3754139,
+    3754033,
+    3754191,
+    3754006,
+    3754173,
+    3754222,
+    3753974,
+    3754185,
+    3754332,
+    3754141,
+    3754177,
+    3754169,
+    3754138,
+    3754083,
+    3754215,
+    3754081,
+    3753985,
+    3754228,
+    3754308,
+    3754225,
+    3754189,
+    3754047,
+    3754283,
+    3754121,
+    3754344,
+    3754059,
+    3754074,
+    3754113,
+    3754304,
+    3754254,
+    3754061,
+    3754117,
+    3754002,
+    3754237,
+    3754322,
+    3754181
+  ],
+  "generated_at": "2026-10-23T15:07:57Z",
+  "metrics": {
+    "ppda": {
+      "mean": 10.29,
+      "stdev": 2.74,
+      "min": 6.17,
+      "max": 18.24
+    },
+    "pass_completion_pct": {
+      "mean": 76.96,
+      "stdev": 4.51,
+      "min": 65.3,
+      "max": 85.1
+    },
+    "shots_per_team": {
+      "mean": 13.46,
+      "stdev": 2.87,
+      "min": 7.0,
+      "max": 21.0
+    },
+    "possession_pct": {
+      "mean": 52.45,
+      "stdev": 7.0,
+      "min": 36.5,
+      "max": 67.5
+    }
+  }
+}

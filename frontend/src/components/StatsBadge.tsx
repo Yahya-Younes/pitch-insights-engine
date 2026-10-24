@@ -38,14 +38,16 @@ export function StatsBadge() {
       <span
         className="stats-chip"
         title={
-          "Our generator's basic match stats (pressing intensity, pass completion, shot volume, possession split) "
-          + "compared against small, publicly reported real-world ranges -- not our own hand-calibrated xT model, "
-          + "and not a precise proprietary dataset. Reported honestly either way: "
+          `Our generator's basic match stats (pressing intensity, pass completion, shot volume, possession split) `
+          + `compared against the literal min-max range observed across ${stats.realism.real_data_source.n_matches} real `
+          + `${stats.realism.real_data_source.seasons_sampled_from.join(" + ")} matches (sampled from `
+          + `${stats.realism.real_data_source.n_matches_available_total} available) -- ${stats.realism.real_data_source.attribution}. `
+          + "Not our own hand-calibrated xT model. Reported honestly either way: "
           + stats.realism.metrics.map((m) => `${m.metric}=${m.value} (range ${m.reference_range[0]}-${m.reference_range[1]}, ${m.in_range ? "in range" : "out of range"})`).join("; ")
         }
       >
-        <strong>{stats.realism.in_range_count}/{stats.realism.total_count}</strong> stats within real-world range
-        <span className="stats-chip-sub">(vs. public EPL-range benchmarks)</span>
+        <strong>{stats.realism.in_range_count}/{stats.realism.total_count}</strong> stats within real-match range
+        <span className="stats-chip-sub">({stats.realism.real_data_source.n_matches} real PL matches, StatsBomb)</span>
       </span>
       {stats.formation_detection.shift_detection_rate !== null && (
         <span
