@@ -52,7 +52,7 @@ export function StatsBadge() {
       {stats.formation_detection.shift_detection_rate !== null && (
         <span
           className="stats-chip"
-          title="Both teams independently roll a possible mid-match tactical reshuffle in our synthetic history; this is how often analyst0's formation tracker actually detects it, and how far off the detected timing typically is -- inferred purely from observed event locations, scored against the generator's own hidden shift timestamp."
+          title="Both teams independently roll a possible mid-match tactical reshuffle (28%-72% of match duration, so the 20-minute detection window always has runway left); this is how often analyst0's formation tracker actually detects it, and how far off the detected timing typically is -- inferred purely from observed event locations, scored against the generator's own hidden shift timestamp. The near-100% rate reflects large, abrupt synthetic shifts with guaranteed runway, not a claim that subtler or late-match real-world adjustments would be caught this reliably -- the ~15-18min average timing lag is the more informative number."
         >
           <strong>{Math.round(stats.formation_detection.shift_detection_rate * 100)}%</strong> tactical shifts detected
           <span className="stats-chip-sub">

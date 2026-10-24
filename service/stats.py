@@ -84,8 +84,12 @@ def compute_formation_detection_accuracy(n_matches: int = 8, seed: int = 456) ->
         "mean_timing_error_min": round(sum(timing_errors) / len(timing_errors), 1) if timing_errors else None,
         "n_team_matches_with_a_real_shift": len(had_shift),
         "method": f"{n_matches}-match synthetic history, both teams independently roll a possible mid-match "
-                  "reshuffle; shift timing inferred purely from observed event locations and scored against "
-                  "the generator's own hidden shift timestamp.",
+                  "reshuffle (28%-72% of match duration, so the 20-minute detection window always has runway "
+                  "left to pick it up); shift timing inferred purely from observed event locations and scored "
+                  "against the generator's own hidden shift timestamp. The near-100% detection rate reflects "
+                  "that our synthetic shifts are large, abrupt reassignments with guaranteed runway -- not a "
+                  "claim that subtler, late-match, or real-world tactical adjustments would be caught this "
+                  "reliably; the ~15-18min average timing lag is the more informative number here.",
     }
 
 
