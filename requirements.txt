@@ -12,3 +12,4 @@ azure-eventhub==5.15.0
 azure-messaging-webpubsubservice==1.0.1
 mcp==1.30.0
 azure-monitor-opentelemetry==1.8.11
+openai==3.35.1
