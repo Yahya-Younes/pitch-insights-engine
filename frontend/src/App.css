@@ -1322,6 +1322,107 @@
   font-weight: 600;
 }
 
+/* ---------- Tactics Lab ---------- */
+
+.tactics-lab-controls input {
+  width: 70px;
+}
+
+.tactics-lab-controls select {
+  width: auto;
+  min-width: 90px;
+}
+
+.tactics-lab-result {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.tactics-lab-record {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  font-size: 0.92rem;
+}
+
+.tactics-lab-wdl {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tactics-lab-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.tactics-lab-table th,
+.tactics-lab-table td {
+  text-align: left;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+}
+
+.tactics-lab-table th {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.tactics-lab-table td:first-child {
+  color: var(--text);
+}
+
+/* ---------- Compare Personas (split screen) ---------- */
+
+.compare-personas-controls select {
+  width: auto;
+  min-width: 100px;
+}
+
+.compare-personas-result {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 860px) {
+  .compare-personas-result {
+    grid-template-columns: 1fr;
+  }
+}
+
+.compare-personas-column {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem;
+}
+
+.compare-personas-column h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.compare-personas-column p {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--text);
+}
+
 /* ---------- Tactical Evolution ---------- */
 
 .tactics-panel {

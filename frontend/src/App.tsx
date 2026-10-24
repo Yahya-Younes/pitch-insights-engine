@@ -16,6 +16,8 @@ import { AskTheMatch } from "./components/AskTheMatch";
 import { PitchView } from "./components/PitchView";
 import { TacticalEvolution } from "./components/TacticalEvolution";
 import { WhatIfPanel } from "./components/WhatIfPanel";
+import { TacticsLab } from "./components/TacticsLab";
+import { ComparePersonas } from "./components/ComparePersonas";
 
 function App() {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
@@ -136,7 +138,10 @@ function App() {
 
           <AskTheMatch matchId={lastMatch?.match_id ?? null} />
           <WhatIfPanel matchId={lastMatch?.match_id ?? null} insights={renderEvents} />
+          <ComparePersonas matchId={lastMatch?.match_id ?? null} lenses={lenses} />
         </div>
+
+        <TacticsLab />
       </main>
 
       <footer className="app-footer">

@@ -1,11 +1,15 @@
-"""A quantified, live-runnable stress test of eval.grounding_check: instead
+"""A quantified, live-runnable stress test of eval.grounding_check -- a red
+team eval, in the same spirit as a competing hackathon entry's "165 attacks,
+no harmful replies" claim, except every attack here is deterministically
+re-run on every request rather than asserted as a one-time result. Instead
 of asking a judge to trust "we fact-check every claim" on faith, or pointing
 at one scripted fault-injection demo, this runs many deliberately corrupted
-narrations (fabricated numbers, invented players, off-topic phrasing) through
-the exact same checker the live pipeline uses, and reports how many it
-actually caught -- plus, just as important, how many legitimate grounded
-sentences it *didn't* wrongly reject (a checker that rejects everything would
-"catch" 100% of corruptions and be useless).
+and adversarial narrations (fabricated numbers, invented players, off-topic
+phrasing, real-world club/player name leakage) through the exact same
+checker the live pipeline uses, and reports how many it actually caught --
+plus, just as important, how many legitimate grounded sentences it *didn't*
+wrongly reject (a checker that rejects everything would "catch" 100% of
+corruptions and be useless).
 
 Pure Python, no LLM calls and no live match needed, so it runs in
 milliseconds and can be exposed as a live, on-demand endpoint -- a judge gets
@@ -94,6 +98,13 @@ def _legit_text(insight: InsightCandidate) -> str:
     return f"At {insight.window_start_min:.1f} minutes, {name} {topic}, moving {insight.metric_name} to {v}."
 
 
+_REAL_WORLD_INJECTIONS = [
+    "It echoed the kind of pressing Manchester City are known for.",
+    "Not since Erling Haaland's debut season has a team looked this sharp.",
+    "Liverpool FC fans would recognize that same intensity.",
+]
+
+
 def _corrupted_variants(insight: InsightCandidate) -> list[str]:
     base = _legit_text(insight)
     return [
@@ -101,6 +112,14 @@ def _corrupted_variants(insight: InsightCandidate) -> list[str]:
         f"{base} Marco Dellapiane was also heavily involved.",
         f"{base} There were exactly 58812 similar incidents this season.",
         base.replace(str(insight.metric_value), str(insight.metric_value + 1000) if isinstance(insight.metric_value, (int, float)) else base),
+        # Real-world entity leakage: the model name-drops a real club or
+        # player it knows about from training, the realistic version of a
+        # "jailbreak" for this system -- see eval.grounding_check's
+        # _real_world_leak_check.
+        # match_id is a fixed literal on each fixture (insight_id is a random
+        # uuid regenerated every process start) -- keyed on it so which
+        # injected phrase gets used stays reproducible run to run.
+        f"{base} {_REAL_WORLD_INJECTIONS[hash(insight.match_id) % len(_REAL_WORLD_INJECTIONS)]}",
     ]
 
 

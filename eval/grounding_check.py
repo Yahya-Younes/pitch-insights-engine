@@ -55,6 +55,29 @@ TRIGGER_VOCAB: dict[str, set[str]] = {
 
 NUMERIC_TOLERANCE = 0.6
 
+# This system only ever describes the synthetic match in front of it --
+# Narrator's own system prompt says so explicitly ("never state ... any fact
+# about a real Premier League club, player, or match"), but until now
+# nothing actually enforced that rule; it relied entirely on the model
+# following an instruction. A small, curated, case-insensitive blocklist of
+# unambiguous real-club and real-player identifiers (full names only, never
+# a single common word like "City" that would false-positive on ordinary
+# text) catches the realistic failure mode: the model name-drops a real club
+# or player it knows about from training, not just a fabricated stat.
+# Illustrative, not exhaustive -- a heuristic defense, not a perfect filter.
+_REAL_WORLD_ENTITIES = [
+    "Manchester United", "Manchester City", "Liverpool FC", "Real Madrid",
+    "FC Barcelona", "Bayern Munich", "Tottenham Hotspur", "Newcastle United",
+    "Paris Saint-Germain", "Erling Haaland", "Mohamed Salah", "Kevin De Bruyne",
+    "Bukayo Saka", "Cristiano Ronaldo", "Lionel Messi",
+]
+
+
+def _real_world_leak_check(text: str) -> tuple[bool, list[str]]:
+    text_lower = text.lower()
+    hits = [name for name in _REAL_WORLD_ENTITIES if name.lower() in text_lower]
+    return len(hits) == 0, hits
+
 
 @dataclass
 class GroundingResult:
@@ -64,10 +87,12 @@ class GroundingResult:
     vocabulary_ok: bool
     unmatched_numbers: list[str] = field(default_factory=list)
     unmatched_entities: list[str] = field(default_factory=list)
+    real_world_ok: bool = True
+    real_world_leaks: list[str] = field(default_factory=list)
 
     @property
     def passed(self) -> bool:
-        return self.numeric_ok and self.entity_ok and self.vocabulary_ok
+        return self.numeric_ok and self.entity_ok and self.vocabulary_ok and self.real_world_ok
 
 
 def _allowed_numeric_values(insight: InsightCandidate, locale: str = "en") -> list[float]:
@@ -151,9 +176,11 @@ def check_grounding(text: str, insight: InsightCandidate, player_names: dict[str
     numeric_ok, unmatched_numbers = _numeric_check(text, insight, locale="en")
     entity_ok, unmatched_entities = _entity_check(text, insight, player_names)
     vocabulary_ok = _vocabulary_check(text, insight)
+    real_world_ok, real_world_leaks = _real_world_leak_check(text)
     return GroundingResult(
         insight_id=insight.insight_id, numeric_ok=numeric_ok, entity_ok=entity_ok,
         vocabulary_ok=vocabulary_ok, unmatched_numbers=unmatched_numbers, unmatched_entities=unmatched_entities,
+        real_world_ok=real_world_ok, real_world_leaks=real_world_leaks,
     )
 
 
@@ -205,11 +232,13 @@ def check_grounding_multi(
     vocabulary_ok = (
         any(_vocabulary_check_localized(text, insight, locale) for insight in insights) if insights else True
     )
+    real_world_ok, real_world_leaks = _real_world_leak_check(text)
 
     combined_id = "+".join(i.insight_id for i in insights) if insights else "none"
     return GroundingResult(
         insight_id=combined_id, numeric_ok=numeric_ok, entity_ok=entity_ok,
         vocabulary_ok=vocabulary_ok, unmatched_numbers=unmatched_numbers, unmatched_entities=unmatched_entities,
+        real_world_ok=real_world_ok, real_world_leaks=real_world_leaks,
     )
 
 

@@ -30,7 +30,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel
 
+from agents.analyst0.live_analytics import compute_match_analytics
+from agents.analyst0.tactics_lab import simulate_formation_matchup
 from agents.analyst0.whatif import UnsupportedWhatIf, score_counterfactual
+from datagen.formations import formation_names
+from agents.concierge.agent import personalize
 from agents.concierge.lens import load_preset_lenses
 from agents.orchestrator.workflow import WorkflowCrashed, run_match
 from agents.qa.agent import ask as ask_match_question
@@ -308,9 +312,116 @@ async def match_tactics(match_id: str):
     return {"home": _serialize(tactics["home"]), "away": _serialize(tactics["away"])}
 
 
+@app.get("/matches/{match_id}/analytics")
+async def match_analytics(match_id: str, bucket_min: float = 5.0):
+    """Ad-hoc, time-bucketed analytics querying over one match's event
+    stream -- the lighter equivalent of a competing hackathon entry's real-
+    time Fabric Eventhouse/KQL analytics, built from data we already
+    generate rather than a new Azure service. See
+    agents/analyst0/live_analytics.py. Only covers matches run via
+    POST /matches/run (the demo path); the Event Hubs-streamed path doesn't
+    retain its raw event list for later querying yet."""
+    events = _state.get("events_by_match", {}).get(match_id)
+    duration_ms = _state.get("duration_ms_by_match", {}).get(match_id)
+    if events is None or duration_ms is None:
+        raise HTTPException(404, f"no analytics data for match {match_id!r}")
+    if not 0.5 <= bucket_min <= 30:
+        raise HTTPException(400, "bucket_min must be between 0.5 and 30")
+    return await asyncio.to_thread(compute_match_analytics, events, duration_ms, bucket_min)
+
+
+class TacticsLabRequest(BaseModel):
+    home_formation: str
+    away_formation: str
+    n_matches: int = 50
+
+
+@app.get("/tactics-lab/formations")
+async def tactics_lab_formations():
+    return {"formations": formation_names()}
+
+
+@app.post("/tactics-lab/simulate")
+async def tactics_lab_simulate(req: TacticsLabRequest):
+    """Monte-Carlo formation comparison: runs req.n_matches full synthetic
+    matches between the two chosen formations and returns the aggregate
+    win/draw/loss record, goals, xG, possession, and pressing intensity for
+    each side -- see agents/analyst0/tactics_lab.py. Pure CPU simulation,
+    no LLM calls, so this stays fast even at the full 200-match cap."""
+    if not 1 <= req.n_matches <= 200:
+        raise HTTPException(400, "n_matches must be between 1 and 200")
+    try:
+        return await asyncio.to_thread(
+            simulate_formation_matchup, req.home_formation, req.away_formation, req.n_matches,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+
 class AskRequest(BaseModel):
     question: str
     locale: str = "en"
+
+
+class CompareRequest(BaseModel):
+    persona_a: str
+    persona_b: str
+    lens_id_a: str | None = None
+    lens_id_b: str | None = None
+    player_id_a: str | None = None
+    player_id_b: str | None = None
+    locale: str = "en"
+
+
+@app.post("/matches/{match_id}/compare")
+async def compare_personas(match_id: str, req: CompareRequest):
+    """Split-screen persona comparison: the same match's current insights,
+    personalized two different ways side by side -- matching a competing
+    hackathon entry's standout split-screen dual-persona UI. Reuses
+    agents.concierge.agent.personalize's existing on-demand, whole-match
+    call path (the same one a single-persona full-match recap already
+    uses), just run twice concurrently instead of once."""
+    valid_personas = {"analyst", "casual_fan", "player_tracker"}
+    for persona in (req.persona_a, req.persona_b):
+        if persona not in valid_personas:
+            raise HTTPException(400, f"unknown persona {persona!r} -- must be one of {sorted(valid_personas)}")
+    for lens_id in (req.lens_id_a, req.lens_id_b):
+        if lens_id is not None and lens_id not in _state["lenses"]:
+            raise HTTPException(400, f"unknown lens_id {lens_id!r}")
+
+    log = _state["handoff_log"]
+    try:
+        entries = await asyncio.to_thread(log.entries, match_id)
+    except TypeError:
+        entries = [e for e in log.entries() if e.match_id == match_id]
+
+    insights = [InsightCandidate(**e.summary) for e in entries if e.stage == "insight"]
+    if not insights:
+        raise HTTPException(404, f"no insights yet for match {match_id!r}")
+
+    player_names = _state.get("player_names_by_match", {}).get(match_id, {})
+    lens_a = _state["lenses"].get(req.lens_id_a) if req.lens_id_a else None
+    lens_b = _state["lenses"].get(req.lens_id_b) if req.lens_id_b else None
+
+    try:
+        text_a, text_b = await asyncio.gather(
+            personalize(
+                insights, req.persona_a, lens=lens_a, player_id=req.player_id_a,
+                locale=req.locale, player_names=player_names,
+            ),
+            personalize(
+                insights, req.persona_b, lens=lens_b, player_id=req.player_id_b,
+                locale=req.locale, player_names=player_names,
+            ),
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc))
+
+    return {
+        "match_id": match_id,
+        "left": {"persona": req.persona_a, "lens_id": req.lens_id_a, "player_id": req.player_id_a, "text": text_a},
+        "right": {"persona": req.persona_b, "lens_id": req.lens_id_b, "player_id": req.player_id_b, "text": text_b},
+    }
 
 
 @app.post("/matches/{match_id}/ask")
@@ -453,6 +564,11 @@ async def run_demo_match(req: RunMatchRequest):
         ),
     }
     _state.setdefault("tactics_by_match", {})[match_id] = tactics
+
+    # Raw events + duration kept for /matches/{id}/analytics -- same
+    # in-memory, process-local lifetime as positions/tactics above.
+    _state.setdefault("events_by_match", {})[match_id] = on_pitch_events
+    _state.setdefault("duration_ms_by_match", {})[match_id] = int(cutoff_ms)
 
     _state.setdefault("match_status", {})[match_id] = {
         "status": "running", "home_team": result.home_name, "away_team": result.away_name,

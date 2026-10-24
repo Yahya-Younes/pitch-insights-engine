@@ -159,6 +159,41 @@ async def get_match_tactics(match_id: str) -> dict:
 
 
 @mcp.tool()
+async def simulate_tactics_matchup(home_formation: str, away_formation: str, n_matches: int = 50) -> dict:
+    """Monte-Carlo formation comparison: runs n_matches full synthetic
+    matches between two chosen formations and returns the aggregate
+    win/draw/loss record, goals, xG, possession, and pressing intensity for
+    each side. Valid formations: 4-4-2, 4-3-3, 4-2-3-1, 4-5-1, 3-5-2, 3-4-3.
+    Pure CPU simulation, no LLM calls."""
+    from agents.analyst0.tactics_lab import simulate_formation_matchup
+
+    if not 1 <= n_matches <= 200:
+        return {"error": "n_matches must be between 1 and 200"}
+    try:
+        return await asyncio.to_thread(simulate_formation_matchup, home_formation, away_formation, n_matches)
+    except ValueError as exc:
+        return {"error": str(exc)}
+
+
+@mcp.tool()
+async def get_match_analytics(match_id: str, bucket_min: float = 5.0) -> dict:
+    """Ad-hoc, time-bucketed analytics over one match's event stream: PPDA,
+    possession, shots, goals, and tempo per time bucket -- a queryable
+    series over the same underlying data the narrated insights come from,
+    not just the pre-packaged narrations themselves. Only covers matches
+    started via POST /matches/run (the demo path)."""
+    from agents.analyst0.live_analytics import compute_match_analytics
+
+    events = STATE.get("events_by_match", {}).get(match_id)
+    duration_ms = STATE.get("duration_ms_by_match", {}).get(match_id)
+    if events is None or duration_ms is None:
+        return {"error": f"no analytics data for match {match_id!r}"}
+    if not 0.5 <= bucket_min <= 30:
+        return {"error": "bucket_min must be between 0.5 and 30"}
+    return await asyncio.to_thread(compute_match_analytics, events, duration_ms, bucket_min)
+
+
+@mcp.tool()
 async def get_robustness_scorecard() -> dict:
     """Standalone fact-checking scorecard: deliberately corrupted
     narrations (fabricated numbers, wrong-but-real player names, off-topic

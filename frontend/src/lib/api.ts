@@ -114,3 +114,53 @@ export function askMatch(matchId: string, question: string, locale: Locale = "en
     body: JSON.stringify({ question, locale }),
   }).then(asJson<AskResponse>);
 }
+
+export interface TacticsLabResult {
+  home_formation: string;
+  away_formation: string;
+  n_matches: number;
+  home_record: { wins: number; draws: number; losses: number; win_pct: number; draw_pct: number; loss_pct: number };
+  mean_home_goals: number | null;
+  mean_away_goals: number | null;
+  mean_home_xg: number | null;
+  mean_away_xg: number | null;
+  mean_home_possession_pct: number | null;
+  mean_home_ppda: number | null;
+  mean_away_ppda: number | null;
+  method: string;
+}
+
+export function fetchFormations(): Promise<{ formations: string[] }> {
+  return fetch(`${API_BASE}/tactics-lab/formations`).then(asJson<{ formations: string[] }>);
+}
+
+export function simulateTacticsMatchup(
+  homeFormation: string, awayFormation: string, nMatches: number,
+): Promise<TacticsLabResult> {
+  return fetch(`${API_BASE}/tactics-lab/simulate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ home_formation: homeFormation, away_formation: awayFormation, n_matches: nMatches }),
+  }).then(asJson<TacticsLabResult>);
+}
+
+export interface CompareResponse {
+  match_id: string;
+  left: { persona: string; lens_id: string | null; player_id: string | null; text: string };
+  right: { persona: string; lens_id: string | null; player_id: string | null; text: string };
+}
+
+export function compareMatch(
+  matchId: string, personaA: string, personaB: string,
+  opts: { lensIdA?: string | null; lensIdB?: string | null; locale?: Locale } = {},
+): Promise<CompareResponse> {
+  return fetch(`${API_BASE}/matches/${matchId}/compare`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      persona_a: personaA, persona_b: personaB,
+      lens_id_a: opts.lensIdA ?? null, lens_id_b: opts.lensIdB ?? null,
+      locale: opts.locale ?? "en",
+    }),
+  }).then(asJson<CompareResponse>);
+}

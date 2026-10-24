@@ -133,6 +133,25 @@ def test_plain_comma_grouped_integer_also_parses_correctly():
     assert "1,417" not in result.unmatched_numbers
 
 
+def test_real_world_club_name_leak_fails_grounding():
+    """Narrator's own system prompt says never to mention a real Premier
+    League club or player, but until now nothing actually enforced it --
+    this is the realistic failure mode: the model name-drops something it
+    knows from training, not just a fabricated stat."""
+    text = "At minute 61, Thornbury's press intensified, echoing how Manchester City's PPDA dropped to 4.1."
+    result = check_grounding(text, _pressure_insight(), PLAYER_NAMES)
+    assert not result.real_world_ok
+    assert "Manchester City" in result.real_world_leaks
+    assert not result.passed
+
+
+def test_legitimate_synthetic_team_names_never_trip_the_real_world_check():
+    text = "In the 61st minute, Thornbury's press intensified — PPDA dropped to 4.1, down 47% from their average of 7.8, with 3 turnovers won in the window."
+    result = check_grounding(text, _pressure_insight(), PLAYER_NAMES)
+    assert result.real_world_ok
+    assert result.real_world_leaks == []
+
+
 def test_european_decimal_comma_still_parses_correctly_for_non_english_locale():
     """The fr/es/de locales use a bare comma as the decimal point -- make
     sure the English-vs-European parsing split didn't break that path."""
