@@ -32,11 +32,18 @@ def test_health_ok():
 
 
 def test_full_match_pipeline_produces_a_concierge_entry():
-    resp = httpx.post(f"{BASE_URL}/matches/run", json={"persona": "casual_fan", "minutes": 1}, timeout=30)
+    """minutes=1 was too short to reliably trigger even one insight (Analyst-0's
+    windows need more match time than that -- a legitimate insight_count=0, not a
+    bug), and 120s was too short a deadline once insights do start flowing: each
+    one needs both a Narrator AND a Concierge live LLM call serialized through the
+    same Semaphore(3), so a handful of insights easily exceeds 120s. minutes=8 /
+    240s budgets for a few real insights to complete the full pipeline without
+    waiting for a near-full match's worth of narration."""
+    resp = httpx.post(f"{BASE_URL}/matches/run", json={"persona": "casual_fan", "minutes": 8}, timeout=30)
     assert resp.status_code == 200
     match_id = resp.json()["match_id"]
 
-    deadline = time.monotonic() + 120
+    deadline = time.monotonic() + 240
     saw_concierge = False
     while time.monotonic() < deadline:
         handoff = httpx.get(f"{BASE_URL}/matches/{match_id}/handoff", timeout=15)
@@ -45,9 +52,9 @@ def test_full_match_pipeline_produces_a_concierge_entry():
         if any(e["stage"] == "concierge" for e in entries):
             saw_concierge = True
             break
-        time.sleep(3)
+        time.sleep(5)
 
-    assert saw_concierge, f"no concierge entry for match {match_id!r} within 120s"
+    assert saw_concierge, f"no concierge entry for match {match_id!r} within 240s"
 
 
 def test_stats_ok():
