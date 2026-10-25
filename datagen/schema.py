@@ -143,6 +143,8 @@ class MatchMetadataEvent(BaseModel):
     home_lineup: list[str]
     away_lineup: list[str]
     referee_name: str
+    home_market_value_eur: float = 0.0
+    away_market_value_eur: float = 0.0
 
 
 class RefereePositionEvent(BaseModel):

@@ -34,6 +34,7 @@ from agents.analyst0.live_analytics import compute_match_analytics
 from agents.analyst0.tactics_lab import simulate_formation_matchup
 from agents.analyst0.whatif import UnsupportedWhatIf, score_counterfactual
 from datagen.formations import formation_names
+from datagen.player_profiles import QUALITY_MAX, QUALITY_MIN
 from agents.concierge.agent import personalize
 from agents.concierge.lens import load_preset_lenses
 from agents.orchestrator.workflow import WorkflowCrashed, run_match
@@ -148,6 +149,8 @@ class RunMatchResponse(BaseModel):
     home_team: str
     away_team: str
     status: str
+    home_market_value_eur: float = 0.0
+    away_market_value_eur: float = 0.0
 
 
 async def _run_and_publish(
@@ -332,11 +335,13 @@ class TacticsLabRequest(BaseModel):
     home_formation: str
     away_formation: str
     n_matches: int = 50
+    home_quality: float | None = None
+    away_quality: float | None = None
 
 
 @app.get("/tactics-lab/formations")
 async def tactics_lab_formations():
-    return {"formations": formation_names()}
+    return {"formations": formation_names(), "quality_min": QUALITY_MIN, "quality_max": QUALITY_MAX}
 
 
 @app.post("/tactics-lab/simulate")
@@ -344,13 +349,16 @@ async def tactics_lab_simulate(req: TacticsLabRequest):
     """Monte-Carlo formation comparison: runs req.n_matches full synthetic
     matches between the two chosen formations and returns the aggregate
     win/draw/loss record, goals, xG, possession, and pressing intensity for
-    each side -- see agents/analyst0/tactics_lab.py. Pure CPU simulation,
-    no LLM calls, so this stays fast even at the full 200-match cap."""
+    each side -- see agents/analyst0/tactics_lab.py. Optional home_quality/
+    away_quality let a caller directly compare a big-money squad against a
+    shoestring-budget one in the same formation. Pure CPU simulation, no
+    LLM calls, so this stays fast even at the full 200-match cap."""
     if not 1 <= req.n_matches <= 200:
         raise HTTPException(400, "n_matches must be between 1 and 200")
     try:
         return await asyncio.to_thread(
             simulate_formation_matchup, req.home_formation, req.away_formation, req.n_matches,
+            home_quality=req.home_quality, away_quality=req.away_quality,
         )
     except ValueError as exc:
         raise HTTPException(400, str(exc))
@@ -612,6 +620,7 @@ async def run_demo_match(req: RunMatchRequest):
 
     return RunMatchResponse(
         match_id=match_id, home_team=result.home_name, away_team=result.away_name, status="running",
+        home_market_value_eur=metadata.home_market_value_eur, away_market_value_eur=metadata.away_market_value_eur,
     )
 
 

@@ -47,6 +47,8 @@ export interface RunMatchResponse {
   home_team: string;
   away_team: string;
   status: string;
+  home_market_value_eur?: number;
+  away_market_value_eur?: number;
 }
 
 export type Persona = "analyst" | "casual_fan" | "player_tracker";

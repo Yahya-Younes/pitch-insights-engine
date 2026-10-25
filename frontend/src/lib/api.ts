@@ -118,6 +118,8 @@ export function askMatch(matchId: string, question: string, locale: Locale = "en
 export interface TacticsLabResult {
   home_formation: string;
   away_formation: string;
+  home_market_value_eur: number;
+  away_market_value_eur: number;
   n_matches: number;
   home_record: { wins: number; draws: number; losses: number; win_pct: number; draw_pct: number; loss_pct: number };
   mean_home_goals: number | null;
@@ -130,17 +132,23 @@ export interface TacticsLabResult {
   method: string;
 }
 
-export function fetchFormations(): Promise<{ formations: string[] }> {
-  return fetch(`${API_BASE}/tactics-lab/formations`).then(asJson<{ formations: string[] }>);
+export function fetchFormations(): Promise<{ formations: string[]; quality_min: number; quality_max: number }> {
+  return fetch(`${API_BASE}/tactics-lab/formations`).then(
+    asJson<{ formations: string[]; quality_min: number; quality_max: number }>,
+  );
 }
 
 export function simulateTacticsMatchup(
   homeFormation: string, awayFormation: string, nMatches: number,
+  homeQuality?: number | null, awayQuality?: number | null,
 ): Promise<TacticsLabResult> {
   return fetch(`${API_BASE}/tactics-lab/simulate`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ home_formation: homeFormation, away_formation: awayFormation, n_matches: nMatches }),
+    body: JSON.stringify({
+      home_formation: homeFormation, away_formation: awayFormation, n_matches: nMatches,
+      home_quality: homeQuality ?? null, away_quality: awayQuality ?? null,
+    }),
   }).then(asJson<TacticsLabResult>);
 }
 

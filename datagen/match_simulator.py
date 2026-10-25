@@ -19,7 +19,7 @@ import random
 from dataclasses import dataclass
 
 from datagen.formations import FORMATIONS, formation_names, plausible_shift_target, slot_to_location
-from datagen.player_profiles import generate_squad
+from datagen.player_profiles import generate_market_value_eur, generate_squad, generate_squad_quality
 from datagen.schema import (
     AnyEvent,
     CardEvent,
@@ -112,6 +112,8 @@ class SquadState:
     profiles: dict[str, PlayerTendencyProfile]
     expected_locations: dict[str, Location]
     starting_formation: str
+    quality: float = 1.0
+    market_value_eur: float = 0.0
 
 
 @dataclass
@@ -159,6 +161,10 @@ class MatchTeamState:
     def profiles(self) -> dict[str, PlayerTendencyProfile]:
         return self.squad.profiles
 
+    @property
+    def market_value_eur(self) -> float:
+        return self.squad.market_value_eur
+
     def nearest_player(self, location: Location, rng: random.Random, exclude: set[str] | None = None) -> str:
         exclude = exclude or set()
         candidates = [pid for pid in self.profiles if pid not in exclude]
@@ -190,16 +196,29 @@ class MatchResult:
 
 def build_squad(
     team: Team, team_name: str, rng: random.Random, used_names: set[str] | None = None, formation: str | None = None,
+    quality: float | None = None,
 ) -> SquadState:
+    """quality=None rolls a random squad quality (see player_profiles.py);
+    pass an explicit value (e.g. from Tactics Lab) to compare a specific
+    quality tier instead of a random one. quality scales directly into
+    each generated player's directness/dribble_tendency/shot_on_sight --
+    the same attributes that already drive match_simulator's shot and pass
+    outcomes -- so a higher-value squad genuinely plays better, not just a
+    cosmetic label, and market_value_eur is derived from that same number
+    rather than being an independent random figure."""
     if formation is None:
         formation = rng.choice(formation_names())
-    profiles_list = generate_squad(team, rng, used_names, formation=formation)
+    if quality is None:
+        quality = generate_squad_quality(rng)
+    profiles_list = generate_squad(team, rng, used_names, formation=formation, quality=quality)
     direction = "left_to_right" if team == "home" else "right_to_left"
     profiles = {p.player_id: p for p in profiles_list}
     slots = FORMATIONS[formation]
     expected = {p.player_id: slot_to_location(slot, direction) for p, slot in zip(profiles_list, slots)}
+    market_value_eur = generate_market_value_eur(quality, rng)
     return SquadState(team=team, team_name=team_name, direction=direction,
-                       profiles=profiles, expected_locations=expected, starting_formation=formation)
+                       profiles=profiles, expected_locations=expected, starting_formation=formation,
+                       quality=quality, market_value_eur=market_value_eur)
 
 
 # Probability either team has a mid-match reshuffle at all -- independent
@@ -300,6 +319,8 @@ class MatchSimulator:
             home_lineup=[p.player_name for p in self.home.profiles.values()],
             away_lineup=[p.player_name for p in self.away.profiles.values()],
             referee_name=self.rng.choice(REFEREE_NAME_POOL),
+            home_market_value_eur=self.home.market_value_eur,
+            away_market_value_eur=self.away.market_value_eur,
         )
 
     def _update_referee(self, ball_location: Location) -> None:

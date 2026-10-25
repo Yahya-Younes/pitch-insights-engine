@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from agents.analyst0.metrics import compute_ppda
 from datagen.formations import formation_names
 from datagen.match_simulator import MatchSimulator, build_squad
+from datagen.player_profiles import QUALITY_MAX, QUALITY_MIN
 from datagen.schema import AnyEvent
 
 
@@ -48,19 +49,31 @@ def _match_outcome(events: list[AnyEvent], duration_ms: int) -> MatchOutcome:
 
 def simulate_formation_matchup(
     home_formation: str, away_formation: str, n_matches: int = 50, seed: int = 10000,
+    home_quality: float | None = None, away_quality: float | None = None,
 ) -> dict:
     """The core Tactics Lab call: n_matches independent full matches between
     a fixed home-formation squad and a fixed away-formation squad (same two
     generated squads reused across every run -- only the match seed varies),
     aggregated into a win/draw/loss record plus mean goals, xG, possession,
-    and pressing intensity for each side."""
+    and pressing intensity for each side.
+
+    home_quality/away_quality (datagen.player_profiles.QUALITY_MIN..MAX,
+    default: both random) let a caller compare squads of deliberately
+    different value -- e.g. a top-end squad (quality near QUALITY_MAX,
+    market value in the hundreds of millions of euros) against a
+    shoestring-budget one (quality near QUALITY_MIN) in the same
+    formation, to see how much of an edge that gap is actually worth
+    across many matches rather than one noisy result."""
     valid = set(formation_names())
     if home_formation not in valid or away_formation not in valid:
         raise ValueError(f"formation must be one of {sorted(valid)}, got {home_formation!r}/{away_formation!r}")
+    for label, q in (("home_quality", home_quality), ("away_quality", away_quality)):
+        if q is not None and not QUALITY_MIN <= q <= QUALITY_MAX:
+            raise ValueError(f"{label} must be between {QUALITY_MIN} and {QUALITY_MAX}, got {q!r}")
 
     rng = random.Random(seed)
-    home_squad = build_squad("home", "Home XI", rng, formation=home_formation)
-    away_squad = build_squad("away", "Away XI", rng, formation=away_formation)
+    home_squad = build_squad("home", "Home XI", rng, formation=home_formation, quality=home_quality)
+    away_squad = build_squad("away", "Away XI", rng, formation=away_formation, quality=away_quality)
     duration_ms = 90 * 60000
 
     outcomes: list[MatchOutcome] = []
@@ -81,6 +94,8 @@ def simulate_formation_matchup(
     return {
         "home_formation": home_formation,
         "away_formation": away_formation,
+        "home_market_value_eur": home_squad.market_value_eur,
+        "away_market_value_eur": away_squad.market_value_eur,
         "n_matches": n_matches,
         "home_record": {
             "wins": wins, "draws": draws, "losses": losses,

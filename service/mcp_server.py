@@ -159,18 +159,26 @@ async def get_match_tactics(match_id: str) -> dict:
 
 
 @mcp.tool()
-async def simulate_tactics_matchup(home_formation: str, away_formation: str, n_matches: int = 50) -> dict:
+async def simulate_tactics_matchup(
+    home_formation: str, away_formation: str, n_matches: int = 50,
+    home_quality: float | None = None, away_quality: float | None = None,
+) -> dict:
     """Monte-Carlo formation comparison: runs n_matches full synthetic
     matches between two chosen formations and returns the aggregate
     win/draw/loss record, goals, xG, possession, and pressing intensity for
     each side. Valid formations: 4-4-2, 4-3-3, 4-2-3-1, 4-5-1, 3-5-2, 3-4-3.
-    Pure CPU simulation, no LLM calls."""
+    Optional home_quality/away_quality (0.7-1.3) compare a big-money squad
+    against a shoestring-budget one in the same formation. Pure CPU
+    simulation, no LLM calls."""
     from agents.analyst0.tactics_lab import simulate_formation_matchup
 
     if not 1 <= n_matches <= 200:
         return {"error": "n_matches must be between 1 and 200"}
     try:
-        return await asyncio.to_thread(simulate_formation_matchup, home_formation, away_formation, n_matches)
+        return await asyncio.to_thread(
+            simulate_formation_matchup, home_formation, away_formation, n_matches,
+            home_quality=home_quality, away_quality=away_quality,
+        )
     except ValueError as exc:
         return {"error": str(exc)}
 

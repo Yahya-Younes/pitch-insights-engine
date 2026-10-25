@@ -88,6 +88,8 @@ function App() {
               homeTeam={lastMatch.home_team}
               awayTeam={lastMatch.away_team}
               insightCount={renderEvents.length}
+              homeMarketValueEur={lastMatch.home_market_value_eur}
+              awayMarketValueEur={lastMatch.away_market_value_eur}
             />
           </>
         )}

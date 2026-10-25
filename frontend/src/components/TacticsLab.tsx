@@ -2,24 +2,54 @@ import { useEffect, useState } from "react";
 import { fetchFormations, simulateTacticsMatchup } from "../lib/api";
 import type { TacticsLabResult } from "../lib/api";
 
+const QUALITY_PRESETS: { value: string; label: string }[] = [
+  { value: "random", label: "Random squad value" },
+  { value: "big_money", label: "Big-money squad" },
+  { value: "mid_table", label: "Mid-table squad" },
+  { value: "shoestring", label: "Shoestring-budget squad" },
+];
+
+function presetToQuality(preset: string, min: number, max: number): number | null {
+  if (preset === "big_money") return max;
+  if (preset === "mid_table") return (min + max) / 2;
+  if (preset === "shoestring") return min;
+  return null; // "random"
+}
+
+function formatEur(value: number): string {
+  if (value >= 1_000_000_000) return `€${(value / 1_000_000_000).toFixed(2)}B`;
+  if (value >= 1_000_000) return `€${(value / 1_000_000).toFixed(1)}M`;
+  return `€${Math.round(value / 1000)}K`;
+}
+
 export function TacticsLab() {
   const [formations, setFormations] = useState<string[]>([]);
+  const [qualityMin, setQualityMin] = useState(0.7);
+  const [qualityMax, setQualityMax] = useState(1.3);
   const [home, setHome] = useState("4-3-3");
   const [away, setAway] = useState("4-5-1");
+  const [homePreset, setHomePreset] = useState("random");
+  const [awayPreset, setAwayPreset] = useState("random");
   const [nMatches, setNMatches] = useState(50);
   const [result, setResult] = useState<TacticsLabResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchFormations().then((r) => setFormations(r.formations)).catch(() => setFormations([]));
+    fetchFormations()
+      .then((r) => { setFormations(r.formations); setQualityMin(r.quality_min); setQualityMax(r.quality_max); })
+      .catch(() => setFormations([]));
   }, []);
 
   async function handleRun() {
     setBusy(true);
     setError(null);
     try {
-      const r = await simulateTacticsMatchup(home, away, nMatches);
+      const r = await simulateTacticsMatchup(
+        home, away, nMatches,
+        presetToQuality(homePreset, qualityMin, qualityMax),
+        presetToQuality(awayPreset, qualityMin, qualityMax),
+      );
       setResult(r);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -35,7 +65,7 @@ export function TacticsLab() {
         <h2>Tactics Lab</h2>
         <span
           className="panel-tag"
-          title="Monte-Carlo formation comparison: runs N independent full 90-minute synthetic matches between two chosen formations and reports the aggregate win/draw/loss record, goals, xG, possession, and pressing intensity -- not a single match's result. Pure CPU simulation, no LLM calls."
+          title="Monte-Carlo formation comparison: runs N independent full 90-minute synthetic matches between two chosen formations (and, optionally, two deliberately different squad values) and reports the aggregate win/draw/loss record, goals, xG, possession, and pressing intensity -- not a single match's result. Squad value scales directly into the attributes that drive shot and pass outcomes, so a value gap is a real, measurable edge, not a cosmetic label. Pure CPU simulation, no LLM calls."
         >
           Monte-Carlo &middot; {result ? `${result.n_matches} matches` : "no LLM calls"}
         </span>
@@ -49,9 +79,21 @@ export function TacticsLab() {
           </select>
         </label>
         <label>
+          Home squad
+          <select value={homePreset} onChange={(e) => { setHomePreset(e.target.value); setResult(null); }}>
+            {QUALITY_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </label>
+        <label>
           Away formation
           <select value={away} onChange={(e) => { setAway(e.target.value); setResult(null); }}>
             {formations.map((f) => <option key={f} value={f}>{f}</option>)}
+          </select>
+        </label>
+        <label>
+          Away squad
+          <select value={awayPreset} onChange={(e) => { setAwayPreset(e.target.value); setResult(null); }}>
+            {QUALITY_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </label>
         <label>
@@ -86,6 +128,7 @@ export function TacticsLab() {
               <tr><th></th><th>{result.home_formation} (home)</th><th>{result.away_formation} (away)</th></tr>
             </thead>
             <tbody>
+              <tr><td>Squad value</td><td>{formatEur(result.home_market_value_eur)}</td><td>{formatEur(result.away_market_value_eur)}</td></tr>
               <tr><td>Mean goals</td><td>{result.mean_home_goals}</td><td>{result.mean_away_goals}</td></tr>
               <tr><td>Mean xG</td><td>{result.mean_home_xg}</td><td>{result.mean_away_xg}</td></tr>
               <tr><td>Mean PPDA</td><td>{result.mean_home_ppda}</td><td>{result.mean_away_ppda}</td></tr>

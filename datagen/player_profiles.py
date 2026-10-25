@@ -57,6 +57,40 @@ def _clip01(x: float) -> float:
     return max(0.0, min(1.0, x))
 
 
+# A squad-level multiplier on the behavioral tendencies that already feed
+# directly into match_simulator.py's event-resolution formulas
+# (shot_on_sight -> shot_prob, directness -> pass forward_bonus) -- a
+# "richer squad plays better" effect implemented entirely at attribute
+# generation time, with zero changes to the already realism-validated
+# event-resolution code in match_simulator.py itself. Deliberately a modest
+# range (0.7-1.3): wide enough to show up as a real, visible edge over many
+# matches (see Tactics Lab), narrow enough that eval.realism_check's
+# aggregate ranges -- fit across randomized quality by default -- stay
+# honest rather than getting skewed by an extreme multiplier.
+QUALITY_MIN = 0.7
+QUALITY_MAX = 1.3
+
+
+def generate_squad_quality(rng: random.Random) -> float:
+    return rng.uniform(QUALITY_MIN, QUALITY_MAX)
+
+
+def generate_market_value_eur(quality: float, rng: random.Random) -> float:
+    """A plausible total squad valuation correlated with `quality` -- real
+    club valuations are heavily right-skewed (a handful of giants worth
+    well over EUR 1B, most clubs worth a few tens of millions), so this
+    interpolates on a log/exponential curve rather than linearly: quality
+    0.7 lands around EUR 15-20M (a selling club's thin squad), quality 1.3
+    around EUR 800M-1B+ (a superclub), with +/-25% jitter for texture.
+    Flavor/context data for narration and the Tactics Lab UI -- it's
+    *derived from* quality, not an independent random number, so a
+    reported value mismatch genuinely reflects the quality gap that's
+    actually driving the two squads' on-pitch attributes."""
+    t = _clip01((quality - QUALITY_MIN) / (QUALITY_MAX - QUALITY_MIN))
+    base = 15_000_000 * (60 ** t)
+    return round(base * rng.uniform(0.8, 1.25), -5)
+
+
 def _zone_bias_for_location(target: Location, position: Position, rng: random.Random) -> dict[str, float]:
     """A zone-bias cloud centered on target (an explicit formation-slot
     pitch location, already left/right-differentiated -- see
@@ -111,6 +145,7 @@ def generate_player_profile(
     slot_location: Location,
     rng: random.Random,
     used_names: set[str] | None = None,
+    quality: float = 1.0,
 ) -> PlayerTendencyProfile:
     prior = _POSITION_PRIORS[position]
     name = _unique_name(rng, used_names)
@@ -124,16 +159,17 @@ def generate_player_profile(
         preferred_foot=rng.choices(["right", "left", "both"], weights=[0.72, 0.2, 0.08])[0],
         zone_bias=zone_bias,
         action_bias_under_pressure=_action_bias_for(position, rng),
-        directness=_clip01(prior["directness"] + rng.uniform(-0.1, 0.1)),
-        dribble_tendency=_clip01(prior["dribble_tendency"] + rng.uniform(-0.08, 0.08)),
+        directness=_clip01((prior["directness"] + rng.uniform(-0.1, 0.1)) * quality),
+        dribble_tendency=_clip01((prior["dribble_tendency"] + rng.uniform(-0.08, 0.08)) * quality),
         sprint_frequency_per_match=max(2.0, rng.gauss(prior["sprint_mean"], prior["sprint_mean"] * 0.2)),
         preferred_sprint_zones=preferred_sprint_zones,
-        shot_on_sight=_clip01(prior["shot_on_sight"] + rng.uniform(-0.06, 0.06)),
+        shot_on_sight=_clip01((prior["shot_on_sight"] + rng.uniform(-0.06, 0.06)) * quality),
     )
 
 
 def generate_squad(
     team: Team, rng: random.Random, used_names: set[str] | None = None, formation: str = "4-3-3",
+    quality: float = 1.0,
 ) -> list[PlayerTendencyProfile]:
     direction: AttackingDirection = "left_to_right" if team == "home" else "right_to_left"
     if used_names is None:
@@ -141,7 +177,7 @@ def generate_squad(
     slots = FORMATIONS[formation]
     return [
         generate_player_profile(
-            f"{team}_{idx + 1}", slot[0], slot_to_location(slot, direction), rng, used_names,  # type: ignore[arg-type]
+            f"{team}_{idx + 1}", slot[0], slot_to_location(slot, direction), rng, used_names, quality,  # type: ignore[arg-type]
         )
         for idx, slot in enumerate(slots)
     ]
