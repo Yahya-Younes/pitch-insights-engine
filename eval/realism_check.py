@@ -5,12 +5,11 @@ directly from a real sample of StatsBomb Open Data Premier League matches
 (see eval/real_data_validation.py and tools/fetch_real_data_validation.py),
 not a hand-typed table of publicly reported numbers.
 
-A competitor's headline claim here is validation against 1,446 real league
-matches from two proprietary/academic tracking datasets (Wyscout, Sportec);
-we don't have access to those, so this uses a different real, free,
-citable source instead -- StatsBomb Open Data, sampled from the two fully
-event-logged Premier League seasons they've released (2003/04 and
-2015/16) -- and says so plainly rather than overstating the sample.
+We don't have access to a proprietary real-match tracking dataset, so this
+uses a real, free, citable source instead -- StatsBomb Open Data, sampled
+from the two fully event-logged Premier League seasons they've released
+(2003/04 and 2015/16) -- and says so plainly rather than overstating the
+sample.
 
 Deliberately excludes our own xT model from this comparison: it's
 hand-calibrated (agents/analyst0/metrics.py says so plainly) and was never

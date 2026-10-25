@@ -11,11 +11,8 @@ frozen in place. Using a trailing window rather than one whole-match
 average is what lets a mid-match tactical shift (datagen/match_simulator.py's
 TacticalShiftTruth) actually show up visually -- a player's drift target
 moves as their real recent positioning moves, instead of blurring their
-entire match into one static point. Several other hackathon teams ship a
-similar continuous view on top of a synthetic event generator and disclose
-it exactly this plainly (one competitor's own README says "synthetic... no
-CV") -- this module is our equivalent, not an attempt to pass synthetic
-motion off as real tracking.
+entire match into one static point. Disclosed plainly: this is not an
+attempt to pass synthetic motion off as real tracking.
 """
 from __future__ import annotations
 
@@ -28,9 +25,8 @@ from datagen.schema import AnyEvent, Location, PITCH_X_MAX, PITCH_Y_MAX, PlayerT
 SAMPLE_HZ = 10.0
 _SAMPLE_INTERVAL_MS = 1000.0 / SAMPLE_HZ
 # A deliberately simple parabolic flight arc for a struck ball on a
-# pass/shot/carry (peaks at this height, zero at both ends) -- the "ball
-# trajectory physics" touch other teams show, without needing a full
-# gravity+drag+Magnus model to get a plausible-looking arc.
+# pass/shot/carry (peaks at this height, zero at both ends) -- a
+# plausible-looking arc without needing a full gravity+drag+Magnus model.
 _ARC_APEX_M = 3.0
 # How fast an off-ball player drifts toward their current rolling-window
 # target each sample, as a fraction of the remaining distance -- a simple

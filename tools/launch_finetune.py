@@ -1,16 +1,13 @@
 """Uploads a self-distillation training JSONL (see
 tools/export_finetune_dataset.py) to Azure AI Foundry and launches a
-fine-tuning job -- closing the "fine-tuned custom model" gap against
-GamePulse's fine-tuned GPT-4.1 Mini, using our own live grounding-checked
-Narrator outputs as training data instead of an undisclosed dataset.
+fine-tuning job, using our own live grounding-checked Narrator outputs as
+training data.
 
 Base model defaults to gpt-4.1-mini: confirmed fine-tunable in this Foundry
-resource (az cognitiveservices account list-models), and the same base
-model GamePulse's README claims to have fine-tuned, which makes this a
-direct, comparable answer to that specific claim rather than a different
-capability entirely. Our production Narrator deployment (gpt-5-mini) does
-NOT support fine-tuning in this account, which is exactly why this exists
-as a separate, smaller model rather than a fine-tune of production itself.
+resource (az cognitiveservices account list-models). Our production
+Narrator deployment (gpt-5-mini) does NOT support fine-tuning in this
+account, which is exactly why this exists as a separate, smaller model
+rather than a fine-tune of production itself.
 
 Auth: AAD (DefaultAzureCredential / az login or the Container App's managed
 identity), matching the rest of this codebase -- no API key ever handled.

@@ -1,12 +1,11 @@
-"""A quantified, live-runnable stress test of eval.grounding_check -- a red
-team eval, in the same spirit as a competing hackathon entry's "165 attacks,
-no harmful replies" claim, except every attack here is deterministically
-re-run on every request rather than asserted as a one-time result. Instead
-of asking a judge to trust "we fact-check every claim" on faith, or pointing
-at one scripted fault-injection demo, this runs many deliberately corrupted
-and adversarial narrations (fabricated numbers, invented players, off-topic
-phrasing, real-world club/player name leakage) through the exact same
-checker the live pipeline uses, and reports how many it actually caught --
+"""A quantified, live-runnable red-team stress test of eval.grounding_check,
+deterministically re-run on every request rather than asserted as a
+one-time result. Instead of asking a judge to trust "we fact-check every
+claim" on faith, or pointing at one scripted fault-injection demo, this
+runs many deliberately corrupted and adversarial narrations (fabricated
+numbers, invented players, off-topic phrasing, real-world club/player name
+leakage) through the exact same checker the live pipeline uses, and
+reports how many it actually caught --
 plus, just as important, how many legitimate grounded sentences it *didn't*
 wrongly reject (a checker that rejects everything would "catch" 100% of
 corruptions and be useless).

@@ -59,6 +59,38 @@ TRIGGER_GLOSSARY: dict[str, dict[str, set[str]]] = {
             "erwischt", "anstatt", "abgewichen", "atypisch",
         },
     },
+    "it": {
+        "pressure_spike": {"pressing", "pressione", "pressato", "pressando", "linea alta", "stretto", "pressa"},
+        "chaos_shift": {"caotico", "caos", "confuso", "controllo", "slancio", "disorganizzato", "frenetico", "perdita di palla"},
+        "rhythm_change": {"tempo", "ritmo", "rallentato", "accelerato", "più lento", "più veloce"},
+        "xt_surge": {
+            "minaccia", "pericoloso", "pericolo", "occasione", "territorio", "minaccioso",
+            "xt_surge", "xt surge", "acceso", "aperto",
+        },
+        "milestone": {"gol", "segna", "segnato", "pietra miliare"},
+        "referee_decision": {"arbitro", "discutibile", "posizionamento", "angolo", "decisione", "legge"},
+        "tendency_match": {"anticipato", "sapeva", "noto", "schema", "tipico", "abituale", "corrisponde", "coerente"},
+        "tendency_break": {
+            "fuori carattere", "contro la sua abitudine", "sorprendente", "insolito",
+            "colto", "invece", "deviato", "atipico",
+        },
+    },
+    "pt": {
+        "pressure_spike": {"pressão", "pressionar", "pressionando", "linha alta", "apertado", "pressionado"},
+        "chaos_shift": {"caótico", "caos", "descontrolado", "controlo", "ímpeto", "desorganizado", "frenético", "perda de bola"},
+        "rhythm_change": {"ritmo", "cadência", "desacelerado", "acelerado", "mais lento", "mais rápido"},
+        "xt_surge": {
+            "ameaça", "perigoso", "perigo", "oportunidade", "território", "ameaçador",
+            "xt_surge", "xt surge", "acendeu", "cortou",
+        },
+        "milestone": {"golo", "marca", "marcou", "marco"},
+        "referee_decision": {"árbitro", "discutível", "posicionamento", "ângulo", "decisão", "lei"},
+        "tendency_match": {"antecipado", "sabia", "conhecido", "padrão", "típico", "habitual", "corresponde", "consistente"},
+        "tendency_break": {
+            "fora de carácter", "contra o seu hábito", "surpreendente", "invulgar",
+            "apanhado", "em vez", "desviou", "atípico",
+        },
+    },
 }
 
 

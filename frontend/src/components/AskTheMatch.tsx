@@ -15,6 +15,8 @@ const LOCALES: { value: Locale; label: string }[] = [
   { value: "fr", label: "FR" },
   { value: "es", label: "ES" },
   { value: "de", label: "DE" },
+  { value: "it", label: "IT" },
+  { value: "pt", label: "PT" },
 ];
 
 export function AskTheMatch({ matchId }: { matchId: string | null }) {

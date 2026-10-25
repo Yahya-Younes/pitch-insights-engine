@@ -51,7 +51,7 @@ export interface RunMatchResponse {
 
 export type Persona = "analyst" | "casual_fan" | "player_tracker";
 
-export type Locale = "en" | "fr" | "es" | "de";
+export type Locale = "en" | "fr" | "es" | "de" | "it" | "pt";
 
 export interface PositionFrame {
   t_ms: number;

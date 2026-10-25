@@ -1,10 +1,6 @@
 """Ad-hoc, time-bucketed analytics querying over one match's event stream --
-matching the user-facing value of a competing hackathon entry's real-time
-analytics (built on Microsoft Fabric Eventhouse + KQL), without provisioning
-a new, heavier Azure service this close to the deadline. The query surface
-is REST parameters (bucket size, metric) instead of KQL, but the underlying
-idea is the same: let a client ask for an arbitrary time-sliced view of the
-match's data on demand, not just receive pre-packaged insights.
+lets a client ask for an arbitrary time-sliced view of the match's data on
+demand (bucket size, metric), not just receive pre-packaged insights.
 
 Built entirely from datagen's event schema and the same proven metric
 primitives eval/realism_check.py and agents/analyst0/metrics.py already use

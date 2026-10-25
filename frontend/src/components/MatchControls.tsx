@@ -14,6 +14,8 @@ const LOCALES: { value: Locale; label: string }[] = [
   { value: "fr", label: "Francais" },
   { value: "es", label: "Espanol" },
   { value: "de", label: "Deutsch" },
+  { value: "it", label: "Italiano" },
+  { value: "pt", label: "Portugues" },
 ];
 
 export function MatchControls({ lenses, onMatchStarted }: Props) {

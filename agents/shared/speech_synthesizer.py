@@ -33,6 +33,8 @@ _VOICE_BY_LOCALE: dict[str, str] = {
     "fr": "fr-FR-VivienneMultilingualNeural",
     "es": "es-ES-XimenaNeural",
     "de": "de-DE-FlorianMultilingualNeural",
+    "it": "it-IT-IsabellaMultilingualNeural",
+    "pt": "pt-PT-RaquelNeural",
 }
 
 

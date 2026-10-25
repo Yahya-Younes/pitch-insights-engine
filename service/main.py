@@ -315,9 +315,7 @@ async def match_tactics(match_id: str):
 @app.get("/matches/{match_id}/analytics")
 async def match_analytics(match_id: str, bucket_min: float = 5.0):
     """Ad-hoc, time-bucketed analytics querying over one match's event
-    stream -- the lighter equivalent of a competing hackathon entry's real-
-    time Fabric Eventhouse/KQL analytics, built from data we already
-    generate rather than a new Azure service. See
+    stream, built from data we already generate. See
     agents/analyst0/live_analytics.py. Only covers matches run via
     POST /matches/run (the demo path); the Event Hubs-streamed path doesn't
     retain its raw event list for later querying yet."""
@@ -376,8 +374,7 @@ class CompareRequest(BaseModel):
 @app.post("/matches/{match_id}/compare")
 async def compare_personas(match_id: str, req: CompareRequest):
     """Split-screen persona comparison: the same match's current insights,
-    personalized two different ways side by side -- matching a competing
-    hackathon entry's standout split-screen dual-persona UI. Reuses
+    personalized two different ways side by side. Reuses
     agents.concierge.agent.personalize's existing on-demand, whole-match
     call path (the same one a single-persona full-match recap already
     uses), just run twice concurrently instead of once."""

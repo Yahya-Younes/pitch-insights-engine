@@ -85,6 +85,26 @@ def test_non_english_vocabulary_check_now_actually_runs():
     assert not result.vocabulary_ok
 
 
+def test_italian_and_portuguese_glossary_anchored_text_passes():
+    text_it = "Al 61 minuto, il pressing di Thornbury si e intensificato, il PPDA e sceso a 4.1."
+    result_it = check_grounding_multi(text_it, [_pressure_insight()], PLAYER_NAMES, locale="it")
+    assert result_it.vocabulary_ok
+
+    text_pt = "Aos 61 minutos, a pressão de Thornbury intensificou-se, o PPDA caiu para 4.1."
+    result_pt = check_grounding_multi(text_pt, [_pressure_insight()], PLAYER_NAMES, locale="pt")
+    assert result_pt.vocabulary_ok
+
+
+def test_italian_and_portuguese_off_topic_text_fails():
+    text_it = "Al minuto 61, l'arbitro si trovava a 23 metri dall'episodio, una decisione discutibile."
+    result_it = check_grounding_multi(text_it, [_pressure_insight()], PLAYER_NAMES, locale="it")
+    assert not result_it.vocabulary_ok
+
+    text_pt = "No minuto 61, o arbitro estava a 23 metros do lance, uma decisao discutivel."
+    result_pt = check_grounding_multi(text_pt, [_pressure_insight()], PLAYER_NAMES, locale="pt")
+    assert not result_pt.vocabulary_ok
+
+
 def test_glossary_anchored_non_english_text_passes():
     """A translation that actually uses TRIGGER_GLOSSARY's fr/es/de terms
     for the insight's trigger_type must pass -- proving the restored check

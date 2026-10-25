@@ -1,18 +1,14 @@
 """Tactics Lab: run many full synthetic matches between two chosen
 formations and aggregate the outcome distribution -- the same Monte-Carlo
 style analysis (win/draw/loss, xG, possession, PPDA across hundreds of
-matches) a coach would use to compare two tactical setups. Matches the
-strongest feature in a competing hackathon entry's "Tactics Lab," built
-entirely from datagen.match_simulator and the same event-counting
-primitives eval/realism_check.py already uses -- no new simulation logic,
-no new data source.
+matches) a coach would use to compare two tactical setups. Built entirely
+from datagen.match_simulator and the same event-counting primitives
+eval/realism_check.py already uses -- no new simulation logic, no new data
+source.
 
-Deliberately scoped down from that competitor's version in two disclosed
-ways: formation selection is from our existing named templates (not "75
-formations, or described in plain words and AI-translated"), and there's
-no mid-match scenario branching ("red card at 30'", formation switch at
-70') yet -- both are natural follow-ups, not core to proving the
-Monte-Carlo comparison itself works.
+Formation selection is from our existing named templates; there's no
+mid-match scenario branching ("red card at 30'", formation switch at 70')
+yet -- a natural follow-up, not core to the Monte-Carlo comparison itself.
 """
 from __future__ import annotations
 
