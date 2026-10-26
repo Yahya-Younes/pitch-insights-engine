@@ -63,15 +63,20 @@ function TeamTimeline({ timeline, teamName }: { timeline: TacticalTimelineRespon
 
 export function TacticalEvolution({ matchId, homeTeam, awayTeam }: Props) {
   const [tactics, setTactics] = useState<MatchTacticsResponse | null>(null);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!matchId) {
       setTactics(null);
+      setLoadError(false);
       return;
     }
     const id = matchId;
     let cancelled = false;
     let attempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    setLoadError(false);
     // Tactics are computed eagerly, like positions, from data already
     // known the instant the match starts -- a couple of short retries
     // just absorb ordinary request/response timing jitter.
@@ -81,14 +86,17 @@ export function TacticalEvolution({ matchId, homeTeam, awayTeam }: Props) {
         if (!cancelled) setTactics(res);
       } catch {
         attempt += 1;
-        if (!cancelled && attempt < 3) setTimeout(load, 800);
+        if (cancelled) return;
+        if (attempt < 3) retryTimer = setTimeout(load, 800);
+        else setLoadError(true);
       }
     }
     load();
     return () => {
       cancelled = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
     };
-  }, [matchId]);
+  }, [matchId, reloadKey]);
 
   return (
     <section className="feed-panel tactics-panel">
@@ -102,7 +110,14 @@ export function TacticalEvolution({ matchId, homeTeam, awayTeam }: Props) {
         </span>
       </div>
 
-      {!matchId || !tactics ? (
+      {matchId && !tactics && loadError ? (
+        <div className="empty-state">
+          <p className="error" role="alert">Couldn't load the tactical timeline for this match.</p>
+          <button type="button" className="pitch-play-button" onClick={() => setReloadKey((k) => k + 1)}>
+            Retry
+          </button>
+        </div>
+      ) : !matchId || !tactics ? (
         <div className="empty-state">
           <span className="empty-icon" aria-hidden="true">🧭</span>
           <p>{matchId ? "Loading tactical timeline..." : "Run a match to see how each team's shape evolves."}</p>

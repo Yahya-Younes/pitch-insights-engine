@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { LensSummary, Locale, Persona, RunMatchResponse } from "../lib/types";
 import { fetchMatchStatus, resumeMatch, runMatch } from "../lib/api";
+import { LOCALES } from "../lib/locales";
 import { PersonaTabs } from "./PersonaTabs";
 import { LensPicker } from "./LensPicker";
 
@@ -9,14 +10,6 @@ interface Props {
   onMatchStarted: (summary: RunMatchResponse) => void;
 }
 
-const LOCALES: { value: Locale; label: string }[] = [
-  { value: "en", label: "English" },
-  { value: "fr", label: "Francais" },
-  { value: "es", label: "Espanol" },
-  { value: "de", label: "Deutsch" },
-  { value: "it", label: "Italiano" },
-  { value: "pt", label: "Portugues" },
-];
 
 export function MatchControls({ lenses, onMatchStarted }: Props) {
   const [persona, setPersona] = useState<Persona>("casual_fan");
@@ -154,7 +147,7 @@ export function MatchControls({ lenses, onMatchStarted }: Props) {
             )}
           </button>
         )}
-        {error && <p className="error">{error}</p>}
+        {error && <p className="error" role="alert">{error}</p>}
       </div>
     </div>
   );

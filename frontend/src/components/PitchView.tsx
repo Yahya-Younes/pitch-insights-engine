@@ -24,24 +24,24 @@ function lerp(a: number, b: number, t: number): number {
  * loop, so this stays O(1) amortized. */
 function useInterpolatedFrame(frames: PositionFrame[], playheadMs: number) {
   const cursorRef = useRef(0);
-  if (frames.length === 0) return null;
-  if (playheadMs <= frames[0].t_ms) {
+  const first = frames[0];
+  if (!first) return null;
+  if (playheadMs <= first.t_ms) {
     cursorRef.current = 0;
-    return frames[0];
+    return first;
   }
   let i = cursorRef.current;
-  if (i >= frames.length - 1 || frames[i].t_ms > playheadMs) i = 0;
-  while (i < frames.length - 2 && frames[i + 1].t_ms <= playheadMs) i += 1;
+  if (i >= frames.length - 1 || (frames[i]?.t_ms ?? Infinity) > playheadMs) i = 0;
+  while (i < frames.length - 2 && (frames[i + 1]?.t_ms ?? Infinity) <= playheadMs) i += 1;
   cursorRef.current = i;
 
-  const a = frames[i];
-  const b = frames[Math.min(i + 1, frames.length - 1)];
+  const a = frames[i] ?? first;
+  const b = frames[Math.min(i + 1, frames.length - 1)] ?? a;
   const span = Math.max(b.t_ms - a.t_ms, 1);
   const t = Math.max(0, Math.min(1, (playheadMs - a.t_ms) / span));
 
   const players: Record<string, [number, number]> = {};
-  for (const pid of Object.keys(a.players)) {
-    const pa = a.players[pid];
+  for (const [pid, pa] of Object.entries(a.players)) {
     const pb = b.players[pid] ?? pa;
     players[pid] = [lerp(pa[0], pb[0], t), lerp(pa[1], pb[1], t)];
   }
@@ -58,17 +58,22 @@ export function PitchView({ matchId }: Props) {
   const [frames, setFrames] = useState<PositionFrame[]>([]);
   const [playing, setPlaying] = useState(true);
   const [playheadMs, setPlayheadMs] = useState(0);
+  const [loadError, setLoadError] = useState(false);
+  const [reloadKey, setReloadKey] = useState(0);
   const rafRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!matchId) {
       setFrames([]);
+      setLoadError(false);
       return;
     }
     const id = matchId;
     let cancelled = false;
     let attempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    setLoadError(false);
     // Positions are computed synchronously before /matches/run returns, so
     // this should succeed on the first try -- a couple of short retries
     // just absorb any ordinary request/response timing jitter.
@@ -81,16 +86,19 @@ export function PitchView({ matchId }: Props) {
         }
       } catch {
         attempt += 1;
-        if (!cancelled && attempt < 3) setTimeout(load, 500);
+        if (cancelled) return;
+        if (attempt < 3) retryTimer = setTimeout(load, 500);
+        else setLoadError(true);
       }
     }
     load();
     return () => {
       cancelled = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
     };
-  }, [matchId]);
+  }, [matchId, reloadKey]);
 
-  const totalMs = frames.length > 0 ? frames[frames.length - 1].t_ms : 0;
+  const totalMs = frames.at(-1)?.t_ms ?? 0;
   const speed = totalMs > 0 ? Math.max(1, totalMs / (TARGET_LOOP_S * 1000)) : 1;
 
   useEffect(() => {
@@ -140,7 +148,16 @@ export function PitchView({ matchId }: Props) {
         </span>
       </div>
       {frames.length === 0 ? (
-        <div className="empty-state">Loading positions...</div>
+        loadError ? (
+          <div className="empty-state">
+            <p className="error" role="alert">Couldn't load positions for this match.</p>
+            <button type="button" className="pitch-play-button" onClick={() => setReloadKey((k) => k + 1)}>
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="empty-state">Loading positions...</div>
+        )
       ) : (
         <>
           <svg className="pitch-svg" viewBox={`0 0 ${PITCH_X_MAX} ${PITCH_Y_MAX}`} role="img" aria-label="Animated top-down pitch view">

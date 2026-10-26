@@ -27,6 +27,8 @@ export function Timeline({ payloads, selectedId, onSelect }: Props) {
               style={{ left: `${pct}%`, background: theme.color, boxShadow: isSelected ? `0 0 0 4px ${theme.colorSoft}` : undefined }}
               onClick={() => onSelect(p.render_id)}
               title={`${p.game_clock} — ${theme.label}`}
+              aria-label={`${p.game_clock} — ${theme.label}`}
+              aria-pressed={isSelected}
             />
           );
         })}

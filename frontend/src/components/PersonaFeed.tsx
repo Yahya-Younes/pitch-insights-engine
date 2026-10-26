@@ -18,7 +18,7 @@ export function PersonaFeed({ messages }: { messages: PersonalizedMessage[] }) {
   }
   const ordered = [...messages].reverse();
   return (
-    <ul className="commentary-feed">
+    <ul className="commentary-feed" aria-live="polite" aria-label="Live commentary">
       {ordered.map((m, i) => (
         <li key={i} className={`commentary-row ${i === 0 ? "commentary-row-latest" : ""} commentary-in`}>
           <span className="commentary-avatar">{PERSONA_AVATAR[m.persona] ?? "🗣️"}</span>

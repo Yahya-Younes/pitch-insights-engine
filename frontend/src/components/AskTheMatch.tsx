@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Locale } from "../lib/types";
 import { askMatch } from "../lib/api";
+import { LOCALES } from "../lib/locales";
 import { VoiceButton } from "./VoiceButton";
 
 interface QaTurn {
@@ -10,14 +11,6 @@ interface QaTurn {
   audioBase64: string | null;
 }
 
-const LOCALES: { value: Locale; label: string }[] = [
-  { value: "en", label: "EN" },
-  { value: "fr", label: "FR" },
-  { value: "es", label: "ES" },
-  { value: "de", label: "DE" },
-  { value: "it", label: "IT" },
-  { value: "pt", label: "PT" },
-];
 
 export function AskTheMatch({ matchId }: { matchId: string | null }) {
   const [question, setQuestion] = useState("");
@@ -76,7 +69,7 @@ export function AskTheMatch({ matchId }: { matchId: string | null }) {
                   className={`locale-tab ${locale === l.value ? "locale-tab-active" : ""}`}
                   onClick={() => setLocale(l.value)}
                 >
-                  {l.label}
+                  {l.short}
                 </button>
               ))}
             </div>
@@ -84,7 +77,7 @@ export function AskTheMatch({ matchId }: { matchId: string | null }) {
               {busy ? <span className="spinner" /> : "Ask"}
             </button>
           </div>
-          {error && <p className="error">{error}</p>}
+          {error && <p className="error" role="alert">{error}</p>}
 
           {turns.length === 0 ? (
             <div className="empty-state">

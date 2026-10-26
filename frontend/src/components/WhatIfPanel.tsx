@@ -144,7 +144,7 @@ export function WhatIfPanel({ matchId, insights }: Props) {
             </div>
           )}
 
-          {error && <p className="error">{error}</p>}
+          {error && <p className="error" role="alert">{error}</p>}
 
           {result && (
             <div className="whatif-result commentary-in">
