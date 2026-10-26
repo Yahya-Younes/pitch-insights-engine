@@ -13,17 +13,23 @@ Usage:
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import subprocess
 import sys
 
-_ACCOUNT = "pitch-insights-engine"
-_RESOURCE_GROUP = "pitch-hackathon-rg"
+_ACCOUNT = os.environ.get("PITCH_FOUNDRY_ACCOUNT", "pitch-insights-engine-kb")
+_RESOURCE_GROUP = os.environ.get("PITCH_RESOURCE_GROUP", "pitch-hackathon-rg")
 
 
 def _run(args: list[str]) -> dict:
-    # shell=True: on Windows, `az` resolves to az.cmd, which CreateProcess
-    # can't launch directly without going through a shell.
-    result = subprocess.run(["az", *args, "-o", "json"], capture_output=True, text=True, shell=True)
+    # On Windows `az` is az.cmd, which CreateProcess can't launch from a bare
+    # "az" (WinError 2); shutil.which honours PATHEXT and returns the full
+    # az.cmd path, which it can.
+    az = shutil.which("az")
+    if az is None:
+        raise RuntimeError("Azure CLI ('az') not found on PATH -- install it or add it to PATH.")
+    result = subprocess.run([az, *args, "-o", "json"], capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(result.stderr)
     return json.loads(result.stdout) if result.stdout.strip() else {}

@@ -42,13 +42,15 @@ Usage:
 """
 from __future__ import annotations
 
+import os
 import sys
 import time
 
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 from openai import AzureOpenAI, OpenAI
 
-_ENDPOINT = "https://pitch-insights-engine.cognitiveservices.azure.com/"
+_ACCOUNT = os.environ.get("PITCH_FOUNDRY_ACCOUNT", "pitch-insights-engine-kb")
+_ENDPOINT = f"https://{_ACCOUNT}.cognitiveservices.azure.com/"
 _API_VERSION = "2024-10-21"
 _DEFAULT_BASE_MODEL = "gpt-4.1-mini"
 _DEFAULT_SUFFIX = "pitch-narrator"

@@ -10,14 +10,16 @@ against offline).
 """
 from __future__ import annotations
 
+import os
 import random
+from urllib.parse import urlparse
 
 from agents.analyst0.formation_tracker import build_tactical_timeline, score_shift_detection
 from agents.analyst0.tendency_model import accuracy_report, infer_all_profiles
 from agents.shared.handoff_log import HandoffEntry
 from datagen.match_simulator import MatchSimulator, build_squad
 
-FINE_TUNED_JOB_ID = "ftjob-90ab75cf1fb2459fa91ffbcd10a1fb2f"
+FINE_TUNED_JOB_ID = "ftjob-866c5084b75b48a7b24506aa70fbae46"
 FINE_TUNED_DEPLOYMENT_NAME = "pitch-narrator-ft"
 FINE_TUNED_BASE_MODEL = "gpt-4.1-mini"
 FINE_TUNED_TRAINING_EXAMPLES = 752
@@ -118,6 +120,25 @@ def grounding_pass_rate_from_entries(entries: list[HandoffEntry]) -> dict:
     }
 
 
+_DEFAULT_AZURE_OPENAI_ENDPOINT = "https://pitch-insights-engine-kb.cognitiveservices.azure.com/"
+
+
+def _azure_openai_endpoint() -> str:
+    """The account-level `https://<account>.cognitiveservices.azure.com/`
+    endpoint the AzureOpenAI client needs. Explicit AZURE_OPENAI_ENDPOINT
+    wins; otherwise derived from AZURE_AI_FOUNDRY_ENDPOINT, which Bicep sets
+    to the account's own endpoint (already this shape) but which may also be
+    a Foundry project endpoint (`https://<account>.services.ai.azure.com/api/projects/<project>`)."""
+    explicit = os.environ.get("AZURE_OPENAI_ENDPOINT")
+    if explicit:
+        return explicit.rstrip("/") + "/"
+    host = urlparse(os.environ.get("AZURE_AI_FOUNDRY_ENDPOINT", "")).hostname or ""
+    for suffix in (".cognitiveservices.azure.com", ".services.ai.azure.com", ".openai.azure.com"):
+        if host.endswith(suffix):
+            return f"https://{host[: -len(suffix)]}.cognitiveservices.azure.com/"
+    return _DEFAULT_AZURE_OPENAI_ENDPOINT
+
+
 def _call_finetuned_narrator(insight, player_names: dict[str, str]) -> str:
     """Same input contract as agents.narrator.agent.narrate_insight, against
     the fine-tuned deployment instead of production. Imports kept local --
@@ -139,7 +160,7 @@ def _call_finetuned_narrator(insight, player_names: dict[str, str]) -> str:
 
     token_provider = get_bearer_token_provider(DefaultAzureCredential(), "https://cognitiveservices.azure.com/.default")
     client = AzureOpenAI(
-        azure_endpoint="https://pitch-insights-engine.cognitiveservices.azure.com/",
+        azure_endpoint=_azure_openai_endpoint(),
         azure_ad_token_provider=token_provider,
         api_version="2024-10-21",
     )

@@ -1,6 +1,6 @@
 // Pitch Insights Engine -- one-command infra for the deployed half of the pipeline.
 // Pre-existing (created earlier, not managed here): the AI Foundry account
-// `pitch-insights-engine` + project `pitch-match-engine` + gpt-5-mini deployment,
+// `pitch-insights-engine-kb` (param foundryAccountName) + project `pitch-match-engine` + gpt-5-mini deployment,
 // in this same resource group.
 targetScope = 'resourceGroup'
 
@@ -9,8 +9,11 @@ param namePrefix string = 'pitch'
 
 param location string = resourceGroup().location
 
+@description('Cosmos DB region. Separate from `location` because East US has repeatedly refused new Cosmos accounts ("high demand") on fresh subscriptions.')
+param cosmosLocation string = 'eastus2'
+
 @description('Name of the pre-existing AI Foundry (Cognitive Services) account in this resource group.')
-param foundryAccountName string = 'pitch-insights-engine'
+param foundryAccountName string = 'pitch-insights-engine-kb'
 
 var uniqueSuffix = uniqueString(resourceGroup().id)
 var acrName = toLower('${namePrefix}acr${uniqueSuffix}')
@@ -118,13 +121,13 @@ resource ehDataSenderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' =
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
   name: cosmosAccountName
-  location: location
+  location: cosmosLocation
   kind: 'GlobalDocumentDB'
   properties: {
     databaseAccountOfferType: 'Standard'
     capabilities: [ { name: 'EnableServerless' } ]
     locations: [
-      { locationName: location, failoverPriority: 0, isZoneRedundant: false }
+      { locationName: cosmosLocation, failoverPriority: 0, isZoneRedundant: false }
     ]
     disableLocalAuth: false
   }
