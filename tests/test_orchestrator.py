@@ -250,3 +250,31 @@ def test_crash_then_resume_with_file_checkpoint_storage(tmp_path):
     ))
     render_payloads = [o for o in result.get_outputs() if isinstance(o, RenderPayload)]
     assert len(render_payloads) >= 1
+
+
+def test_outputs_are_handed_to_on_output_as_they_are_produced():
+    # Live publishing hook: each render payload / personalized text reaches
+    # the callback when its stage yields it, not in one batch after the run.
+    streamed = []
+
+    async def on_output(output):
+        streamed.append(output)
+
+    result, _ = asyncio.run(run_match(
+        raw_events=[_metadata_dict(), _goal_dict()], match_id="M-ORCH", duration_ms=90 * 60000,
+        narrate_fn=_fake_narrate, personalize_fn=_fake_personalize, on_output=on_output,
+    ))
+
+    assert streamed and streamed == result.get_outputs()
+
+
+def test_a_failing_on_output_never_breaks_the_pipeline():
+    async def on_output(output):
+        raise RuntimeError("publisher down")
+
+    result, _ = asyncio.run(run_match(
+        raw_events=[_metadata_dict(), _goal_dict()], match_id="M-ORCH", duration_ms=90 * 60000,
+        narrate_fn=_fake_narrate, personalize_fn=_fake_personalize, on_output=on_output,
+    ))
+
+    assert any(isinstance(o, RenderPayload) for o in result.get_outputs())

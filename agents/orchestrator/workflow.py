@@ -16,6 +16,7 @@ from agents.concierge.persona_filter import Persona
 from agents.narrator.executor import NarrateFn, NarratorExecutor
 from agents.scout.executor import RawMatchFeed, ScoutExecutor
 from agents.shared.handoff_log import HandoffLog, InMemoryHandoffLog
+from agents.shared.output_hook import OutputHook
 
 # FileCheckpointStorage pickles workflow state and refuses to deserialize
 # any type not explicitly allow-listed (a deliberate safety feature, not a
@@ -72,6 +73,7 @@ def build_workflow(
     locale: str = "en",
     checkpoint_storage: CheckpointStorage | None = None,
     inject_crash: bool = False,
+    on_output: OutputHook | None = None,
 ) -> tuple[Workflow, HandoffLog]:
     """Builds the 5-stage workflow graph. Pass narrate_fn/personalize_fn to
     substitute fakes for offline testing -- by default both use the real,
@@ -81,7 +83,9 @@ def build_workflow(
     the first insight it sees, so (with checkpoint_storage set) a resumed
     run can demonstrate picking back up without re-running Scout/Analyst-0
     or re-narrating already-completed insights -- both are demo/debug
-    hooks, see NarratorExecutor."""
+    hooks, see NarratorExecutor. on_output, if given, receives each render
+    payload / personalized text as soon as its stage yields it -- the live
+    publishing hook, so viewers don't wait for the whole match to finish."""
     log = handoff_log if handoff_log is not None else InMemoryHandoffLog()
 
     scout = ScoutExecutor("scout", log)
@@ -90,10 +94,11 @@ def build_workflow(
         "narrator", log, narrate_fn=narrate_fn, player_names=player_names,
         inject_fault=inject_fault, inject_crash=inject_crash,
     )
-    broadcaster = BroadcasterExecutor("broadcaster", log)
+    broadcaster = BroadcasterExecutor("broadcaster", log, on_output=on_output)
     concierge = ConciergeExecutor(
         "concierge", log, persona=persona, lens=lens,
         personalize_fn=personalize_fn, player_names=player_names, locale=locale,
+        on_output=on_output,
     )
 
     workflow = (

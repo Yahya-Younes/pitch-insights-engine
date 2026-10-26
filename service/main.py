@@ -243,29 +243,46 @@ async def _run_and_publish(
     locale: str = "en", inject_crash: bool = False, checkpoint_id: str | None = None,
 ):
     lens = _state["lenses"].get(lens_id) if lens_id else None
-    result, log = await run_match(
-        raw_events=raw_events, match_id=match_id, duration_ms=duration_ms,
-        handoff_log=_state["handoff_log"], persona=persona, lens=lens, player_names=player_names,
-        inject_fault=inject_fault, locale=locale, inject_crash=inject_crash,
-        checkpoint_id=checkpoint_id, checkpoint_storage=_state["checkpoint_storage"],
-    )
-
     publisher = _state["publisher"]
+
+    # Each overlay / personalized line is published the moment its stage
+    # yields it (instead of after the whole match), through one ordered
+    # worker so speech synthesis and the synchronous Web PubSub client never
+    # stall the pipeline or reorder the feed.
+    queue: asyncio.Queue = asyncio.Queue()
+
+    async def publish_worker() -> None:
+        while (output := await queue.get()) is not None:
+            try:
+                if isinstance(output, RenderPayload):
+                    output.audio_base64 = await asyncio.to_thread(synthesize_base64, output.narrative_text, "en")
+                    await asyncio.to_thread(publisher.publish_render, output)
+                else:
+                    audio = await asyncio.to_thread(synthesize_base64, output, locale)
+                    await asyncio.to_thread(publisher.publish_personalized, match_id, persona, output, audio)
+            except Exception:
+                logger.exception("live publish failed for match %s", match_id)
+
+    async def enqueue(output) -> None:
+        queue.put_nowait(output)
+
+    worker = asyncio.create_task(publish_worker()) if publisher is not None else None
+    try:
+        result, log = await run_match(
+            raw_events=raw_events, match_id=match_id, duration_ms=duration_ms,
+            handoff_log=_state["handoff_log"], persona=persona, lens=lens, player_names=player_names,
+            inject_fault=inject_fault, locale=locale, inject_crash=inject_crash,
+            checkpoint_id=checkpoint_id, checkpoint_storage=_state["checkpoint_storage"],
+            on_output=enqueue if worker is not None else None,
+        )
+    finally:
+        if worker is not None:
+            queue.put_nowait(None)
+            await worker
+
     outputs = result.get_outputs()
     render_payloads = [o for o in outputs if isinstance(o, RenderPayload)]
     personalized_texts = [o for o in outputs if isinstance(o, str)]
-
-    if publisher is not None:
-        # The Web PubSub SDK client here is synchronous; run each call off
-        # the event loop so a slow/retrying publish can't stall anything else.
-        # Speech synthesis is likewise a blocking network call -- same pattern.
-        for payload in render_payloads:
-            payload.audio_base64 = await asyncio.to_thread(synthesize_base64, payload.narrative_text, "en")
-            await asyncio.to_thread(publisher.publish_render, payload)
-        for text in personalized_texts:
-            audio = await asyncio.to_thread(synthesize_base64, text, locale)
-            await asyncio.to_thread(publisher.publish_personalized, match_id, persona, text, audio)
-
     return render_payloads, personalized_texts, log
 
 

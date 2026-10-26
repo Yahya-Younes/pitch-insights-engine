@@ -13,12 +13,14 @@ from agent_framework import Executor, WorkflowContext, handler
 from agents.broadcaster.render import build_render_payload
 from agents.shared.handoff_log import HandoffLog
 from agents.shared.models import NarratedInsight, RenderPayload
+from agents.shared.output_hook import OutputHook, emit
 
 
 class BroadcasterExecutor(Executor):
-    def __init__(self, id: str, handoff_log: HandoffLog):
+    def __init__(self, id: str, handoff_log: HandoffLog, on_output: OutputHook | None = None):
         super().__init__(id=id)
         self._log = handoff_log
+        self._on_output = on_output
 
     @handler
     async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, RenderPayload]) -> None:
@@ -31,3 +33,4 @@ class BroadcasterExecutor(Executor):
             "duration_ms": round((time.perf_counter() - started) * 1000, 2), "path": "rules",
         })
         await ctx.yield_output(payload)
+        await emit(self._on_output, payload)

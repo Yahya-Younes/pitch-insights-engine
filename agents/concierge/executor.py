@@ -32,6 +32,7 @@ from agents.concierge.lens import CoachLens
 from agents.concierge.persona_filter import Persona
 from agents.shared.handoff_log import HandoffLog
 from agents.shared.models import InsightCandidate, NarratedInsight
+from agents.shared.output_hook import OutputHook, emit
 from agents.shared.tracing import current_trace_id
 from eval.grounding_check import check_grounding_multi
 
@@ -48,6 +49,7 @@ class ConciergeExecutor(Executor):
         personalize_fn: PersonalizeFn | None = None,
         player_names: dict[str, str] | None = None,
         locale: str = "en",
+        on_output: OutputHook | None = None,
     ):
         super().__init__(id=id)
         self._log = handoff_log
@@ -56,6 +58,7 @@ class ConciergeExecutor(Executor):
         self._personalize_fn = personalize_fn or personalize
         self._player_names = player_names or {}
         self._locale = locale
+        self._on_output = on_output
 
     async def _personalize_with_retry(
         self, insight: InsightCandidate, attempts: list[int] | None = None,
@@ -120,3 +123,4 @@ class ConciergeExecutor(Executor):
             "llm_attempts": len(attempts), "grounding_failed": grounding_failed,
         })
         await ctx.yield_output(text)
+        await emit(self._on_output, text)

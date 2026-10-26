@@ -6,6 +6,7 @@ never runs the app lifespan, so no test here touches Azure or the network.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 
 import pytest
@@ -331,3 +332,28 @@ def test_ask_rejects_invalid_questions(client, STATE, question):
     resp = client.post("/matches/M-API/ask", json={"question": question})
 
     assert _is_client_error(resp.status_code), resp.text
+
+
+def test_run_publishes_every_output_to_web_pubsub(client, STATE):
+    class FakePublisher:
+        def __init__(self):
+            self.renders, self.personalized = [], []
+
+        def publish_render(self, payload):
+            self.renders.append(payload)
+
+        def publish_personalized(self, match_id, persona, text, audio):
+            self.personalized.append(text)
+
+    from datagen.match_simulator import MatchSimulator
+
+    publisher = FakePublisher()
+    STATE["publisher"] = publisher
+    events = [e.model_dump(mode="json") for e in MatchSimulator("M-PUB", seed=3).generate_match().events]
+
+    renders, texts, _ = asyncio.run(main_module._run_and_publish(
+        events, "M-PUB", 90 * 60000, persona="casual_fan", lens_id=None, player_names={},
+    ))
+
+    assert renders and [p.render_id for p in publisher.renders] == [p.render_id for p in renders]
+    assert publisher.personalized == texts
