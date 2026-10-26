@@ -1,0 +1,201 @@
+/* Match Maps panel -- scoped with the mm- prefix; reuses App.css tokens. */
+
+.mm-panel {
+  --mm-home: var(--accent);
+  --mm-away: #e85d75;
+  min-width: 0;
+}
+
+.mm-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+}
+
+.mm-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.45rem 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mm-tab:hover { color: var(--text); }
+
+.mm-tab.is-active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.mm-tab:focus-visible,
+.mm-toggle-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mm-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.mm-pitch {
+  width: 100%;
+  aspect-ratio: 120 / 80;
+  border-radius: var(--radius-md);
+  background: #0d3a1f;
+  display: block;
+}
+
+.mm-grass { fill: #0d3a1f; }
+
+.mm-line {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 0.3;
+}
+
+.mm-line .mm-spot { fill: rgba(255, 255, 255, 0.45); stroke: none; }
+.mm-line .mm-goal { fill: rgba(255, 255, 255, 0.25); }
+
+.mm-fill-home { fill: var(--mm-home); background: var(--mm-home); }
+.mm-fill-away { fill: var(--mm-away); background: var(--mm-away); }
+.mm-stroke-home { stroke: var(--mm-home); }
+.mm-stroke-away { stroke: var(--mm-away); }
+.mm-home-text strong { color: var(--mm-home); }
+.mm-away-text strong { color: var(--mm-away); }
+
+/* threat prevented */
+.mm-split { display: flex; flex-direction: column; gap: 0.35rem; }
+.mm-split-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+.mm-split-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.mm-split-home { background: var(--mm-home); }
+.mm-split-away { background: var(--mm-away); }
+
+.mm-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .mm-grid { grid-template-columns: minmax(0, 1fr); }
+}
+
+.mm-moment { stroke: rgba(0, 0, 0, 0.5); stroke-width: 0.2; fill-opacity: 0.85; }
+.mm-moment-num {
+  fill: #fff;
+  font-size: 2.4px;
+  font-weight: 700;
+  text-anchor: middle;
+  pointer-events: none;
+}
+.mm-intent { stroke-width: 0.3; stroke-dasharray: 0.8 0.6; opacity: 0.7; }
+
+.mm-side { display: flex; flex-direction: column; gap: 0.4rem; min-width: 0; }
+.mm-h3 {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-faint);
+  font-weight: 600;
+  margin: 0.25rem 0 0;
+}
+.mm-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.mm-list-item {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.35rem 0.5rem;
+  background: var(--surface-2);
+  border-radius: var(--radius-sm);
+  font-size: 0.8rem;
+}
+.mm-rank {
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+  flex: none;
+}
+.mm-dot { width: 0.55rem; height: 0.55rem; border-radius: 50%; flex: none; }
+.mm-list-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
+.mm-name { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mm-meta { color: var(--text-faint); font-size: 0.72rem; }
+.mm-value { color: var(--success); font-variant-numeric: tabular-nums; font-weight: 600; }
+
+/* shot map */
+.mm-totals { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+@media (max-width: 520px) {
+  .mm-totals { grid-template-columns: minmax(0, 1fr); }
+}
+.mm-total {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--mm-home);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.7rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.mm-total-away { border-left-color: var(--mm-away); }
+.mm-total-team { font-size: 0.82rem; color: var(--text); font-weight: 600; }
+.mm-total-stats { display: flex; flex-wrap: wrap; gap: 0.25rem 0.8rem; font-size: 0.75rem; color: var(--text-dim); }
+.mm-total-stats strong { color: var(--text); font-variant-numeric: tabular-nums; }
+
+.mm-shot { stroke-width: 0.35; }
+.mm-shot-miss { fill: rgba(255, 255, 255, 0.08); }
+.mm-goal-ring { fill: none; stroke-width: 0.3; stroke-dasharray: 0.6 0.4; }
+
+/* pass network */
+.mm-toggle { display: inline-flex; gap: 0.3rem; margin-top: 0.75rem; flex-wrap: wrap; }
+.mm-toggle-btn {
+  font: inherit;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text-dim);
+  cursor: pointer;
+}
+.mm-toggle-btn.mm-home.is-active { border-color: var(--mm-home); color: var(--text); }
+.mm-toggle-btn.mm-away.is-active { border-color: var(--mm-away); color: var(--text); }
+
+.mm-edge { stroke-linecap: round; }
+.mm-node { stroke: rgba(255, 255, 255, 0.85); stroke-width: 0.3; }
+.mm-node-label {
+  fill: rgba(255, 255, 255, 0.85);
+  font-size: 2.1px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.mm-note { font-size: 0.74rem; color: var(--text-faint); margin: 0; line-height: 1.45; }
+.mm-disclosure { font-size: 0.7rem; color: var(--text-faint); margin: 0; font-style: italic; }

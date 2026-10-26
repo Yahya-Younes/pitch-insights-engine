@@ -18,6 +18,11 @@ import { TacticalEvolution } from "./components/TacticalEvolution";
 import { WhatIfPanel } from "./components/WhatIfPanel";
 import { TacticsLab } from "./components/TacticsLab";
 import { ComparePersonas } from "./components/ComparePersonas";
+import { AgentTeam } from "./components/AgentTeam";
+import { WinProbability } from "./components/WinProbability";
+import { PlayerTags } from "./components/PlayerTags";
+import { MatchMaps } from "./components/MatchMaps";
+import { MakeItLie } from "./components/MakeItLie";
 
 function App() {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
@@ -91,6 +96,7 @@ function App() {
               homeMarketValueEur={lastMatch.home_market_value_eur}
               awayMarketValueEur={lastMatch.away_market_value_eur}
             />
+            <AgentTeam matchId={lastMatch.match_id} running />
           </>
         )}
 
@@ -113,13 +119,21 @@ function App() {
           )
         )}
 
+        <WinProbability
+          matchId={lastMatch?.match_id ?? null}
+          homeTeam={lastMatch?.home_team}
+          awayTeam={lastMatch?.away_team}
+        />
+
         <PitchView matchId={lastMatch?.match_id ?? null} />
+        <PlayerTags matchId={lastMatch?.match_id ?? null} />
 
         <TacticalEvolution
           matchId={lastMatch?.match_id ?? null}
           homeTeam={lastMatch?.home_team ?? "Home"}
           awayTeam={lastMatch?.away_team ?? "Away"}
         />
+        <MatchMaps matchId={lastMatch?.match_id ?? null} />
 
         <div className="columns">
           <section className="feed-panel">
@@ -141,6 +155,7 @@ function App() {
           <AskTheMatch matchId={lastMatch?.match_id ?? null} />
           <WhatIfPanel matchId={lastMatch?.match_id ?? null} insights={renderEvents} />
           <ComparePersonas matchId={lastMatch?.match_id ?? null} lenses={lenses} />
+          <MakeItLie matchId={lastMatch?.match_id ?? null} insightCount={renderEvents.length} />
         </div>
 
         <TacticsLab />

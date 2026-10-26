@@ -4,6 +4,7 @@ accepted/rejected to the shared handoff log.
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass, field
 
 from agent_framework import Executor, WorkflowContext, handler
@@ -38,8 +39,13 @@ class ScoutExecutor(Executor):
 
     @handler
     async def handle(self, feed: RawMatchFeed, ctx: WorkflowContext[ValidatedMatchEvents]) -> None:
+        started = time.perf_counter()
         events, rejected = parse_events(feed.raw_events)
-        self._log.record("scout", feed.match_id, {"accepted": len(events), "rejected": rejected})
+        self._log.record("scout", feed.match_id, {
+            "accepted": len(events), "rejected": rejected,
+            # Additive trace keys for /matches/{id}/agent-trace: real wall time, deterministic path.
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2), "path": "rules",
+        })
         await ctx.send_message(ValidatedMatchEvents(
             match_id=feed.match_id, duration_ms=feed.duration_ms, events=events, rejected_count=rejected,
         ))

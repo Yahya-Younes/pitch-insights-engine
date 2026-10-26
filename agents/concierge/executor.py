@@ -21,7 +21,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Awaitable, Callable
+import time
+from collections.abc import Awaitable, Callable
+from typing import Any
 
 from agent_framework import Executor, WorkflowContext, handler
 
@@ -55,13 +57,17 @@ class ConciergeExecutor(Executor):
         self._player_names = player_names or {}
         self._locale = locale
 
-    async def _personalize_with_retry(self, insight: InsightCandidate) -> str | None:
+    async def _personalize_with_retry(
+        self, insight: InsightCandidate, attempts: list[int] | None = None,
+    ) -> str | None:
         """Tries personalize_fn twice before giving up, same rationale as
         NarratorExecutor._narrate_with_retry -- a transient throttle/timeout
         shouldn't cost an insight its personalized recap. Returns None only
         after both attempts fail; the caller falls back to the Narrator's
         already-verified text rather than dropping the insight."""
         for attempt in range(2):
+            if attempts is not None:
+                attempts.append(attempt + 1)
             try:
                 return await asyncio.wait_for(
                     self._personalize_fn(
@@ -80,7 +86,10 @@ class ConciergeExecutor(Executor):
     @handler
     async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, str]) -> None:
         insight: InsightCandidate = narrated.insight
-        text = await self._personalize_with_retry(insight)
+        started = time.perf_counter()
+        attempts: list[int] = []
+        grounding_failed = False
+        text = await self._personalize_with_retry(insight, attempts)
         if text is None:
             # Both attempts failed -- previously this just dropped the
             # insight entirely (no output, no log entry). Now it still
@@ -100,9 +109,14 @@ class ConciergeExecutor(Executor):
                     self._persona, insight.insight_id, result.unmatched_numbers, result.unmatched_entities,
                 )
                 text = narrated.narrative_text
+                grounding_failed = True
 
         self._log.record("concierge", insight.match_id, {
             "persona": self._persona, "insight_id": insight.insight_id, "text_preview": text[:80],
             "fact_checked": fact_checked, "trace_id": current_trace_id(),
+            # Additive trace keys for /matches/{id}/agent-trace (see NarratorExecutor).
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "path": "llm" if fact_checked else "fallback",
+            "llm_attempts": len(attempts), "grounding_failed": grounding_failed,
         })
         await ctx.yield_output(text)

@@ -1,0 +1,293 @@
+/* "Try to make it lie" panel. Uses the global tokens from index.css. */
+
+.mil-panel {
+  grid-column: 1 / -1;
+}
+
+.mil-headline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.35rem 0.6rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid var(--accent-border);
+  background: var(--accent-soft);
+  border-radius: var(--radius-md);
+  font-size: 0.86rem;
+  color: var(--text-dim);
+  cursor: help;
+}
+
+.mil-headline strong {
+  color: var(--text);
+  font-size: 1.02rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mil-headline-main strong {
+  color: var(--success);
+  font-size: 1.15rem;
+}
+
+.mil-headline-good strong { color: var(--success); }
+.mil-headline-bad strong { color: var(--danger); }
+
+.mil-headline-loading {
+  align-items: center;
+  cursor: default;
+}
+
+.mil-headline-sub {
+  flex-basis: 100%;
+  font-size: 0.7rem;
+  color: var(--text-faint);
+}
+
+.mil-dot { color: var(--text-faint); }
+
+.mil-attacks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.mil-attack-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 7.5rem;
+  min-height: 2.1rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--danger);
+  background: var(--danger-soft);
+  color: #fecaca;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.mil-attack-button:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.25);
+}
+
+.mil-attack-button:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.mil-attack-button:focus-visible,
+.mil-custom-input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.mil-attack-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.mil-custom-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.mil-custom-input {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  padding: 0.45rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+.mil-attack-custom {
+  min-width: 5.5rem;
+}
+
+.mil-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.mil-hint {
+  margin: 0;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
+
+/* ---------- 3-step trace ---------- */
+
+.mil-trace {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.mil-step {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface-hover);
+  animation: mil-step-in 0.4s ease both;
+}
+
+@keyframes mil-step-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mil-step { animation: none; }
+}
+
+.mil-step-num {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: var(--border-strong);
+  color: var(--text);
+}
+
+.mil-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.mil-step-title {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mil-attack-tag {
+  font-size: 0.66rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+}
+
+.mil-text {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+  overflow-wrap: anywhere;
+}
+
+.mil-text-original { color: var(--text-faint); }
+
+.mil-label {
+  display: inline-block;
+  min-width: 4.2rem;
+  margin-right: 0.4rem;
+  font-size: 0.66rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-faint);
+}
+
+.mil-added {
+  background: rgba(239, 68, 68, 0.28);
+  color: #fecaca;
+  border-radius: 3px;
+  padding: 0 0.15rem;
+}
+
+.mil-removed {
+  color: var(--text-faint);
+  text-decoration-color: var(--danger);
+}
+
+.mil-text-shipped {
+  color: var(--text);
+  border-left: 3px solid var(--success);
+  padding-left: 0.6rem;
+}
+
+.mil-verdict {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  padding: 0.18rem 0.55rem;
+  border-radius: var(--radius-sm);
+}
+
+.mil-verdict-rejected { background: var(--danger); color: #fff; }
+.mil-verdict-passed { background: var(--warning); color: #1a1a1a; }
+.mil-verdict-shipped { background: var(--success); color: #052e14; }
+.mil-verdict-warn { background: var(--warning); color: #1a1a1a; }
+
+.mil-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.mil-chip {
+  font-size: 0.72rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: var(--danger-soft);
+  color: #fecaca;
+}
+
+.mil-note {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.mil-note-honest {
+  border-left: 3px solid var(--warning);
+  padding-left: 0.6rem;
+}
+
+.mil-fineprint {
+  margin: 0;
+  font-size: 0.68rem;
+  color: var(--text-faint);
+}
+
+.mil-fineprint code {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+}
+
+.mil-headline-error { margin: 0; }
+
+@media (max-width: 560px) {
+  .mil-custom-row { flex-direction: column; }
+  .mil-attack-button { flex: 1 1 45%; min-width: 0; }
+}

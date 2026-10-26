@@ -1,0 +1,314 @@
+import { useEffect, useMemo, useRef, useState } from "react";
+import { fetchPlayerTags, recentTagsAt } from "../lib/playerTagsApi";
+import type { PlayerPhysical, PlayerTag, PlayerTagKind, PlayerTagsResponse } from "../lib/playerTagsApi";
+import "./PlayerTags.css";
+
+interface Props {
+  matchId: string | null;
+  /**
+   * Optional external playhead (match time, ms). When provided the ticker
+   * follows it (e.g. PitchView's playhead); when omitted the panel runs its
+   * own play/pause/scrub controls.
+   */
+  currentTimeMs?: number;
+}
+
+const TICKER_SIZE = 6;
+const PLAYBACK_RATES = [30, 60, 120] as const;
+
+const KIND_LABEL: Record<PlayerTagKind, string> = {
+  sprint: "Sprint",
+  distance_km: "Distance",
+  top_speed: "Top speed",
+};
+
+function formatClock(ms: number): string {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+function topBy(players: PlayerPhysical[], key: "distance_km" | "top_speed_kmh"): PlayerPhysical[] {
+  return [...players].sort((a, b) => b[key] - a[key] || a.player_id.localeCompare(b.player_id)).slice(0, 5);
+}
+
+function TeamDot({ team }: { team: string }) {
+  return <span className={`player-tags-dot player-tags-dot-${team}`} aria-hidden="true" />;
+}
+
+export function PlayerTags({ matchId, currentTimeMs }: Props) {
+  const [data, setData] = useState<PlayerTagsResponse | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const [playing, setPlaying] = useState(false);
+  const [rate, setRate] = useState<number>(60);
+  const [ownPlayheadMs, setOwnPlayheadMs] = useState(0);
+  const [milestonesOnly, setMilestonesOnly] = useState(false);
+  const rafRef = useRef<number | null>(null);
+  const lastTickRef = useRef<number | null>(null);
+
+  const external = currentTimeMs !== undefined;
+
+  useEffect(() => {
+    if (!matchId) {
+      setData(null);
+      setError(null);
+      setLoading(false);
+      return;
+    }
+    const id = matchId;
+    let cancelled = false;
+    let attempt = 0;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    setLoading(true);
+    setError(null);
+    setData(null);
+    setOwnPlayheadMs(0);
+    // Positions are stored before /matches/run returns, so this normally
+    // succeeds first time; two short retries absorb request-ordering jitter.
+    async function load() {
+      try {
+        const res = await fetchPlayerTags(id);
+        if (cancelled) return;
+        setData(res);
+        setLoading(false);
+      } catch (e) {
+        if (cancelled) return;
+        attempt += 1;
+        if (attempt < 3) {
+          retryTimer = setTimeout(load, 600);
+        } else {
+          setError(e instanceof Error ? e.message : String(e));
+          setLoading(false);
+        }
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+      if (retryTimer !== null) clearTimeout(retryTimer);
+    };
+  }, [matchId, reloadKey]);
+
+  const totalMs = data?.duration_ms ?? data?.tags.at(-1)?.t_ms ?? 0;
+
+  useEffect(() => {
+    if (external || !playing || totalMs <= 0) return;
+    function tick(now: number) {
+      if (lastTickRef.current !== null) {
+        const delta = (now - lastTickRef.current) * rate;
+        setOwnPlayheadMs((prev) => {
+          const next = prev + delta;
+          if (next >= totalMs) {
+            setPlaying(false);
+            return totalMs;
+          }
+          return next;
+        });
+      }
+      lastTickRef.current = now;
+      rafRef.current = requestAnimationFrame(tick);
+    }
+    rafRef.current = requestAnimationFrame(tick);
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+      lastTickRef.current = null;
+    };
+  }, [external, playing, rate, totalMs]);
+
+  const playheadMs = external ? currentTimeMs : ownPlayheadMs;
+
+  const visibleTags = useMemo<PlayerTag[]>(
+    () => (data ? (milestonesOnly ? data.tags.filter((t) => t.kind !== "sprint") : data.tags) : []),
+    [data, milestonesOnly],
+  );
+  const ticker = useMemo(() => recentTagsAt(visibleTags, playheadMs, TICKER_SIZE), [visibleTags, playheadMs]);
+
+  const nameOf = useMemo(() => {
+    const m = new Map<string, PlayerPhysical>();
+    for (const p of data?.players ?? []) m.set(p.player_id, p);
+    return m;
+  }, [data]);
+
+  const byDistance = useMemo(() => (data ? topBy(data.players, "distance_km") : []), [data]);
+  const bySpeed = useMemo(() => (data ? topBy(data.players, "top_speed_kmh") : []), [data]);
+
+  function togglePlay() {
+    if (!playing && ownPlayheadMs >= totalMs) setOwnPlayheadMs(0);
+    setPlaying((p) => !p);
+  }
+
+  return (
+    <section className="feed-panel player-tags-panel" aria-labelledby="player-tags-heading">
+      <div className="panel-heading">
+        <h2 id="player-tags-heading">Speed &amp; distance</h2>
+        <span
+          className="panel-tag"
+          title={data?.method ?? "Computed from the synthetic interpolated position track -- no LLM calls."}
+        >
+          Synthetic tracking &middot; no LLM calls
+        </span>
+      </div>
+
+      {!matchId && (
+        <div className="empty-state">
+          <span className="empty-icon" aria-hidden="true">&#9201;</span>
+          Run a match to see distance covered, top speeds, sprints and shot speeds.
+        </div>
+      )}
+
+      {matchId && loading && (
+        <div className="player-tags-loading" role="status">
+          <span className="spinner" aria-hidden="true" /> Computing speeds from the position track&hellip;
+        </div>
+      )}
+
+      {matchId && error && (
+        <div className="player-tags-error">
+          <p className="error" role="alert">Couldn't load player tags: {error}</p>
+          <button type="button" className="player-tags-button" onClick={() => setReloadKey((k) => k + 1)}>
+            Retry
+          </button>
+        </div>
+      )}
+
+      {data && data.players.length === 0 && (
+        <div className="empty-state">No player positions were recorded for this match.</div>
+      )}
+
+      {data && data.players.length > 0 && (
+        <>
+          <div className="player-tags-boards commentary-in">
+            <div className="player-tags-card">
+              <h3>Distance covered</h3>
+              <ol aria-label="Top 5 players by distance covered">
+                {byDistance.map((p) => (
+                  <li key={p.player_id}>
+                    <TeamDot team={p.team} />
+                    <span className="player-tags-name">{p.name}</span>
+                    <span className="player-tags-value">{p.distance_km.toFixed(2)} km</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="player-tags-card">
+              <h3>Top speed</h3>
+              <ol aria-label="Top 5 players by top speed">
+                {bySpeed.map((p) => (
+                  <li key={p.player_id}>
+                    <TeamDot team={p.team} />
+                    <span className="player-tags-name">{p.name}</span>
+                    <span className="player-tags-value">
+                      {p.top_speed_kmh.toFixed(1)} km/h
+                      <span className="player-tags-sub">{p.sprints} sprints</span>
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+
+            <div className="player-tags-card">
+              <h3>Ball speed</h3>
+              {data.fastest_shot ? (
+                <div className="player-tags-hero" aria-label="Fastest shot">
+                  <span className="player-tags-hero-value">
+                    {data.fastest_shot.speed_kmh.toFixed(1)}<small> km/h</small>
+                  </span>
+                  <span className="player-tags-hero-caption">
+                    Fastest shot &middot; <TeamDot team={data.fastest_shot.team} />
+                    {data.fastest_shot.name} &middot; {data.fastest_shot.game_clock}
+                    {data.fastest_shot.outcome ? ` · ${data.fastest_shot.outcome.replace("_", " ")}` : ""}
+                    {data.fastest_shot.xg !== null ? ` · xG ${data.fastest_shot.xg.toFixed(2)}` : ""}
+                  </span>
+                </div>
+              ) : (
+                <p className="player-tags-muted">No shots yet.</p>
+              )}
+              {data.fastest_pass && (
+                <p className="player-tags-muted">
+                  Fastest pass: <strong>{data.fastest_pass.speed_kmh.toFixed(1)} km/h</strong> by{" "}
+                  {data.fastest_pass.name} ({data.fastest_pass.game_clock}) &middot; {data.shots.length} shots,{" "}
+                  {data.passes_counted} passes measured
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="player-tags-live">
+            <div className="player-tags-live-head">
+              <h3>Live tags</h3>
+              <span className="player-tags-clock" aria-label="Match clock">{formatClock(playheadMs)}</span>
+            </div>
+
+            <div className="player-tags-controls">
+              {!external && (
+                <>
+                  <button
+                    type="button"
+                    className="player-tags-button"
+                    onClick={togglePlay}
+                    aria-label={playing ? "Pause live tags" : "Play live tags"}
+                  >
+                    {playing ? "Pause" : "Play"}
+                  </button>
+                  <input
+                    type="range"
+                    min={0}
+                    max={Math.max(totalMs, 1)}
+                    step={1000}
+                    value={Math.min(ownPlayheadMs, totalMs)}
+                    onChange={(e) => setOwnPlayheadMs(Number(e.target.value))}
+                    aria-label="Scrub match time"
+                    aria-valuetext={formatClock(ownPlayheadMs)}
+                  />
+                  <select
+                    value={rate}
+                    onChange={(e) => setRate(Number(e.target.value))}
+                    aria-label="Playback speed"
+                  >
+                    {PLAYBACK_RATES.map((r) => <option key={r} value={r}>{r}&times;</option>)}
+                  </select>
+                </>
+              )}
+              <label className="player-tags-toggle">
+                <input
+                  type="checkbox"
+                  checked={milestonesOnly}
+                  onChange={(e) => setMilestonesOnly(e.target.checked)}
+                />
+                Milestones only
+              </label>
+            </div>
+
+            {ticker.length === 0 ? (
+              <p className="player-tags-muted">
+                {playheadMs <= 0 && !external ? "Press play to replay tags as they fire." : "No tags yet at this point in the match."}
+              </p>
+            ) : (
+              <ul className="player-tags-ticker" role="log" aria-live={playing ? "off" : "polite"} aria-label="Recent player tags">
+                {ticker.map((t) => (
+                  <li key={`${t.kind}-${t.player_id}-${t.t_ms}`} className={`player-tags-tag player-tags-tag-${t.kind}`}>
+                    <span className="player-tags-tag-clock">{t.game_clock}</span>
+                    <span className="player-tags-tag-kind">{KIND_LABEL[t.kind]}</span>
+                    <TeamDot team={nameOf.get(t.player_id)?.team ?? "unknown"} />
+                    <span className="player-tags-tag-label">{t.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <p className="player-tags-disclosure">
+            Synthetic, not real tracking: derived from the interpolated position track on a{" "}
+            {data.thresholds.pitch_m[0]}&times;{data.thresholds.pitch_m[1]} m pitch, 1 s smoothed; sprint &ge;{" "}
+            {data.thresholds.sprint_kmh} km/h; {data.speed_samples_excluded_pct}% of steps above{" "}
+            {data.thresholds.max_plausible_kmh} km/h dropped as interpolation artefacts. Distances read well below
+            real Premier League totals; ball speeds are the simulator's own per-event values.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}

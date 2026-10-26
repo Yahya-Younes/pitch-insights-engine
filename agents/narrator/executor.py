@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Awaitable, Callable
+import time
+from collections.abc import Awaitable, Callable
 
 from agent_framework import Executor, WorkflowContext, handler
 
@@ -59,13 +60,17 @@ class NarratorExecutor(Executor):
         self._inject_crash = inject_crash
         self._crash_injected = False
 
-    async def _narrate_with_retry(self, insight: InsightCandidate) -> str | None:
+    async def _narrate_with_retry(
+        self, insight: InsightCandidate, attempts: list[int] | None = None,
+    ) -> str | None:
         """Tries narrate_fn twice before giving up -- a transient Foundry
         throttle/timeout shouldn't cost an insight its narration when a
         second attempt would likely succeed. Returns None only after both
         attempts fail, at which point the caller falls back to a
         deterministic template rather than dropping the insight."""
         for attempt in range(2):
+            if attempts is not None:
+                attempts.append(attempt + 1)
             try:
                 return await asyncio.wait_for(
                     self._narrate_fn(insight, self._player_names), timeout=_CALL_TIMEOUT_S,
@@ -83,7 +88,10 @@ class NarratorExecutor(Executor):
             self._crash_injected = True
             raise RuntimeError(f"Demo: simulated crash while narrating insight {insight.insight_id}")
 
-        text = await self._narrate_with_retry(insight)
+        started = time.perf_counter()
+        attempts: list[int] = []
+        grounding_failed = False
+        text = await self._narrate_with_retry(insight, attempts)
         if text is None:
             # Both attempts failed -- previously this just dropped the
             # insight entirely (no downstream message, no log entry). Now it
@@ -108,10 +116,17 @@ class NarratorExecutor(Executor):
                     insight.insight_id, insight.trigger_type, result.unmatched_numbers, result.unmatched_entities,
                 )
                 text = fallback_narration(insight)
+                grounding_failed = True
 
         self._log.record("narrator", insight.match_id, {
             "insight_id": insight.insight_id, "trigger_type": insight.trigger_type, "text_preview": text[:80],
             "fact_checked": fact_checked, "trace_id": current_trace_id(),
+            # Additive trace keys for /matches/{id}/agent-trace: real wall time
+            # (LLM call(s) + grounding check), which text actually shipped, how
+            # many LLM calls were made, and whether the verifier rejected one.
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2),
+            "path": "llm" if fact_checked else "fallback",
+            "llm_attempts": len(attempts), "grounding_failed": grounding_failed,
         })
         # A second, fuller record alongside the one above -- the "narrator"
         # entry stays a short preview for the handoff trace UI, but the "Ask

@@ -5,6 +5,7 @@ itself, a frontend/Web PubSub subscriber would in the deployed system).
 """
 from __future__ import annotations
 
+import time
 from typing import Any
 
 from agent_framework import Executor, WorkflowContext, handler
@@ -21,9 +22,12 @@ class BroadcasterExecutor(Executor):
 
     @handler
     async def handle(self, narrated: NarratedInsight, ctx: WorkflowContext[Any, RenderPayload]) -> None:
+        started = time.perf_counter()
         payload = build_render_payload(narrated.insight, narrated.narrative_text, fact_checked=narrated.fact_checked)
         self._log.record("broadcaster", narrated.insight.match_id, {
             "render_id": payload.render_id, "graphic_type": payload.graphic_type,
             "template": payload.display.template, "fact_checked": payload.fact_checked,
+            # Additive trace keys for /matches/{id}/agent-trace.
+            "duration_ms": round((time.perf_counter() - started) * 1000, 2), "path": "rules",
         })
         await ctx.yield_output(payload)

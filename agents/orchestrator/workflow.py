@@ -10,14 +10,12 @@ from agent_framework import CheckpointStorage, Workflow, WorkflowBuilder
 
 from agents.analyst0.executor import Analyst0Executor
 from agents.broadcaster.executor import BroadcasterExecutor
-from agents.concierge.executor import ConciergeExecutor
+from agents.concierge.executor import ConciergeExecutor, PersonalizeFn
 from agents.concierge.lens import CoachLens
 from agents.concierge.persona_filter import Persona
 from agents.narrator.executor import NarrateFn, NarratorExecutor
-from agents.concierge.executor import PersonalizeFn
 from agents.scout.executor import RawMatchFeed, ScoutExecutor
 from agents.shared.handoff_log import HandoffLog, InMemoryHandoffLog
-
 
 # FileCheckpointStorage pickles workflow state and refuses to deserialize
 # any type not explicitly allow-listed (a deliberate safety feature, not a
