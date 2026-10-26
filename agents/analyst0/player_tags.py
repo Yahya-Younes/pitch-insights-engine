@@ -74,6 +74,10 @@ def _team_for(pid: str, teams: Mapping[str, str]) -> str:
     return prefix if prefix in ("home", "away") else "unknown"
 
 
+# Public alias: other analyst0 modules resolve a player's team the same way.
+team_for = _team_for
+
+
 class _PlayerState:
     __slots__ = (
         "last", "distance_m", "km_tagged", "window", "valid_sum", "valid_n",

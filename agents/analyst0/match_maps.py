@@ -61,6 +61,12 @@ def _name(event: Any, player_names: dict[str, str] | None) -> str:
     return (player_names or {}).get(pid) or str(_get(event, "player_name") or pid)
 
 
+# Public names for sibling modules (e.g. player_graph.py) -- same functions.
+event_field = _get
+event_location = _loc
+player_label = _name
+
+
 # ---------------------------------------------------------------------------
 # Threat prevented
 # ---------------------------------------------------------------------------

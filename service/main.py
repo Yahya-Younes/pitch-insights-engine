@@ -61,6 +61,9 @@ from service.mcp_server import mcp
 from service.routers.agent_trace import router as agent_trace_router
 from service.routers.make_it_lie import router as make_it_lie_router
 from service.routers.match_maps import router as match_maps_router
+from service.routers.momentum import router as momentum_router
+from service.routers.player_graph import router as player_graph_router
+from service.routers.player_ratings import router as player_ratings_router
 from service.routers.player_tags import router as player_tags_router
 from service.routers.win_probability import router as win_probability_router
 from service.state import STATE as _state
@@ -189,7 +192,8 @@ app.add_middleware(
 # Feature routers -- each owns its own module under service/routers/ rather
 # than growing this file further.
 for _router in (
-    agent_trace_router, make_it_lie_router, match_maps_router, player_tags_router, win_probability_router,
+    agent_trace_router, make_it_lie_router, match_maps_router, momentum_router, player_graph_router,
+    player_ratings_router, player_tags_router, win_probability_router,
 ):
     app.include_router(_router)
 # mcp.streamable_http_app() must be called before mcp.session_manager is
@@ -645,6 +649,9 @@ async def run_demo_match(request: Request, req: RunMatchRequest):
         if e.type == "match_metadata" or e.match_clock_ms <= cutoff_ms
     ]
     player_names = {p.player_id: p.player_name for p in [*result.home_profiles, *result.away_profiles]}
+    _state.setdefault("player_roles_by_match", {})[match_id] = {
+        p.player_id: p.position for p in [*result.home_profiles, *result.away_profiles]
+    }
     # Kept in-memory (not Cosmos) so "Ask the match" can resolve player ids
     # to display names later -- process-local and lost on restart, which is
     # fine for a live demo: it only needs to outlive one running match.

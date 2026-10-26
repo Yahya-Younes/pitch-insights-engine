@@ -276,6 +276,28 @@ def action_xt_delta(start: Location, end: Location, direction: str) -> float:
     return round(xt_value(end, direction) - xt_value(start, direction), 4)
 
 
+def successful_action_xt(event) -> float | None:
+    """Unrounded xT delta of a completed pass or a carry, oriented by the
+    acting team's attack direction; None for any other event (incomplete
+    passes, shots, defensive actions...). Accepts schema events or dicts.
+    Negative for backward moves -- callers decide whether to clip."""
+    def get(key):
+        return event.get(key) if isinstance(event, dict) else getattr(event, key, None)
+
+    etype = get("type")
+    if etype == "pass":
+        if get("outcome") != "complete":
+            return None
+    elif etype != "carry":
+        return None
+    team = get("team")
+    start, end = get("location"), get("end_location")
+    if team not in ("home", "away") or start is None or end is None:
+        return None
+    direction = direction_of(team)
+    return xt_value((float(end[0]), float(end[1])), direction) - xt_value((float(start[0]), float(start[1])), direction)
+
+
 # ---------------------------------------------------------------------------
 # Pass quality — distance/accuracy come straight off the event; difficulty is
 # a composite of pressure, distance, xT gain, and whether it reached the final
