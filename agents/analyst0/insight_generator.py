@@ -22,6 +22,10 @@ TENDENCY_MATCH_THRESHOLD = 0.6
 TENDENCY_BREAK_THRESHOLD = 0.15
 TENDENCY_MIN_SAMPLE_SIZE = 8
 TENDENCY_COOLDOWN_MIN = 5.0
+# Uncapped, tendency detection yields ~150 insights per match (4x every other
+# trigger combined), mostly "player did what they usually do". The live feed
+# keeps only the most striking breaks from habit.
+TENDENCY_MAX_PER_MATCH = 5
 XT_SURGE_MIN_SAMPLE = 6
 XT_SURGE_ZSCORE_THRESHOLD = 1.75
 XT_SURGE_COOLDOWN_MIN = 3.0
@@ -278,11 +282,18 @@ def _tendency_candidates(events, match_id, tendency_profiles: dict[str, Inferred
     return out
 
 
+def _most_striking_breaks(candidates: list[InsightCandidate], cap: int | None) -> list[InsightCandidate]:
+    breaks = sorted((c for c in candidates if c.trigger_type == "tendency_break"), key=lambda c: c.metric_value)
+    return breaks if cap is None else breaks[:cap]
+
+
 def generate_insight_candidates(
     events: list[AnyEvent], match_id: str, match_duration_ms: int,
     tendency_profiles: dict[str, InferredTendencyProfile] | None = None,
     window_minutes: int = 3,
+    tendency_cap: int | None = TENDENCY_MAX_PER_MATCH,
 ) -> list[InsightCandidate]:
+    """tendency_cap=None returns every tendency_break, uncapped."""
     window_ms = window_minutes * 60000
     candidates = []
     candidates += _pressure_candidates(events, match_id, match_duration_ms, window_ms)
@@ -292,6 +303,6 @@ def generate_insight_candidates(
     candidates += _milestone_candidates(events, match_id)
     candidates += _referee_candidates(events, match_id)
     if tendency_profiles:
-        candidates += _tendency_candidates(events, match_id, tendency_profiles)
+        candidates += _most_striking_breaks(_tendency_candidates(events, match_id, tendency_profiles), tendency_cap)
     candidates.sort(key=lambda c: c.window_start_min)
     return candidates
