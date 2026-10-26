@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { fetchFormations, simulateTacticsMatchup } from "../lib/api";
 import type { TacticsLabResult } from "../lib/api";
+import { frNum, frRaw } from "../lib/frLabels";
 
 const QUALITY_PRESETS: { value: string; label: string }[] = [
-  { value: "random", label: "Random squad value" },
-  { value: "big_money", label: "Big-money squad" },
-  { value: "mid_table", label: "Mid-table squad" },
-  { value: "shoestring", label: "Shoestring-budget squad" },
+  { value: "random", label: "Valeur d'effectif aléatoire" },
+  { value: "big_money", label: "Effectif millionnaire" },
+  { value: "mid_table", label: "Effectif de milieu de tableau" },
+  { value: "shoestring", label: "Effectif à petit budget" },
 ];
 
 function presetToQuality(preset: string, min: number, max: number): number | null {
@@ -17,9 +18,9 @@ function presetToQuality(preset: string, min: number, max: number): number | nul
 }
 
 function formatEur(value: number): string {
-  if (value >= 1_000_000_000) return `€${(value / 1_000_000_000).toFixed(2)}B`;
-  if (value >= 1_000_000) return `€${(value / 1_000_000).toFixed(1)}M`;
-  return `€${Math.round(value / 1000)}K`;
+  if (value >= 1_000_000_000) return `${frNum(value / 1_000_000_000, 2)} Md€`;
+  if (value >= 1_000_000) return `${frNum(value / 1_000_000, 1)} M€`;
+  return `${frNum(value / 1000, 0)} k€`;
 }
 
 export function TacticsLab() {
@@ -62,49 +63,49 @@ export function TacticsLab() {
   return (
     <section className="feed-panel tactics-lab-panel">
       <div className="panel-heading">
-        <h2>Tactics Lab</h2>
+        <h2>Labo tactique</h2>
         <span
           className="panel-tag"
-          title="Monte-Carlo formation comparison: runs N independent full 90-minute synthetic matches between two chosen formations (and, optionally, two deliberately different squad values) and reports the aggregate win/draw/loss record, goals, xG, possession, and pressing intensity -- not a single match's result. Squad value scales directly into the attributes that drive shot and pass outcomes, so a value gap is a real, measurable edge, not a cosmetic label. Pure CPU simulation, no LLM calls."
+          title="Comparaison de systèmes par Monte-Carlo : simule N matchs synthétiques complets de 90 minutes entre deux systèmes choisis (et, en option, deux valeurs d'effectif volontairement différentes), puis donne le bilan victoires/nuls/défaites, les buts, les xG, la possession et l'intensité du pressing -- pas le résultat d'un seul match. La valeur d'effectif agit directement sur les attributs qui décident des tirs et des passes : un écart de valeur est un vrai avantage mesurable. Simulation CPU pure, sans LLM."
         >
-          Monte-Carlo &middot; {result ? `${result.n_matches} matches` : "no LLM calls"}
+          Monte-Carlo &middot; {result ? `${result.n_matches} matchs` : "sans LLM"}
         </span>
       </div>
 
       <div className="whatif-knob-row tactics-lab-controls">
         <label>
-          Home formation
+          Système domicile
           <select value={home} onChange={(e) => { setHome(e.target.value); setResult(null); }}>
             {formations.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
         </label>
         <label>
-          Home squad
+          Effectif domicile
           <select value={homePreset} onChange={(e) => { setHomePreset(e.target.value); setResult(null); }}>
             {QUALITY_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </label>
         <label>
-          Away formation
+          Système extérieur
           <select value={away} onChange={(e) => { setAway(e.target.value); setResult(null); }}>
             {formations.map((f) => <option key={f} value={f}>{f}</option>)}
           </select>
         </label>
         <label>
-          Away squad
+          Effectif extérieur
           <select value={awayPreset} onChange={(e) => { setAwayPreset(e.target.value); setResult(null); }}>
             {QUALITY_PRESETS.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
           </select>
         </label>
         <label>
-          Matches
+          Matchs
           <input
             type="number" min={1} max={200} value={nMatches}
             onChange={(e) => setNMatches(Math.max(1, Math.min(200, Number(e.target.value))))}
           />
         </label>
         <button className="ask-button" onClick={handleRun} disabled={busy}>
-          {busy ? <span className="spinner" /> : "Run simulation"}
+          {busy ? <span className="spinner" /> : "Lancer la simulation"}
         </button>
       </div>
 
@@ -113,26 +114,26 @@ export function TacticsLab() {
       {result && (
         <div className="tactics-lab-result commentary-in">
           <div className="tactics-lab-record">
-            <strong>{result.home_formation}</strong> vs <strong>{result.away_formation}</strong>
+            <strong>{result.home_formation}</strong> contre <strong>{result.away_formation}</strong>
             <span className="tactics-lab-wdl">
-              {result.home_record.wins}W&nbsp;
-              {result.home_record.draws}D&nbsp;
-              {result.home_record.losses}L
+              {result.home_record.wins}V&nbsp;
+              {result.home_record.draws}N&nbsp;
+              {result.home_record.losses}D
               <span className="stats-chip-sub">
-                ({result.home_record.win_pct}% / {result.home_record.draw_pct}% / {result.home_record.loss_pct}%)
+                ({frRaw(result.home_record.win_pct)} % / {frRaw(result.home_record.draw_pct)} % / {frRaw(result.home_record.loss_pct)} %)
               </span>
             </span>
           </div>
           <table className="tactics-lab-table">
             <thead>
-              <tr><th></th><th>{result.home_formation} (home)</th><th>{result.away_formation} (away)</th></tr>
+              <tr><th></th><th>{result.home_formation} (domicile)</th><th>{result.away_formation} (extérieur)</th></tr>
             </thead>
             <tbody>
-              <tr><td>Squad value</td><td>{formatEur(result.home_market_value_eur)}</td><td>{formatEur(result.away_market_value_eur)}</td></tr>
-              <tr><td>Mean goals</td><td>{result.mean_home_goals}</td><td>{result.mean_away_goals}</td></tr>
-              <tr><td>Mean xG</td><td>{result.mean_home_xg}</td><td>{result.mean_away_xg}</td></tr>
-              <tr><td>Mean PPDA</td><td>{result.mean_home_ppda}</td><td>{result.mean_away_ppda}</td></tr>
-              <tr><td>Possession</td><td>{result.mean_home_possession_pct}%</td><td>{100 - (result.mean_home_possession_pct ?? 50)}%</td></tr>
+              <tr><td>Valeur de l'effectif</td><td>{formatEur(result.home_market_value_eur)}</td><td>{formatEur(result.away_market_value_eur)}</td></tr>
+              <tr><td>Buts (moyenne)</td><td>{frRaw(result.mean_home_goals)}</td><td>{frRaw(result.mean_away_goals)}</td></tr>
+              <tr><td>xG (moyenne)</td><td>{frRaw(result.mean_home_xg)}</td><td>{frRaw(result.mean_away_xg)}</td></tr>
+              <tr><td>PPDA (moyenne)</td><td>{frRaw(result.mean_home_ppda)}</td><td>{frRaw(result.mean_away_ppda)}</td></tr>
+              <tr><td>Possession</td><td>{frRaw(result.mean_home_possession_pct)} %</td><td>{result.mean_home_possession_pct === null ? "--" : `${frNum(100 - result.mean_home_possession_pct, 1)} %`}</td></tr>
             </tbody>
           </table>
           <p className="whatif-explanation">{result.method}</p>

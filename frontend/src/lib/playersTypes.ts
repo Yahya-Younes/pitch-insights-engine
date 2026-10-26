@@ -162,7 +162,8 @@ export function positionLabel(pos: PositionCode | null): string {
   return pos ? POSITION_LABELS[pos] : "Poste inconnu";
 }
 
-const FR_1 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+// signDisplay "negative": values that round to zero print "0,0", never "-0,0".
+const FR_1 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "negative" });
 const FR_2 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
 
 /** 8.4 -> "8,4" */
@@ -170,14 +171,15 @@ export function formatRating(rating: number): string {
   return FR_1.format(rating);
 }
 
-/** Signed points: 0.15 -> "+0,15", -0.3 -> "−0,3". */
+/** Signed points: 0.15 -> "+0,15", -0.3 -> "−0,3"; anything that rounds to zero -> "0,0". */
 export function formatPoints(points: number): string {
-  const abs = FR_2.format(Math.abs(points));
-  return `${points < 0 ? "−" : "+"}${abs}`;
+  const rounded = Math.round(points * 100) / 100;
+  const abs = FR_2.format(Math.abs(rounded));
+  return `${rounded < 0 ? "−" : rounded > 0 ? "+" : ""}${abs}`;
 }
 
 export function formatNumber(value: number, digits = 1): string {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: digits }).format(value);
+  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: digits, signDisplay: "negative" }).format(value);
 }
 
 /** "Rafael Donnelly" -> "R. DONNELLY". Keeps the initial: the simulator

@@ -71,11 +71,12 @@ export function describeError(err: unknown): string {
 // Formatting (French decimals)
 // ---------------------------------------------------------------------------
 
-const RATING_FMT = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+// signDisplay "negative" / "exceptZero": values that round to zero never print "-0,0".
+const RATING_FMT = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "negative" });
 const SIGNED_FMT = new Intl.NumberFormat("fr-FR", {
   minimumFractionDigits: 1, maximumFractionDigits: 2, signDisplay: "exceptZero",
 });
-const DEC2_FMT = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const DEC2_FMT = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "negative" });
 
 /** 8.4 -> "8,4" */
 export function formatRating(n: number): string {
@@ -91,13 +92,8 @@ export function formatDec2(n: number): string {
   return DEC2_FMT.format(n);
 }
 
-/** "R. Ribeiro" from "Rafael Ribeiro" (single names unchanged). */
-export function shortName(name: string): string {
-  const parts = name.trim().split(/\s+/);
-  if (parts.length < 2) return name;
-  const first = parts[0] ?? "";
-  return `${first.charAt(0)}. ${parts.slice(1).join(" ")}`;
-}
+/** "R. Ribeiro" from "Rafael Ribeiro" -- single source of truth in matchContext. */
+export { shortName } from "./matchContext";
 
 // ---------------------------------------------------------------------------
 // Shared poller

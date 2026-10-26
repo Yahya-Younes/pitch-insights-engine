@@ -12,7 +12,7 @@ export function HistoryRail({ payloads, selectedId, onSelect }: Props) {
     return (
       <div className="history-rail-empty">
         <span className="empty-icon" aria-hidden="true">📺</span>
-        Run a match to start the broadcast feed.
+        Lance un match pour démarrer le flux de diffusion.
       </div>
     );
   }

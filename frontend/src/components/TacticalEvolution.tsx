@@ -16,9 +16,9 @@ function TeamTimeline({ timeline, teamName }: { timeline: TacticalTimelineRespon
     <div className="tactics-team">
       <div className="tactics-team-header">
         <span className="tactics-team-name">{teamName}</span>
-        <span className="tactics-formation-badge">Started {timeline.starting_formation}</span>
+        <span className="tactics-formation-badge">Départ {timeline.starting_formation}</span>
         {lastLabeled && lastLabeled.label !== timeline.starting_formation && (
-          <span className="tactics-formation-badge tactics-formation-badge-current">Now {lastLabeled.label}</span>
+          <span className="tactics-formation-badge tactics-formation-badge-current">Actuel {lastLabeled.label}</span>
         )}
       </div>
 
@@ -37,7 +37,7 @@ function TeamTimeline({ timeline, teamName }: { timeline: TacticalTimelineRespon
             <li key={i} className="tactics-shift-item">
               <span className="tactics-shift-icon" aria-hidden="true">⟲</span>
               <span>
-                <strong>{s.at_min.toFixed(0)}'</strong> shifted {s.from_label} {"→"} {s.to_label}
+                <strong>{s.at_min.toFixed(0)}'</strong> changement de système {s.from_label} {"→"} {s.to_label}
               </span>
             </li>
           ))}
@@ -48,14 +48,14 @@ function TeamTimeline({ timeline, teamName }: { timeline: TacticalTimelineRespon
         <ul className="tactics-role-list">
           {timeline.role_changes.map((r, i) => (
             <li key={i} className="tactics-role-item">
-              <strong>{r.player_name}</strong> moved from {describeZone(r.from_zone)} to {describeZone(r.to_zone)} around {r.at_min.toFixed(0)}'
+              <strong>{r.player_name}</strong> : {describeZone(r.from_zone)} {"→"} {describeZone(r.to_zone)} (vers la {r.at_min.toFixed(0)}e minute)
             </li>
           ))}
         </ul>
       )}
 
       {timeline.shifts.length === 0 && timeline.role_changes.length === 0 && (
-        <p className="tactics-no-change">No tactical change detected yet -- shape has held since kickoff.</p>
+        <p className="tactics-no-change">Aucun changement tactique détecté pour l'instant : le bloc tient depuis le coup d'envoi.</p>
       )}
     </div>
   );
@@ -101,26 +101,26 @@ export function TacticalEvolution({ matchId, homeTeam, awayTeam }: Props) {
   return (
     <section className="feed-panel tactics-panel">
       <div className="panel-heading">
-        <h2>Tactical Evolution</h2>
+        <h2>Évolution tactique</h2>
         <span
           className="panel-tag"
-          title="Formation shape and shift timing inferred purely from observed event locations, never from the generator's hidden ground truth -- see the stats bar's formation-detection figure for how accurately this recovers it."
+          title="Forme du système et moment des changements déduits uniquement des positions observées des événements, jamais de la vérité cachée du générateur -- voir le chiffre de détection des formations (onglet Confiance) pour sa précision."
         >
-          analyst-0 · inferred
+          analyste-0 · déduit
         </span>
       </div>
 
       {matchId && !tactics && loadError ? (
         <div className="empty-state">
-          <p className="error" role="alert">Couldn't load the tactical timeline for this match.</p>
+          <p className="error" role="alert">Impossible de charger la chronologie tactique de ce match.</p>
           <button type="button" className="pitch-play-button" onClick={() => setReloadKey((k) => k + 1)}>
-            Retry
+            Réessayer
           </button>
         </div>
       ) : !matchId || !tactics ? (
         <div className="empty-state">
           <span className="empty-icon" aria-hidden="true">🧭</span>
-          <p>{matchId ? "Loading tactical timeline..." : "Run a match to see how each team's shape evolves."}</p>
+          <p>{matchId ? "Chargement de la chronologie tactique…" : "Lance un match pour voir comment évolue le système de chaque équipe."}</p>
         </div>
       ) : (
         <div className="tactics-teams">

@@ -164,10 +164,15 @@
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
 }
 
+/* MOTM: the top row drops a little so the badge gets its own band in the
+   top-right corner, above the avatar -- rating and position stay clear. */
+.fc-card--motm { padding-top: 1.45em; }
+
 .fc-card__motm {
   position: absolute;
-  top: 4.05em;
-  left: 0.6em;
+  top: 0.45em;
+  right: 0.6em;
+  z-index: 1;
   padding: 0.12em 0.45em;
   border-radius: 999px;
   background: #1b1407;
@@ -190,6 +195,13 @@
   font-size: 0.62em;
   font-weight: 700;
   letter-spacing: 0.04em;
+}
+
+/* MOTM owns the top-right corner; the "Suivi" ribbon moves to the top-left. */
+.fc-card--motm .fc-card__followed {
+  top: 0.62em;
+  right: auto;
+  left: 0.55em;
 }
 
 .fc-card__name {

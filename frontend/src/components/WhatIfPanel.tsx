@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { whatIf } from "../lib/api";
+import { frRaw, triggerFr } from "../lib/frLabels";
 import type { RenderPayload } from "../lib/types";
 import { VoiceButton } from "./VoiceButton";
 
@@ -17,6 +18,9 @@ interface Props {
 const SUPPORTED_TYPES = new Set(["xt_surge", "referee_decision", "tendency_match", "tendency_break"]);
 
 const ACTION_OPTIONS = ["pass", "dribble", "carry", "lose_possession"];
+const ACTION_FR: Record<string, string> = {
+  pass: "Passe", dribble: "Dribble", carry: "Conduite de balle", lose_possession: "Perte de balle",
+};
 
 interface WhatIfResultState {
   actual_value: number;
@@ -63,12 +67,12 @@ export function WhatIfPanel({ matchId, insights }: Props) {
   return (
     <section className="feed-panel whatif-panel">
       <div className="panel-heading">
-        <h2>What If?</h2>
+        <h2>Et si… ?</h2>
         <span
           className="panel-tag"
-          title="Re-runs the same deterministic Analyst-0 function that produced the insight's real metric, against a hypothetical input you choose -- a recomputed number, not an LLM guess."
+          title="Relance la même fonction déterministe d'Analyste-0 qui a produit la vraie métrique de l'insight, sur une entrée hypothétique que tu choisis -- un chiffre recalculé, pas une supposition de LLM."
         >
-          counterfactual scoring
+          scénario contrefactuel
         </span>
       </div>
 
@@ -77,8 +81,8 @@ export function WhatIfPanel({ matchId, insights }: Props) {
           <span className="empty-icon" aria-hidden="true">🔁</span>
           <p>
             {matchId
-              ? "No Expected-Threat, referee-decision, or tendency insights yet to run a what-if on."
-              : "Run a match first, then try a counterfactual on one of its insights."}
+              ? "Pas encore d'insight de menace (xT), de décision arbitrale ou de tendance sur lequel tester un scénario."
+              : "Lance d'abord un match, puis teste un scénario alternatif sur l'un de ses insights."}
           </p>
         </div>
       ) : (
@@ -86,17 +90,18 @@ export function WhatIfPanel({ matchId, insights }: Props) {
           <div className="whatif-row">
             <select
               className="whatif-select"
+              aria-label="Insight à tester"
               value={selectedId}
               onChange={(e) => {
                 setSelectedId(e.target.value);
                 setResult(null);
               }}
             >
-              <option value="">Pick an insight...</option>
+              <option value="">Choisis un insight…</option>
               {candidates.map((p) => (
                 <option key={p.source_insight_id} value={p.source_insight_id}>
-                  [{p.graphic_type}] {p.narrative_text.slice(0, 60)}
-                  {p.narrative_text.length > 60 ? "..." : ""}
+                  [{triggerFr(p.graphic_type)}] {p.narrative_text.slice(0, 60)}
+                  {p.narrative_text.length > 60 ? "…" : ""}
                 </option>
               ))}
             </select>
@@ -107,11 +112,11 @@ export function WhatIfPanel({ matchId, insights }: Props) {
               {selected.graphic_type === "xt_surge" && (
                 <>
                   <label>
-                    end x
+                    x d'arrivée
                     <input type="number" min={0} max={120} value={endX} onChange={(e) => setEndX(Number(e.target.value))} />
                   </label>
                   <label>
-                    end y
+                    y d'arrivée
                     <input type="number" min={0} max={80} value={endY} onChange={(e) => setEndY(Number(e.target.value))} />
                   </label>
                 </>
@@ -123,23 +128,23 @@ export function WhatIfPanel({ matchId, insights }: Props) {
                     <input type="number" min={0} max={40} value={distanceM} onChange={(e) => setDistanceM(Number(e.target.value))} />
                   </label>
                   <label>
-                    angle (deg)
+                    angle (°)
                     <input type="number" min={0} max={90} value={angleDeg} onChange={(e) => setAngleDeg(Number(e.target.value))} />
                   </label>
                 </>
               )}
               {(selected.graphic_type === "tendency_match" || selected.graphic_type === "tendency_break") && (
                 <label>
-                  hypothetical action
+                  action hypothétique
                   <select value={action} onChange={(e) => setAction(e.target.value)}>
                     {ACTION_OPTIONS.map((a) => (
-                      <option key={a} value={a}>{a}</option>
+                      <option key={a} value={a}>{ACTION_FR[a] ?? a}</option>
                     ))}
                   </select>
                 </label>
               )}
               <button className="ask-button" onClick={handleRun} disabled={busy}>
-                {busy ? <span className="spinner" /> : "Run what-if"}
+                {busy ? <span className="spinner" /> : "Lancer le scénario"}
               </button>
             </div>
           )}
@@ -150,10 +155,10 @@ export function WhatIfPanel({ matchId, insights }: Props) {
             <div className="whatif-result commentary-in">
               <p className="whatif-explanation">{result.explanation}</p>
               <div className="whatif-values">
-                <span>actual: {result.actual_value}</span>
-                <span>hypothetical: {result.hypothetical_value}</span>
+                <span>réel : {frRaw(result.actual_value)}</span>
+                <span>hypothétique : {frRaw(result.hypothetical_value)}</span>
                 <span className={result.delta >= 0 ? "whatif-delta-up" : "whatif-delta-down"}>
-                  {result.delta >= 0 ? "+" : ""}{result.delta}
+                  {result.delta >= 0 ? "+" : ""}{frRaw(result.delta)}
                 </span>
               </div>
               <VoiceButton audioBase64={result.audioBase64} autoPlay={false} />

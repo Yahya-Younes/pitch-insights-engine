@@ -179,7 +179,7 @@ def test_duel_without_opponent_id_is_paired_with_preceding_carrier():
     g = compute_player_graph([carry, tackle], include_duels=True, min_passes=1)
     duel = next(e for e in g["edges"] if e["kind"] == "duel")
     assert {duel["source"], duel["target"]} == {"a9", "h5"}
-    assert "inferred" in g["method"]
+    assert "déduits" in g["method"]
     # Too far apart in time: no pairing.
     late = {**tackle, "match_clock_ms": 1_806_000}
     assert not [e for e in compute_player_graph([carry, late])["edges"] if e["kind"] == "duel"]

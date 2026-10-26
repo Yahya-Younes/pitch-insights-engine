@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { compareMatch } from "../lib/api";
 import type { CompareResponse } from "../lib/api";
+import { personaFr } from "../lib/frLabels";
 import type { LensSummary } from "../lib/types";
 
 interface Props {
@@ -39,51 +40,51 @@ export function ComparePersonas({ matchId, lenses }: Props) {
   return (
     <section className="feed-panel compare-personas-panel">
       <div className="panel-heading">
-        <h2>Compare Personas</h2>
+        <h2>Comparer les profils</h2>
         <span
           className="panel-tag"
-          title="The same match's current insights, personalized two different ways side by side -- reuses the same whole-match recap call a single-persona view already uses, just run twice concurrently."
+          title="Les insights actuels du même match, personnalisés de deux façons côte à côte -- le même appel de récap que la vue à profil unique, simplement lancé deux fois en parallèle."
         >
-          split screen
+          écran partagé
         </span>
       </div>
 
       {!matchId ? (
         <div className="empty-state">
           <span className="empty-icon" aria-hidden="true">⇄</span>
-          <p>Run a match first, then compare two ways of explaining it side by side.</p>
+          <p>Lance d'abord un match, puis compare deux façons de le raconter côte à côte.</p>
         </div>
       ) : (
         <>
           <div className="whatif-knob-row compare-personas-controls">
             <label>
-              Left
+              Gauche
               <select value={personaA} onChange={(e) => setPersonaA(e.target.value)}>
-                {PERSONAS.map((p) => <option key={p} value={p}>{p}</option>)}
+                {PERSONAS.map((p) => <option key={p} value={p}>{personaFr(p)}</option>)}
               </select>
             </label>
             <label>
-              Lens (left)
+              Lentille (gauche)
               <select value={lensIdA} onChange={(e) => setLensIdA(e.target.value)}>
-                <option value="">none</option>
+                <option value="">Aucune</option>
                 {lenses.map((l) => <option key={l.lens_id} value={l.lens_id}>{l.attributed_style_of}</option>)}
               </select>
             </label>
             <label>
-              Right
+              Droite
               <select value={personaB} onChange={(e) => setPersonaB(e.target.value)}>
-                {PERSONAS.map((p) => <option key={p} value={p}>{p}</option>)}
+                {PERSONAS.map((p) => <option key={p} value={p}>{personaFr(p)}</option>)}
               </select>
             </label>
             <label>
-              Lens (right)
+              Lentille (droite)
               <select value={lensIdB} onChange={(e) => setLensIdB(e.target.value)}>
-                <option value="">none</option>
+                <option value="">Aucune</option>
                 {lenses.map((l) => <option key={l.lens_id} value={l.lens_id}>{l.attributed_style_of}</option>)}
               </select>
             </label>
             <button className="ask-button" onClick={handleRun} disabled={busy}>
-              {busy ? <span className="spinner" /> : "Compare"}
+              {busy ? <span className="spinner" /> : "Comparer"}
             </button>
           </div>
 
@@ -92,11 +93,11 @@ export function ComparePersonas({ matchId, lenses }: Props) {
           {result && (
             <div className="compare-personas-result commentary-in">
               <div className="compare-personas-column">
-                <h3>{result.left.persona}{result.left.lens_id ? ` · ${result.left.lens_id}` : ""}</h3>
+                <h3>{personaFr(result.left.persona)}{result.left.lens_id ? ` · ${result.left.lens_id}` : ""}</h3>
                 <p>{result.left.text}</p>
               </div>
               <div className="compare-personas-column">
-                <h3>{result.right.persona}{result.right.lens_id ? ` · ${result.right.lens_id}` : ""}</h3>
+                <h3>{personaFr(result.right.persona)}{result.right.lens_id ? ` · ${result.right.lens_id}` : ""}</h3>
                 <p>{result.right.text}</p>
               </div>
             </div>

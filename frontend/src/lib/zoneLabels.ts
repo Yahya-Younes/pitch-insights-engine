@@ -3,8 +3,8 @@
 // the Tactical Evolution panel. Depth is left-to-right from this team's
 // own attacking direction -- "defensive"/"attacking" here means relative
 // to the team, not an absolute pitch side.
-const DEPTH_LABELS = ["own box", "deep defense", "defensive third", "midfield", "attacking third", "final third"];
-const WIDTH_LABELS = ["left flank", "left-center", "right-center", "right flank"];
+const DEPTH_LABELS = ["sa surface", "défense profonde", "tiers défensif", "milieu de terrain", "tiers offensif", "dernier tiers"];
+const WIDTH_LABELS = ["couloir gauche", "axe gauche", "axe droit", "couloir droit"];
 
 export function describeZone(zoneLabel: string): string {
   const match = /^z(\d+)_(\d+)$/.exec(zoneLabel);

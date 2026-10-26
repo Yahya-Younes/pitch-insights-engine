@@ -227,7 +227,7 @@ export function WinProbability({ matchId, homeTeam, awayTeam }: Props) {
                     <span className="lv-muted"> · {s.score_after}</span>
                   </span>
                   <span className={`wp-swing-delta ${s.delta_home >= 0 ? "wp-up" : "wp-down"}`}>
-                    {s.delta_home >= 0 ? "+" : "−"}{Math.round(Math.abs(s.delta_home) * 100)}
+                    {Math.round(s.delta_home * 100) > 0 ? "+" : Math.round(s.delta_home * 100) < 0 ? "−" : ""}{Math.abs(Math.round(s.delta_home * 100))}
                   </span>
                 </li>
               ))}

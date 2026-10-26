@@ -153,10 +153,10 @@ def compute_threat_prevented(events: list[Any], player_names: dict[str, str] | N
         "by_action": dict(by_action),
         "all_moments_total": round(total, 4),
         "method": (
-            "Each interception / won tackle is credited with the xT the attacking side held where the ball "
-            "was won (for interceptions: the intercepted pass's intended destination), read off the "
-            "deterministic Markov xT grid used across the analytics. Aerial duels, blocked shots and "
-            "clearances are not counted: the event stream doesn't attribute them cleanly."
+            "Chaque interception / tacle gagné est crédité de l'xT que détenait l'équipe attaquante à l'endroit "
+            "de la récupération (interceptions : la destination visée par la passe interceptée), lu sur la "
+            "grille xT de Markov déterministe utilisée dans toutes les analyses. Les duels aériens, tirs contrés "
+            "et dégagements ne sont pas comptés : le flux d'événements ne les attribue pas proprement."
         ),
     }
 

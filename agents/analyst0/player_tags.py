@@ -46,13 +46,13 @@ _MIN_VALID_SHARE = 0.7
 _RECORD_MIN_GAIN_KMH = 0.1
 
 METHOD = (
-    "Synthetic: speeds and distances are computed from the interpolated position "
-    "track (not real player tracking) on a 105 x 68 m pitch, averaged over a 1 s "
-    f"window. Single-frame moves above {MAX_PLAUSIBLE_KMH:g} km/h are interpolation "
-    "artefacts and are excluded from speed (still counted as distance). Off-ball "
-    "players only drift toward their recent average position, so distances read "
-    "well below real Premier League totals (~10-12 km). Shot and pass speeds are "
-    "the simulator's generated per-event values."
+    "Synthétique : vitesses et distances sont calculées à partir de la trace de positions "
+    "interpolée (pas d'un vrai tracking joueur) sur un terrain de 105 x 68 m, moyennées sur "
+    f"une fenêtre de 1 s. Les déplacements d'une image au-delà de {MAX_PLAUSIBLE_KMH:g} km/h sont des "
+    "artefacts d'interpolation, exclus des vitesses (mais comptés dans la distance). Les joueurs "
+    "sans ballon ne font que dériver vers leur position moyenne récente : les distances sont donc "
+    "bien inférieures aux totaux réels de Premier League (~10-12 km). Les vitesses de tir et de "
+    "passe sont les valeurs générées par le simulateur pour chaque événement."
 )
 
 

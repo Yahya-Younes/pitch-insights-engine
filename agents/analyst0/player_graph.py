@@ -311,19 +311,20 @@ def compute_player_graph(
     isolated = sorted(p for p in node_ids if not neighbours[p])
 
     method = (
-        f"Directed pass graph from each pass's recipient_id in the window (edges with >= {min_passes} passes; "
-        "Brandes betweenness with distance = 1/count, normalised per team by (n-1)(n-2)); "
+        f"Graphe orienté des passes d'après le recipient_id de chaque passe dans la fenêtre (liens d'au moins "
+        f"{min_passes} passes ; centralité d'intermédiarité de Brandes avec distance = 1/nombre, normalisée par "
+        "équipe par (n-1)(n-2)) ; "
     )
     if not include_duels:
-        method += "duels not requested."
+        method += "duels non demandés."
     elif team != "both":
-        method += "duels are cross-team, so they are omitted from a single-team view."
+        method += "les duels opposent les deux équipes : ils sont omis dans une vue à une seule équipe."
     else:
-        method += ("duels from the opponent_id each duel/tackle/interception/dribble event carries "
-                   "(a tackled dribble and its tackle count once).")
+        method += ("duels d'après l'opponent_id porté par chaque événement duel/tacle/interception/dribble "
+                   "(un dribble taclé et son tacle ne comptent qu'une fois).")
         if inferred:
-            method += (f" {inferred} contest(s) lacking an opponent id were inferred from the preceding "
-                       f"opposing on-ball event within {PAIRING_WINDOW_MS // 1000}s.")
+            method += (f" {inferred} duel(s) sans identifiant d'adversaire ont été déduits de l'action adverse "
+                       f"précédente avec ballon, dans un délai de {PAIRING_WINDOW_MS // 1000} s.")
 
     return {
         "window": {"from_min": from_min, "to_min": to_min},

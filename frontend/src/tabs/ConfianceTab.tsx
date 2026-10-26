@@ -38,7 +38,7 @@ export function ConfianceTab() {
       <section className="ui-card confiance-history" aria-labelledby="confiance-history-title">
         <div className="ui-card-head">
           <h2 id="confiance-history-title" className="ui-heading">Historique diffusé</h2>
-          <span className="ui-tag">stage d · render</span>
+          <span className="ui-tag">étape d · diffusion</span>
         </div>
         <HistoryRail
           payloads={renderEvents}

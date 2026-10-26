@@ -221,7 +221,7 @@ def test_real_simulated_match_is_plausible_and_deterministic():
     assert any(p["distance_km"] > 0 for p in first["players"])
     assert {p["team"] for p in first["players"]} == {"home", "away"}
     assert all(p["name"] == names[p["player_id"]] for p in first["players"])
-    assert "synthetic" in first["method"].lower()
+    assert "synthétique" in first["method"].lower()
 
 
 # ---------- HTTP router ----------

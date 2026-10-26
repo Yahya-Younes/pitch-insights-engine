@@ -4,7 +4,7 @@
   --rel-gold: var(--accent-gold, #f5c542);
   --rel-danger: var(--status-danger, #ff4d6a);
   display: grid;
-  grid-template-columns: minmax(0, 900px) minmax(260px, 340px);
+  grid-template-columns: minmax(0, 1fr) 340px;
   gap: 16px;
   align-items: start;
 }

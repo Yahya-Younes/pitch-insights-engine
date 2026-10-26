@@ -220,8 +220,9 @@ export function useLiveRoster(matchId: string | null): LiveRoster {
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
-const FR_1 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const FR_2 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+// signDisplay "negative": values that round to zero print "0,0", never "-0,0".
+const FR_1 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "negative" });
+const FR_2 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "negative" });
 
 export function fr1(n: number): string {
   return FR_1.format(n);

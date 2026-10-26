@@ -110,8 +110,9 @@ def simulate_formation_matchup(
         "mean_home_possession_pct": _mean([o.home_possession_pct for o in outcomes]),
         "mean_home_ppda": _mean(home_ppdas),
         "mean_away_ppda": _mean(away_ppdas),
-        "method": f"{n_matches} independently seeded full 90-minute synthetic matches between a "
-                  f"{home_formation} home side and a {away_formation} away side (same two generated squads "
-                  f"reused across every run, only the match seed varies) -- a Monte-Carlo comparison of the "
-                  "two formations' outcome distribution, not a single match's result.",
+        "method": f"{n_matches} matchs synthétiques complets de 90 minutes, chacun avec sa propre graine, entre "
+                  f"une équipe à domicile en {home_formation} et une équipe à l'extérieur en {away_formation} "
+                  "(les deux mêmes effectifs générés à chaque simulation, seule la graine du match varie) -- une "
+                  "comparaison Monte-Carlo de la distribution des résultats des deux systèmes, pas le résultat "
+                  "d'un seul match.",
     }

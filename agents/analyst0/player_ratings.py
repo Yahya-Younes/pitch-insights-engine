@@ -64,9 +64,9 @@ RATING_WEIGHTS: dict[str, dict[str, float]] = {
 ROLE_GROUP = {"GK": "goalkeeper", "CB": "defender", "FB": "defender", "CM": "midfielder", "WM": "midfielder", "FW": "forward"}
 
 METHOD = (
-    "Synthetic-match ratings: each attribute percentile-ranks the player's own event/tracking numbers against "
-    "everyone else in this match (35-99), the overall is a role-weighted blend plus a goal bonus -- relative "
-    "to this match only, not a calibrated scouting grade."
+    "Notes sur match synthétique : chaque attribut classe en centile les chiffres d'événements/tracking du joueur "
+    "par rapport à tous les autres joueurs du match (35-99) ; la note globale est un mélange pondéré par poste "
+    "plus un bonus par but -- relative à ce match uniquement, pas une note de scouting calibrée."
 )
 
 

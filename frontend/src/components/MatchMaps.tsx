@@ -3,6 +3,7 @@ import { fetchPassNetwork, fetchShotMap, fetchThreatPrevented } from "../lib/mat
 import type {
   PassNetworkResponse, Shot, ShotMapResponse, TeamSide, ThreatPreventedResponse,
 } from "../lib/matchMapsTypes";
+import { frNum } from "../lib/frLabels";
 import "./MatchMaps.css";
 
 const W = 120;
@@ -10,9 +11,9 @@ const H = 80;
 
 type TabId = "threat" | "shots" | "network";
 const TABS: { id: TabId; label: string }[] = [
-  { id: "threat", label: "Threat prevented" },
-  { id: "shots", label: "Shot map" },
-  { id: "network", label: "Pass network" },
+  { id: "threat", label: "Menace évitée" },
+  { id: "shots", label: "Carte des tirs" },
+  { id: "network", label: "Réseau de passes" },
 ];
 
 type Load<T> =
@@ -93,20 +94,21 @@ function surname(name: string): string {
   return parts[parts.length - 1] ?? name;
 }
 
-const fmt = (n: number, d = 2) => n.toFixed(d);
+const fmt = (n: number, d = 2) => frNum(n, d);
+const plural = (n: number, word: string) => `${word}${n > 1 ? "s" : ""}`;
 
 function Status({ state, onRetry, what }: { state: Load<unknown>; onRetry: () => void; what: string }) {
   if (state.status === "error") {
     return (
       <div className="empty-state">
-        <p className="error" role="alert">Couldn't load the {what} for this match.</p>
-        <button type="button" className="pitch-play-button" onClick={onRetry}>Retry</button>
+        <p className="error" role="alert">Impossible de charger {what} pour ce match.</p>
+        <button type="button" className="pitch-play-button" onClick={onRetry}>Réessayer</button>
       </div>
     );
   }
   return (
     <div className="empty-state" aria-live="polite">
-      <p>Loading {what}...</p>
+      <p>Chargement de {what}…</p>
     </div>
   );
 }
@@ -115,7 +117,7 @@ function TeamToggle({ team, onChange, names }: {
   team: TeamSide; onChange: (t: TeamSide) => void; names: Record<TeamSide, string>;
 }) {
   return (
-    <div className="mm-toggle" role="group" aria-label="Team">
+    <div className="mm-toggle" role="group" aria-label="Équipe">
       {(["home", "away"] as const).map((t) => (
         <button
           key={t}
@@ -143,21 +145,21 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
   const maxMoment = Math.max(0.0001, ...data.top_moments.map((m) => m.xt_prevented));
 
   if (data.n_actions === 0) {
-    return <div className="empty-state"><p>No interceptions or won tackles yet.</p></div>;
+    return <div className="empty-state"><p>Aucune interception ni tacle gagné pour l'instant.</p></div>;
   }
 
   const label =
-    `Pitch showing the ${data.top_moments.length} biggest threat-prevention moments. ` +
+    `Terrain montrant les ${data.top_moments.length} plus grosses interventions défensives. ` +
     data.top_moments
-      .map((m, i) => `${i + 1}: ${m.player_name}, ${m.action}, minute ${m.minute}, ${fmt(m.xt_prevented, 3)} xT`)
+      .map((m, i) => `${i + 1} : ${m.player_name}, ${actionFr(m.action)}, ${m.minute}e minute, ${fmt(m.xt_prevented, 3)} xT`)
       .join("; ") + ".";
 
   return (
     <div className="mm-body">
-      <div className="mm-split" aria-label="Threat prevented by team">
+      <div className="mm-split" aria-label="Menace évitée par équipe">
         <div className="mm-split-labels">
-          <span className="mm-home-text">{home.team_name} <strong>{fmt(home.xt_prevented)}</strong> xT · {home.actions} actions</span>
-          <span className="mm-away-text">{away.actions} actions · <strong>{fmt(away.xt_prevented)}</strong> xT {away.team_name}</span>
+          <span className="mm-home-text">{home.team_name} <strong>{fmt(home.xt_prevented)}</strong> xT · {home.actions} {plural(home.actions, "action")}</span>
+          <span className="mm-away-text">{away.actions} {plural(away.actions, "action")} · <strong>{fmt(away.xt_prevented)}</strong> xT {away.team_name}</span>
         </div>
         <div className="mm-split-bar" aria-hidden="true">
           <span className="mm-split-home" style={{ width: `${homePct}%` }} />
@@ -176,7 +178,7 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
                   <line x1={m.valued_at[0]} y1={m.valued_at[1]} x2={x} y2={y} className={`mm-intent mm-stroke-${m.team}`} />
                 ) : null}
                 <circle cx={x} cy={y} r={r} className={`mm-moment mm-fill-${m.team}`}>
-                  <title>{`${m.player_name} · ${m.action} · ${m.minute}' · ${fmt(m.xt_prevented, 3)} xT prevented`}</title>
+                  <title>{`${m.player_name} · ${actionFr(m.action)} · ${m.minute}' · ${fmt(m.xt_prevented, 3)} xT évité`}</title>
                 </circle>
                 <text x={x} y={y + 0.9} className="mm-moment-num" aria-hidden="true">{i + 1}</text>
               </g>
@@ -185,27 +187,27 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
         </PitchSvg>
 
         <div className="mm-side">
-          <h3 className="mm-h3">Biggest saves</h3>
+          <h3 className="mm-h3">Plus grosses interventions</h3>
           <ol className="mm-list">
             {data.top_moments.map((m, i) => (
               <li key={m.event_id || i} className="mm-list-item">
                 <span className={`mm-rank mm-fill-${m.team}`}>{i + 1}</span>
                 <span className="mm-list-main">
                   <span className="mm-name">{m.player_name}</span>
-                  <span className="mm-meta">{m.minute}' · {m.action === "tackle" ? "tackle won" : "interception"}</span>
+                  <span className="mm-meta">{m.minute}' · {actionFr(m.action)}</span>
                 </span>
                 <span className="mm-value">{fmt(m.xt_prevented, 3)}</span>
               </li>
             ))}
           </ol>
-          <h3 className="mm-h3">Top defenders</h3>
+          <h3 className="mm-h3">Meilleurs défenseurs</h3>
           <ol className="mm-list">
             {topPlayers.map((p) => (
               <li key={p.player_id} className="mm-list-item">
                 <span className={`mm-dot mm-fill-${p.team}`} aria-hidden="true" />
                 <span className="mm-list-main">
                   <span className="mm-name">{p.player_name}</span>
-                  <span className="mm-meta">{p.interceptions} int · {p.tackles_won} tkl</span>
+                  <span className="mm-meta">{p.interceptions} int. · {p.tackles_won} tac.</span>
                 </span>
                 <span className="mm-value">{fmt(p.xt_prevented, 3)}</span>
               </li>
@@ -214,9 +216,10 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
         </div>
       </div>
       <p className="mm-note">
-        Each interception or won tackle is credited with the xT the attacking side held where the ball was won
-        (interceptions: the intercepted pass's intended target), from the same Markov xT grid as the rest of
-        analyst-0. Aerial duels, blocked shots and clearances aren't counted — synthetic events don't attribute them cleanly.
+        Chaque interception ou tacle gagné est crédité de la menace (xT) que détenait l'équipe adverse à l'endroit de la
+        récupération (interceptions : la cible visée par la passe interceptée), d'après la même grille xT de Markov que le
+        reste d'Analyste-0. Les duels aériens, tirs contrés et dégagements ne sont pas comptés — les événements synthétiques
+        ne les attribuent pas proprement.
       </p>
     </div>
   );
@@ -227,15 +230,19 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
 // ---------------------------------------------------------------------------
 
 const OUTCOME_LABEL: Record<Shot["outcome"], string> = {
-  goal: "Goal", saved: "Saved", blocked: "Blocked", off_target: "Off target",
+  goal: "But", saved: "Arrêté", blocked: "Contré", off_target: "Non cadré",
 };
+
+function actionFr(action: string): string {
+  return action === "tackle" ? "tacle gagné" : action === "interception" ? "interception" : action;
+}
 
 function ShotView({ data }: { data: ShotMapResponse }) {
   const { home, away } = data.teams;
   const label =
-    `Shot map. ${home.team_name} (attacking right): ${home.shots} shots, ${fmt(home.xg)} xG, ${home.goals} goals. ` +
-    `${away.team_name} (attacking left): ${away.shots} shots, ${fmt(away.xg)} xG, ${away.goals} goals. ` +
-    "Circle size is proportional to xG; goals are filled and ringed.";
+    `Carte des tirs. ${home.team_name} (attaque vers la droite) : ${home.shots} tirs, ${fmt(home.xg)} xG, ${home.goals} buts. ` +
+    `${away.team_name} (attaque vers la gauche) : ${away.shots} tirs, ${fmt(away.xg)} xG, ${away.goals} buts. ` +
+    "La taille des cercles est proportionnelle aux xG ; les buts sont pleins et cerclés.";
   // Draw goals last so they sit on top.
   const ordered = [...data.shots].sort((a, b) => Number(a.outcome === "goal") - Number(b.outcome === "goal"));
 
@@ -248,17 +255,17 @@ function ShotView({ data }: { data: ShotMapResponse }) {
             <div key={t} className={`mm-total mm-total-${t}`}>
               <span className="mm-total-team">{s.team_name} <span className="mm-meta">{t === "home" ? "→" : "←"}</span></span>
               <span className="mm-total-stats">
-                <span><strong>{s.shots}</strong> shots</span>
+                <span><strong>{s.shots}</strong> {plural(s.shots, "tir")}</span>
                 <span><strong>{fmt(s.xg)}</strong> xG</span>
-                <span><strong>{s.goals}</strong> goals</span>
-                <span><strong>{s.on_target}</strong> on target</span>
+                <span><strong>{s.goals}</strong> {plural(s.goals, "but")}</span>
+                <span><strong>{s.on_target}</strong> {s.on_target > 1 ? "cadrés" : "cadré"}</span>
               </span>
             </div>
           );
         })}
       </div>
       {data.shots.length === 0 ? (
-        <div className="empty-state"><p>No shots yet.</p></div>
+        <div className="empty-state"><p>Aucun tir pour l'instant.</p></div>
       ) : (
         <PitchSvg label={label}>
           {ordered.map((s) => {
@@ -275,7 +282,7 @@ function ShotView({ data }: { data: ShotMapResponse }) {
                   className={`mm-shot mm-stroke-${s.team} ${goal ? `mm-fill-${s.team}` : "mm-shot-miss"}`}
                 >
                   <title>
-                    {`${s.player_name} · ${s.minute}' · ${OUTCOME_LABEL[s.outcome]} · xG ${fmt(s.xg)} · ${Math.round(s.shot_speed_kmh)} km/h`}
+                    {`${s.player_name} · ${s.minute}' · ${OUTCOME_LABEL[s.outcome]} · xG ${fmt(s.xg)} · ${frNum(s.shot_speed_kmh, 1)} km/h`}
                   </title>
                 </circle>
               </g>
@@ -284,8 +291,8 @@ function ShotView({ data }: { data: ShotMapResponse }) {
         </PitchSvg>
       )}
       <p className="mm-note">
-        Circle area ∝ xG; filled + ringed = goal. Hover a shot for player, minute, outcome and shot speed.
-        Home attacks right, away attacks left.
+        Aire du cercle ∝ xG ; plein + cerclé = but. Survole un tir pour voir le joueur, la minute, l'issue et la vitesse
+        de frappe. Le domicile attaque vers la droite, l'extérieur vers la gauche.
       </p>
     </div>
   );
@@ -300,15 +307,15 @@ function NetworkView({ data }: { data: PassNetworkResponse }) {
   const maxInv = Math.max(1, ...data.nodes.map((n) => n.involvement));
   const maxEdge = Math.max(1, data.max_edge_count);
   const strongest = data.edges.slice(0, 3)
-    .map((e) => `${byId.get(e.source)?.player_name ?? e.source} to ${byId.get(e.target)?.player_name ?? e.target} (${e.count})`)
+    .map((e) => `${byId.get(e.source)?.player_name ?? e.source} vers ${byId.get(e.target)?.player_name ?? e.target} (${e.count})`)
     .join(", ");
   const label =
-    `Pass network for ${data.team_name}: ${data.nodes.length} players, ${data.edges.length} passing links of ` +
-    `${data.min_edge_count}+ completed passes from ${data.completed_passes} completed passes.` +
-    (strongest ? ` Strongest links: ${strongest}.` : "");
+    `Réseau de passes de ${data.team_name} : ${data.nodes.length} joueurs, ${data.edges.length} liaisons d'au moins ` +
+    `${data.min_edge_count} passes réussies, sur ${data.completed_passes} passes réussies.` +
+    (strongest ? ` Liaisons les plus fortes : ${strongest}.` : "");
 
   if (data.nodes.length === 0) {
-    return <div className="empty-state"><p>No completed passes for {data.team_name} yet.</p></div>;
+    return <div className="empty-state"><p>Aucune passe réussie pour {data.team_name} pour l'instant.</p></div>;
   }
 
   return (
@@ -336,7 +343,7 @@ function NetworkView({ data }: { data: PassNetworkResponse }) {
                 strokeWidth={w}
                 strokeOpacity={0.25 + (e.count / maxEdge) * 0.6}
               >
-                <title>{`${a.player_name} → ${b.player_name}: ${e.count} passes`}</title>
+                <title>{`${a.player_name} → ${b.player_name} : ${e.count} passes`}</title>
               </line>
             );
           })}
@@ -347,7 +354,7 @@ function NetworkView({ data }: { data: PassNetworkResponse }) {
           return (
             <g key={n.player_id}>
               <circle cx={x} cy={y} r={r} className={`mm-node mm-fill-${data.team}`}>
-                <title>{`${n.player_name}: ${n.passes} passes made, ${n.received} received`}</title>
+                <title>{`${n.player_name} : ${n.passes} passes données, ${n.received} reçues`}</title>
               </circle>
               <text x={x} y={y + r + 2.2} className="mm-node-label" aria-hidden="true">{surname(n.player_name)}</text>
             </g>
@@ -355,10 +362,11 @@ function NetworkView({ data }: { data: PassNetworkResponse }) {
         })}
       </PitchSvg>
       <p className="mm-note">
-        Nodes sit at each player's average pass/receipt location, sized by involvement; lines show
-        passer→receiver links with {data.min_edge_count}+ completed passes (thicker = more), {data.completed_passes} completed
-        passes in total. Receivers come from each pass's recorded recipient — not inferred.
-        {data.team === "home" ? " Attacking right." : " Attacking left."}
+        Chaque joueur est placé à sa position moyenne de passe/réception, taille selon son implication ; les traits
+        montrent les liaisons passeur→receveur d'au moins {data.min_edge_count} passes réussies (plus épais = plus
+        fréquent), {data.completed_passes} passes réussies au total. Le receveur vient du destinataire enregistré de
+        chaque passe — rien n'est déduit.
+        {data.team === "home" ? " Attaque vers la droite." : " Attaque vers la gauche."}
       </p>
     </div>
   );
@@ -390,10 +398,10 @@ export function MatchMaps({ matchId }: Props) {
     (s) => fetchPassNetwork(matchId ?? "", team, 3, s),
   );
 
-  // Team names for the toggle: from whichever payload has them, else Home/Away.
-  const [names, setNames] = useState<Record<TeamSide, string>>({ home: "Home", away: "Away" });
+  // Team names for the toggle: from whichever payload has them, else Domicile/Extérieur.
+  const [names, setNames] = useState<Record<TeamSide, string>>({ home: "Domicile", away: "Extérieur" });
   useEffect(() => {
-    setNames({ home: "Home", away: "Away" });
+    setNames({ home: "Domicile", away: "Extérieur" });
   }, [matchId]);
   useEffect(() => {
     const src = threat.status === "ok" ? threat.data.teams : shots.status === "ok" ? shots.data.teams : null;
@@ -421,21 +429,21 @@ export function MatchMaps({ matchId }: Props) {
     body = (
       <div className="empty-state">
         <span className="empty-icon" aria-hidden="true">🗺️</span>
-        <p>Run a match to see defensive threat prevented, the shot map and pass networks.</p>
+        <p>Lance un match pour voir la menace évitée en défense, la carte des tirs et les réseaux de passes.</p>
       </div>
     );
   } else if (tab === "threat") {
     body = threat.status === "ok" ? <ThreatView data={threat.data} />
-      : <Status state={threat} onRetry={retryThreat} what="threat-prevented data" />;
+      : <Status state={threat} onRetry={retryThreat} what="la menace évitée" />;
   } else if (tab === "shots") {
     body = shots.status === "ok" ? <ShotView data={shots.data} />
-      : <Status state={shots} onRetry={retryShots} what="shot map" />;
+      : <Status state={shots} onRetry={retryShots} what="la carte des tirs" />;
   } else {
     body = (
       <>
         <TeamToggle team={team} onChange={setTeam} names={names} />
         {network.status === "ok" ? <NetworkView data={network.data} />
-          : <Status state={network} onRetry={retryNetwork} what="pass network" />}
+          : <Status state={network} onRetry={retryNetwork} what="le réseau de passes" />}
       </>
     );
   }
@@ -443,16 +451,16 @@ export function MatchMaps({ matchId }: Props) {
   return (
     <section className="feed-panel mm-panel">
       <div className="panel-heading">
-        <h2>Match Maps</h2>
+        <h2>Cartes du match</h2>
         <span
           className="panel-tag"
-          title="Deterministic, computed from the match's event stream -- no LLM involved."
+          title="Déterministe, calculé à partir du flux d'événements du match -- aucun LLM."
         >
-          analyst-0 · deterministic
+          analyste-0 · déterministe
         </span>
       </div>
 
-      <div className="mm-tabs" role="tablist" aria-label="Match map views" onKeyDown={onTabKey}>
+      <div className="mm-tabs" role="tablist" aria-label="Vues des cartes du match" onKeyDown={onTabKey}>
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -475,7 +483,7 @@ export function MatchMaps({ matchId }: Props) {
         {body}
       </div>
       <p className="mm-disclosure">
-        Synthetic match data: values come from simulated events, not real Premier League tracking.
+        Données de match synthétiques : les valeurs proviennent d'événements simulés, pas d'un vrai tracking de Premier League.
       </p>
     </section>
   );

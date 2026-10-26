@@ -35,10 +35,11 @@ BIG_CHANCE_XG = 0.3        # a non-goal shot at/above this xG counts as a "big c
 MIN_SWING = 0.02           # ignore minute-to-minute moves smaller than this
 N_SWINGS = 3
 
+_PRIOR_XG_FR = f"{PRIOR_XG_PER_90:g}".replace(".", ",")  # French decimal comma
 METHOD = (
-    "Score + xG so far -> each side's remaining goals as independent Poisson "
-    f"(rate blends a {PRIOR_XG_PER_90} xG/90 prior worth {PRIOR_WEIGHT_MIN:.0f} min with observed xG pace); "
-    "no home advantage, cards or game-state effects; synthetic data."
+    "Score + xG à ce stade -> buts restants de chaque équipe modélisés par des lois de Poisson indépendantes "
+    f"(taux mêlant un a priori de {_PRIOR_XG_FR} xG/90 valant {PRIOR_WEIGHT_MIN:.0f} min et le rythme d'xG "
+    "observé) ; sans avantage du terrain, cartons ni effet du score ; données synthétiques."
 )
 
 

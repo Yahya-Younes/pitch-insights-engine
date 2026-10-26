@@ -307,6 +307,16 @@ def test_motm_reason_lists_top_positive_items():
     assert result["players"][0]["team"] == "home" and result["players"][0]["position"] == "CM"
 
 
+def test_motm_reason_never_shows_contributions_that_round_to_zero():
+    # A tiny forward pass across an xT cell boundary is a real but ~0.001 gain.
+    events = [_pass(1000, "home_10", start=(29.9, 40.0), end=(30.1, 40.0), recipient="home_6"),
+              _shot(2000, "home_10", xg=0.4)]
+
+    reason = compute_live_ratings(events, {"home_10": "Dix"}, ROLES)["motm"]["reason"]
+
+    assert reason == "But (+1)", reason
+
+
 def _sim_match():
     from datagen.match_simulator import MatchSimulator
 

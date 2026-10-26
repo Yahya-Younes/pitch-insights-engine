@@ -3,6 +3,7 @@ import {
   fetchVerificationHeadline, tamperNarration,
   type GroundingReasons, type TamperAttack, type TamperTrace, type VerificationHeadline,
 } from "../lib/makeItLieApi";
+import { frNum } from "../lib/frLabels";
 import "./MakeItLie.css";
 
 interface Props {
@@ -14,13 +15,22 @@ interface Props {
 const CUSTOM_MAX = 300;
 
 const ATTACKS: { id: Exclude<TamperAttack, "custom">; label: string; hint: string }[] = [
-  { id: "fake_number", label: "Fake a number", hint: "Shift the headline stat to a value the match never produced" },
-  { id: "wrong_player", label: "Wrong player", hint: "Swap in a real player from this match who wasn't involved" },
-  { id: "real_club_leak", label: "Real club leak", hint: "Name-drop a real Premier League club" },
+  { id: "fake_number", label: "Faux chiffre", hint: "Remplace la stat principale par une valeur que le match n'a jamais produite" },
+  { id: "wrong_player", label: "Mauvais joueur", hint: "Glisse un vrai joueur du match qui n'était pas impliqué" },
+  { id: "real_club_leak", label: "Club réel", hint: "Cite un vrai club de Premier League" },
 ];
 
 const ATTACK_NAMES: Record<TamperAttack, string> = {
-  fake_number: "fake number", wrong_player: "wrong player", real_club_leak: "real club leak", custom: "your text",
+  fake_number: "faux chiffre", wrong_player: "mauvais joueur", real_club_leak: "club réel", custom: "ton texte",
+};
+
+/** French labels for the red-team suite's attack families (eval/make_it_lie._VARIANT_LABELS). */
+const VARIANT_FR: Record<string, string> = {
+  fabricated_percentage: "Pic de pourcentage inventé",
+  wrong_player: "Vrai joueur de l'effectif, mauvais moment",
+  fabricated_count: "Total de saison inventé",
+  inflated_metric: "Stat principale gonflée ×1000",
+  real_world_leak: "Club ou joueur réel cité",
 };
 
 interface Diff { prefix: string; changed: string; suffix: string }
@@ -49,15 +59,15 @@ function diffAgainst(base: string, next: string): { removed: Diff; added: Diff }
 
 function reasonChips(r: GroundingReasons): { kind: string; text: string }[] {
   return [
-    ...r.unmatched_numbers.map((n) => ({ kind: "number", text: `invented number: ${n}` })),
-    ...r.unmatched_entities.map((n) => ({ kind: "player", text: `wrong player: ${n}` })),
-    ...r.real_world_leaks.map((n) => ({ kind: "leak", text: `real-world leak: ${n}` })),
-    ...(r.off_topic ? [{ kind: "topic", text: "off-topic for this trigger" }] : []),
+    ...r.unmatched_numbers.map((n) => ({ kind: "number", text: `chiffre inventé : ${n}` })),
+    ...r.unmatched_entities.map((n) => ({ kind: "player", text: `mauvais joueur : ${n}` })),
+    ...r.real_world_leaks.map((n) => ({ kind: "leak", text: `nom réel cité : ${n}` })),
+    ...(r.off_topic ? [{ kind: "topic", text: "hors sujet pour ce déclencheur" }] : []),
   ];
 }
 
 function pct(x: number): string {
-  return x.toFixed(2);
+  return frNum(x, 2);
 }
 
 function Headline() {
@@ -72,30 +82,30 @@ function Headline() {
     return () => { alive = false; };
   }, []);
 
-  if (error) return <p className="error mil-headline-error" role="alert">Verification headline unavailable: {error}</p>;
+  if (error) return <p className="error mil-headline-error" role="alert">Bilan de vérification indisponible : {error}</p>;
   if (!data) {
     return (
       <div className="mil-headline mil-headline-loading" aria-busy="true">
-        <span className="spinner" /> Running the red-team suite...
+        <span className="spinner" /> Lancement de la batterie d'attaques…
       </div>
     );
   }
-  const breakdown = data.by_attack.map((a) => `${a.label}: ${a.caught}/${a.planted}`).join("\n");
+  const breakdown = data.by_attack.map((a) => `${VARIANT_FR[a.attack] ?? a.label} : ${a.caught}/${a.planted}`).join("\n");
   return (
-    <div className="mil-headline" role="status" aria-label="Fact-check verification headline" title={breakdown}>
+    <div className="mil-headline" role="status" aria-label="Bilan de la vérification des faits" title={breakdown}>
       <span className="mil-headline-main">
-        <strong>{data.caught}/{data.planted}</strong> planted errors caught
+        <strong>{data.caught}/{data.planted}</strong> erreurs plantées détectées
       </span>
       <span className="mil-dot" aria-hidden="true">·</span>
       <span className={data.reached_air === 0 ? "mil-headline-good" : "mil-headline-bad"}>
-        <strong>{data.reached_air}</strong> reached air
+        <strong>{data.reached_air}</strong> diffusée{data.reached_air > 1 ? "s" : ""}
       </span>
       <span className="mil-dot" aria-hidden="true">·</span>
-      <span>precision <strong>{pct(data.precision)}</strong></span>
+      <span>précision <strong>{pct(data.precision)}</strong></span>
       <span className="mil-dot" aria-hidden="true">·</span>
-      <span>recall <strong>{pct(data.recall)}</strong></span>
+      <span>rappel <strong>{pct(data.recall)}</strong></span>
       <span className="mil-headline-sub">
-        {data.false_positives}/{data.clean_tested} clean sentences wrongly rejected · re-run live, no LLM
+        {data.false_positives}/{data.clean_tested} phrases correctes rejetées à tort · recalculé en direct, sans LLM
       </span>
     </div>
   );
@@ -120,19 +130,19 @@ function Trace({ trace }: { trace: TamperTrace }) {
   const isCustom = trace.attack === "custom";
 
   return (
-    <ol className="mil-trace" aria-label="Verification trace">
+    <ol className="mil-trace" aria-label="Trace de vérification">
       <li className="mil-step" style={{ animationDelay: "0ms" }}>
         <span className="mil-step-num" aria-hidden="true">1</span>
         <div className="mil-step-body">
-          <p className="mil-step-title">Tampered narration <span className="mil-attack-tag">{ATTACK_NAMES[trace.attack]}</span></p>
+          <p className="mil-step-title">Narration falsifiée <span className="mil-attack-tag">{ATTACK_NAMES[trace.attack]}</span></p>
           {!isCustom && (
             <p className="mil-text mil-text-original">
-              <span className="mil-label">was</span>
+              <span className="mil-label">avant</span>
               <Highlighted diff={diff.removed} variant="removed" />
             </p>
           )}
           <p className="mil-text mil-text-tampered">
-            <span className="mil-label">{isCustom ? "you wrote" : "now"}</span>
+            <span className="mil-label">{isCustom ? "tu as écrit" : "après"}</span>
             {isCustom ? trace.tampered_text : <Highlighted diff={diff.added} variant="added" />}
           </p>
         </div>
@@ -142,22 +152,22 @@ function Trace({ trace }: { trace: TamperTrace }) {
         <span className="mil-step-num" aria-hidden="true">2</span>
         <div className="mil-step-body">
           <p className="mil-step-title">
-            Live grounding check
+            Contrôle d'ancrage en direct
             <span className={`mil-verdict ${rejected ? "mil-verdict-rejected" : "mil-verdict-passed"}`}>
-              {rejected ? "REJECTED" : "PASSED"}
+              {rejected ? "REJETÉ" : "VALIDÉ"}
             </span>
           </p>
           {rejected ? (
-            <ul className="mil-chips" aria-label="Why it was rejected">
+            <ul className="mil-chips" aria-label="Motifs du rejet">
               {chips.map((c) => <li key={`${c.kind}-${c.text}`} className={`mil-chip mil-chip-${c.kind}`}>{c.text}</li>)}
             </ul>
           ) : (
             <p className="mil-note">
-              Every number, roster name and topic keyword traced back to the insight, and no real-world
-              names were found -- so the checker let it through.
+              Chaque chiffre, nom de joueur et mot-clé du sujet remonte à l'insight, et aucun nom réel
+              n'a été trouvé : le vérificateur l'a donc laissé passer.
             </p>
           )}
-          <p className="mil-fineprint"><code>{trace.checker}</code> -- the same function the Narrator runs on every insight.</p>
+          <p className="mil-fineprint"><code>{trace.checker}</code> -- la même fonction que le Narrateur exécute sur chaque insight.</p>
         </div>
       </li>
 
@@ -167,24 +177,24 @@ function Trace({ trace }: { trace: TamperTrace }) {
           {trace.shipped === "corrected" && trace.corrected_text ? (
             <>
               <p className="mil-step-title">
-                What actually airs
-                <span className="mil-verdict mil-verdict-shipped">SHIPPED</span>
-                {trace.corrected_verdict === "passed" && <span className="verify-badge verify-badge-ok">✓ re-verified</span>}
+                Ce qui passe réellement à l'antenne
+                <span className="mil-verdict mil-verdict-shipped">DIFFUSÉ</span>
+                {trace.corrected_verdict === "passed" && <span className="verify-badge verify-badge-ok">✓ revérifié</span>}
               </p>
               <p className="mil-text mil-text-shipped">{trace.corrected_text}</p>
-              <p className="mil-fineprint">Deterministic fallback built only from the insight's own fields -- no model call.</p>
+              <p className="mil-fineprint">Repli déterministe construit uniquement à partir des champs de l'insight -- aucun appel au modèle.</p>
             </>
           ) : (
             <>
               <p className="mil-step-title">
-                What actually airs
-                <span className="mil-verdict mil-verdict-warn">SHIPPED AS WRITTEN</span>
+                Ce qui passe réellement à l'antenne
+                <span className="mil-verdict mil-verdict-warn">DIFFUSÉ TEL QUEL</span>
               </p>
               <p className="mil-text">{trace.tampered_text}</p>
               <p className="mil-note mil-note-honest">
-                Honest result: this one got through. The checker verifies numbers (within ±0.6), roster names,
-                topic keywords and a real-world name blocklist -- not meaning. Small tweaks or claims without
-                numbers or names can pass.
+                Résultat honnête : celui-ci est passé. Le vérificateur contrôle les chiffres (à ±0,6 près), les noms
+                de l'effectif, les mots-clés du sujet et une liste de noms réels interdits -- pas le sens. De petites
+                retouches ou des affirmations sans chiffre ni nom peuvent passer.
               </p>
             </>
           )}
@@ -204,8 +214,8 @@ export function MakeItLie({ matchId, insightCount }: Props) {
   const noInsights = insightCount !== undefined && insightCount === 0;
   const disabled = !matchId || noInsights || busy !== null;
   const hint = !matchId
-    ? "Run a match first -- then try to sneak a lie past the fact-checker."
-    : noInsights ? "Waiting for the first verified insight to tamper with..." : null;
+    ? "Lance d'abord un match, puis essaie de glisser un mensonge au vérificateur."
+    : noInsights ? "En attente du premier insight vérifié à falsifier…" : null;
 
   async function attack(kind: TamperAttack) {
     if (!matchId) return;
@@ -226,13 +236,13 @@ export function MakeItLie({ matchId, insightCount }: Props) {
   return (
     <section className="feed-panel mil-panel" aria-labelledby="mil-title">
       <div className="panel-heading">
-        <h2 id="mil-title">Try to make it lie</h2>
-        <span className="panel-tag">live fact-check · no LLM</span>
+        <h2 id="mil-title">Essaie de le faire mentir</h2>
+        <span className="panel-tag">vérification en direct · sans LLM</span>
       </div>
 
       <Headline />
 
-      <div className="mil-attacks" role="group" aria-label="Choose an attack">
+      <div className="mil-attacks" role="group" aria-label="Choisis une attaque">
         {ATTACKS.map((a) => (
           <button
             key={a.id}
@@ -249,13 +259,13 @@ export function MakeItLie({ matchId, insightCount }: Props) {
       </div>
 
       <div className="mil-custom-row">
-        <label className="mil-sr-only" htmlFor="mil-custom">Write your own fake narration</label>
+        <label className="mil-sr-only" htmlFor="mil-custom">Écris ta propre fausse narration</label>
         <input
           id="mil-custom"
           className="mil-custom-input"
           type="text"
           maxLength={CUSTOM_MAX}
-          placeholder="…or write your own lie, e.g. “Pressing like Manchester City, PPDA down 400%”"
+          placeholder="…ou écris ton propre mensonge, ex. « Un pressing digne de Manchester City, PPDA en baisse de 400 % »"
           value={customText}
           onChange={(e) => setCustomText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && !disabled && attack("custom")}
@@ -266,9 +276,9 @@ export function MakeItLie({ matchId, insightCount }: Props) {
           className="mil-attack-button mil-attack-custom"
           disabled={disabled || !customText.trim()}
           onClick={() => attack("custom")}
-          aria-label="Check my text against the fact-checker"
+          aria-label="Soumettre mon texte au vérificateur"
         >
-          {busy === "custom" ? <span className="spinner" /> : "Check it"}
+          {busy === "custom" ? <span className="spinner" /> : "Vérifier"}
         </button>
       </div>
       {customText.length > CUSTOM_MAX - 40 && (
@@ -286,7 +296,7 @@ export function MakeItLie({ matchId, insightCount }: Props) {
         !hint && (
           <div className="empty-state">
             <span className="empty-icon" aria-hidden="true">🕵️</span>
-            <p>Pick an attack. We'll corrupt the latest verified narration and show you exactly what the fact-checker does with it.</p>
+            <p>Choisis une attaque : on falsifie la dernière narration vérifiée et on te montre exactement ce qu'en fait le vérificateur.</p>
           </div>
         )
       )}

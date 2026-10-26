@@ -181,7 +181,8 @@ def _motm_reason(player: _Player) -> str:
     for key, label, cat in ITEMS:
         count = player.pass_att if key == "pass_accuracy" else player.cnt[key]
         pts = player.mult[cat] * player.raw_points(key)
-        if count > 0 and pts > _EPS:
+        # Shown to 2 decimals: a real but sub-0.005 gain would read "(+0)".
+        if count > 0 and round(pts, 2) > 0:
             if key == "pass_accuracy":
                 text = f"{round(100 * player.pass_comp / player.pass_att)} % de passes"
             else:

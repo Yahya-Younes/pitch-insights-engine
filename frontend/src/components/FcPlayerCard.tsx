@@ -59,6 +59,7 @@ export function FcPlayerCard({
     "fc-card",
     `fc-card--${tier}`,
     `fc-card--${player.team}`,
+    motm ? "fc-card--motm" : "",
     compact ? "fc-card--compact" : "",
     onSelect ? "fc-card--interactive" : "",
   ].filter(Boolean).join(" ");

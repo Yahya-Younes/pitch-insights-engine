@@ -17,8 +17,9 @@ from typing import Any
 from agents.analyst0.metrics import successful_action_xt
 
 METHOD = (
-    "Per-bucket sum of positive xT added by each team's completed passes and carries (Markov xT grid); "
-    "momentum is the home-minus-away difference scaled by the match's largest bucket difference."
+    "Somme, par tranche, de l'xT positif ajouté par les passes réussies et conduites de balle de chaque équipe "
+    "(grille xT de Markov) ; le momentum est l'écart domicile moins extérieur, rapporté au plus grand écart "
+    "par tranche du match."
 )
 
 

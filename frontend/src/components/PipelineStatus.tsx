@@ -13,11 +13,11 @@ interface Stage {
 }
 
 const STAGES: Stage[] = [
-  { id: "scout", label: "Scout", sublabel: "ingest" },
-  { id: "analyst0", label: "Analyst-0", sublabel: "interpret" },
-  { id: "narrator", label: "Narrator", sublabel: "explain" },
-  { id: "broadcaster", label: "Broadcaster", sublabel: "render" },
-  { id: "concierge", label: "Concierge", sublabel: "personalize" },
+  { id: "scout", label: "Scout", sublabel: "ingestion" },
+  { id: "analyst0", label: "Analyst-0", sublabel: "analyse" },
+  { id: "narrator", label: "Narrator", sublabel: "explication" },
+  { id: "broadcaster", label: "Broadcaster", sublabel: "incrustation" },
+  { id: "concierge", label: "Concierge", sublabel: "personnalisation" },
 ];
 
 export function PipelineStatus({ running, sawRender, sawPersonalized }: Props) {
