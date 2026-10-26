@@ -5,6 +5,7 @@ import type { LensSummary, RunMatchResponse } from "./lib/types";
 import { MatchContext, type MatchContextValue } from "./lib/matchContext";
 import { useOverlayFeed } from "./hooks/useOverlayFeed";
 import { useA11ySettings } from "./hooks/useA11ySettings";
+import { I18nProvider } from "./i18n";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { AppBar, NewMatchDialog } from "./components/AppBar";
 import { Scorebug } from "./components/Scorebug";
@@ -149,6 +150,7 @@ function App() {
   }, [modalOpen]);
 
   return (
+    <I18nProvider locale={settings.locale}>
     <MatchContext.Provider value={ctx}>
       <div className="app">
         <a className="skip-link" href="#main-content">Aller au contenu</a>
@@ -239,6 +241,7 @@ function App() {
         </div>
       )}
     </MatchContext.Provider>
+    </I18nProvider>
   );
 }
 
