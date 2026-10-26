@@ -1,6 +1,5 @@
 pydantic==2.14.1
 numpy==2.5.4
-pytest==9.1.1
 agent-framework==1.22.0
 agent-framework-foundry==1.15.0
 azure-identity==1.26.0
@@ -13,3 +12,4 @@ azure-messaging-webpubsubservice==1.0.1
 mcp==1.30.0
 azure-monitor-opentelemetry==1.8.11
 openai==3.35.1
+slowapi==0.1.10

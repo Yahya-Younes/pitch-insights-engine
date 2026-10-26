@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import asyncio
 import os
+import time
+from collections import deque
 
 from mcp.server.fastmcp import FastMCP
 from mcp.server.transport_security import TransportSecuritySettings
@@ -66,6 +68,7 @@ def _entries_for(match_id: str | None = None, limit: int | None = None) -> list:
 @mcp.tool()
 async def list_recent_matches(limit: int = 20) -> list[dict]:
     """Lists recent match_ids this pipeline has processed, most recent first."""
+    limit = max(1, min(limit, 100))
     entries = await asyncio.to_thread(_entries_for, None, max(limit * 4, 100))
     last_seen: dict[str, float] = {}
     for e in entries:
@@ -90,8 +93,9 @@ async def get_match_stats() -> dict:
     actual running system, not asserted anywhere statically."""
     from eval.realism_check import run as run_realism_check
     from service.stats import (
-        compute_finetuned_narrator_comparison, compute_formation_detection_accuracy,
-        compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
+        compute_formation_detection_accuracy,
+        compute_tendency_recovery_accuracy,
+        grounding_pass_rate_from_entries,
     )
 
     tendency = STATE.get("tendency_accuracy")
@@ -109,7 +113,9 @@ async def get_match_stats() -> dict:
 
     entries = await asyncio.to_thread(_entries_for, None, 300)
     robustness = run_robustness_suite()
-    fine_tuned_narrator = await asyncio.to_thread(compute_finetuned_narrator_comparison, STATE)
+    # Same 300s TTL cache /stats uses -- the comparison is a live model call.
+    from service.main import cached_finetuned_narrator_comparison
+    fine_tuned_narrator = await cached_finetuned_narrator_comparison()
     return {
         "tendency_recovery": tendency,
         "fine_tuned_narrator": fine_tuned_narrator,
@@ -215,12 +221,32 @@ async def get_robustness_scorecard() -> dict:
     }
 
 
+_ASK_LOCALES = {"en", "fr", "es", "de", "it", "pt"}
+_ASK_MAX_QUESTION_CHARS = 500
+# MCP calls don't pass through FastAPI's per-IP slowapi limiter (they're a
+# mounted sub-app with no Request in the tool signature), so the one tool
+# here that spends LLM budget gets a simple process-wide sliding window.
+_ASK_LIMIT_PER_MIN = int(os.environ.get("MCP_ASK_LIMIT_PER_MIN", "20"))
+_ask_calls: deque[float] = deque()
+
+
 @mcp.tool()
 async def ask_match(match_id: str, question: str, locale: str = "en") -> dict:
     """Grounded free-text Q&A over one match's verified insights -- answers
     only from what this pipeline has actually verified for that match,
     never from general football knowledge; says so honestly when the
     answer hasn't come up yet rather than guessing."""
+    if not 1 <= len(question.strip()) <= _ASK_MAX_QUESTION_CHARS:
+        return {"error": f"question must be 1-{_ASK_MAX_QUESTION_CHARS} characters"}
+    if locale not in _ASK_LOCALES:
+        return {"error": f"locale must be one of {sorted(_ASK_LOCALES)}"}
+    now = time.monotonic()
+    while _ask_calls and now - _ask_calls[0] > 60:
+        _ask_calls.popleft()
+    if len(_ask_calls) >= _ASK_LIMIT_PER_MIN:
+        return {"error": "rate limit exceeded -- try again in a minute"}
+    _ask_calls.append(now)
+
     entries = await asyncio.to_thread(_entries_for, match_id)
     insights = [InsightCandidate(**e.summary) for e in entries if e.stage == "insight"]
     player_names = STATE.get("player_names_by_match", {}).get(match_id, {})

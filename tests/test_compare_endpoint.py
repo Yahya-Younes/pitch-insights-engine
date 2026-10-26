@@ -9,10 +9,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 import service.main as main_module
-from service.main import app
-from service.state import STATE
 from agents.shared.handoff_log import InMemoryHandoffLog
 from agents.shared.models import InsightCandidate
+from service.main import app
+from service.state import STATE
 
 
 @pytest.fixture

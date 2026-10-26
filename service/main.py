@@ -16,44 +16,61 @@ Two ingestion paths feed the same pipeline:
     genuine stage-(a) transport, fed by datagen/streamer.py replaying a match
     onto the hub at accelerated real-time pace.
 """
-from __future__ import annotations
-
+# No `from __future__ import annotations` here: slowapi's @limiter.limit
+# wraps each endpoint, and FastAPI then resolves string annotations against
+# the *wrapper's* module globals -- so request models like AskRequest would
+# silently degrade to required query params. Real annotations avoid that.
 import asyncio
 import logging
 import os
 import random
 import time
 from contextlib import AsyncExitStack, asynccontextmanager
+from typing import Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
 
+from agents.analyst0.formation_tracker import build_tactical_timeline
 from agents.analyst0.live_analytics import compute_match_analytics
 from agents.analyst0.tactics_lab import simulate_formation_matchup
 from agents.analyst0.whatif import UnsupportedWhatIf, score_counterfactual
-from datagen.formations import formation_names
-from datagen.player_profiles import QUALITY_MAX, QUALITY_MIN
 from agents.concierge.agent import personalize
 from agents.concierge.lens import load_preset_lenses
+from agents.concierge.persona_filter import Persona
 from agents.orchestrator.workflow import WorkflowCrashed, run_match
 from agents.qa.agent import ask as ask_match_question
 from agents.shared.models import InsightCandidate, RenderPayload
 from agents.shared.speech_synthesizer import synthesize_base64
-from datagen.match_simulator import PERIOD_MS, MatchSimulator
+from datagen.formations import formation_names
+from datagen.match_simulator import MatchSimulator
+from datagen.player_profiles import QUALITY_MAX, QUALITY_MIN
 from datagen.trajectory import generate_positions
-from agents.analyst0.formation_tracker import build_tactical_timeline
 from eval.realism_check import run as run_realism_check
 from eval.robustness_suite import run as run_robustness_suite
 from service.eventhub_consumer import start_background
-from service.stats import (
-    compute_finetuned_narrator_comparison, compute_formation_detection_accuracy,
-    compute_tendency_recovery_accuracy, grounding_pass_rate_from_entries,
-)
 from service.mcp_server import mcp
+from service.routers.agent_trace import router as agent_trace_router
+from service.routers.make_it_lie import router as make_it_lie_router
+from service.routers.match_maps import router as match_maps_router
+from service.routers.player_tags import router as player_tags_router
+from service.routers.win_probability import router as win_probability_router
 from service.state import STATE as _state
 from service.state import build_checkpoint_storage, build_handoff_log, build_publisher
+from service.stats import (
+    compute_finetuned_narrator_comparison,
+    compute_formation_detection_accuracy,
+    compute_tendency_recovery_accuracy,
+    grounding_pass_rate_from_entries,
+)
 
 logger = logging.getLogger("pitch.service")
 
@@ -110,10 +127,71 @@ async def lifespan(app: FastAPI):
             await _state["eh_consumer"].stop()
 
 
+Locale = Literal["en", "fr", "es", "de", "it", "pt"]
+"""Mirrors agents.shared.glossary / speech_synthesizer's supported locales
+and the frontend's own Locale type."""
+
+
+def _client_ip(request: Request) -> str:
+    """Rate-limit key. Behind Azure Container Apps ingress request.client is
+    the ingress proxy, so the real client is in X-Forwarded-For. The ingress
+    *appends* the address it actually saw to whatever the caller sent, so
+    the left-most entry is caller-controlled (spoofable -- rotating it would
+    dodge the limit entirely); the entry TRUSTED_PROXY_HOPS from the right is
+    the one our own trusted proxy wrote."""
+    xff = request.headers.get("x-forwarded-for")
+    if xff:
+        hops = [h.strip() for h in xff.split(",") if h.strip()]
+        if hops:
+            trusted = max(1, int(os.environ.get("TRUSTED_PROXY_HOPS", "1")))
+            return hops[-min(trusted, len(hops))]
+    return get_remote_address(request)
+
+
+# Per-endpoint limits on everything that spends LLM/TTS budget (or, for the
+# Tactics Lab, sizeable CPU). Generous enough for a live demo; override any
+# of them via RATE_LIMITS="run=10/minute,ask=40/minute" without a rebuild.
+_RATE_LIMITS = {
+    "run": "6/minute", "ask": "20/minute", "compare": "10/minute",
+    "simulate": "10/minute", "whatif": "30/minute",
+}
+for _pair in filter(None, os.environ.get("RATE_LIMITS", "").split(",")):
+    _name, _, _value = _pair.partition("=")
+    if _name.strip() in _RATE_LIMITS and _value.strip():
+        _RATE_LIMITS[_name.strip()] = _value.strip()
+
+limiter = Limiter(key_func=_client_ip, enabled=os.environ.get("RATE_LIMIT_ENABLED", "true").lower() != "false")
+
 app = FastAPI(title="Pitch Insights Engine", lifespan=lifespan)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(request: Request, exc: RequestValidationError):
+    # 400 rather than FastAPI's default 422, so bounds now enforced by the
+    # pydantic models (n_matches, bucket_min, persona, ...) keep the exact
+    # status code the earlier hand-written checks returned.
+    return JSONResponse(status_code=400, content={"detail": jsonable_encoder(exc.errors())})
+
+
+# The frontend (Azure Static Web Apps) calls this API cross-origin; Web
+# PubSub is a separate origin of its own and doesn't go through here.
+# Production sets CORS_ALLOWED_ORIGINS to the SWA origin (comma-separated
+# for several); local Vite dev is always allowed.
+_cors_origins = ["http://localhost:5173", "http://127.0.0.1:5173"] + [
+    o.strip().rstrip("/") for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o.strip()
+]
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
+    CORSMiddleware, allow_origins=_cors_origins, allow_methods=["*"], allow_headers=["*"],
 )
+
+# Feature routers -- each owns its own module under service/routers/ rather
+# than growing this file further.
+for _router in (
+    agent_trace_router, make_it_lie_router, match_maps_router, player_tags_router, win_probability_router,
+):
+    app.include_router(_router)
 # mcp.streamable_http_app() must be called before mcp.session_manager is
 # accessible at all (it's created lazily on first call) -- calling it here,
 # once, at import time, is what makes the lifespan's
@@ -129,10 +207,10 @@ FastAPIInstrumentor.instrument_app(app)
 
 class RunMatchRequest(BaseModel):
     seed: int | None = None
-    persona: str = "casual_fan"
-    lens_id: str | None = None
+    persona: Persona = "casual_fan"
+    lens_id: str | None = Field(default=None, max_length=100)
     minutes: float = 12.0
-    locale: str = "en"
+    locale: Locale = "en"
     inject_fault: bool = False
     """Demo/debug hook: deliberately corrupts the first insight's narration
     so the live grounding check visibly catches and corrects it -- proves
@@ -198,6 +276,14 @@ async def negotiate():
     return {"url": publisher.client_access_url()}
 
 
+def _require_known_match(match_id: str, entries: list) -> None:
+    """A match is known once it has a status (run via /matches/run) or any
+    handoff entry (e.g. ingested off Event Hubs) -- anything else is a 404,
+    not an empty-but-successful response."""
+    if not entries and match_id not in _state.get("match_status", {}):
+        raise HTTPException(404, f"unknown match {match_id!r}")
+
+
 @app.get("/matches/{match_id}/handoff")
 async def match_handoff(match_id: str):
     """Exposes the shared orchestration trace for one match -- concrete,
@@ -208,6 +294,7 @@ async def match_handoff(match_id: str):
         entries = log.entries(match_id)
     except TypeError:
         entries = [e for e in log.entries() if e.match_id == match_id]
+    _require_known_match(match_id, entries)
     return [
         {"stage": e.stage, "match_id": e.match_id, "summary": e.summary, "timestamp": e.timestamp}
         for e in entries
@@ -243,12 +330,13 @@ async def match_positions(match_id: str):
 
 
 class WhatIfRequest(BaseModel):
-    insight_id: str
-    knob: dict = {}
+    insight_id: str = Field(min_length=1, max_length=200)
+    knob: dict = Field(default_factory=dict)
 
 
 @app.post("/matches/{match_id}/whatif")
-async def whatif(match_id: str, req: WhatIfRequest):
+@limiter.limit(_RATE_LIMITS["whatif"])
+async def whatif(request: Request, match_id: str, req: WhatIfRequest):
     """"What if" counterfactual scoring: re-runs the exact deterministic
     Analyst-0 function that produced one insight's actual metric, against a
     hypothetical alternate input (a different pass end-zone, a different
@@ -316,7 +404,7 @@ async def match_tactics(match_id: str):
 
 
 @app.get("/matches/{match_id}/analytics")
-async def match_analytics(match_id: str, bucket_min: float = 5.0):
+async def match_analytics(match_id: str, bucket_min: float = Query(5.0, ge=0.5, le=30)):
     """Ad-hoc, time-bucketed analytics querying over one match's event
     stream, built from data we already generate. See
     agents/analyst0/live_analytics.py. Only covers matches run via
@@ -326,17 +414,15 @@ async def match_analytics(match_id: str, bucket_min: float = 5.0):
     duration_ms = _state.get("duration_ms_by_match", {}).get(match_id)
     if events is None or duration_ms is None:
         raise HTTPException(404, f"no analytics data for match {match_id!r}")
-    if not 0.5 <= bucket_min <= 30:
-        raise HTTPException(400, "bucket_min must be between 0.5 and 30")
     return await asyncio.to_thread(compute_match_analytics, events, duration_ms, bucket_min)
 
 
 class TacticsLabRequest(BaseModel):
-    home_formation: str
-    away_formation: str
-    n_matches: int = 50
-    home_quality: float | None = None
-    away_quality: float | None = None
+    home_formation: str = Field(max_length=20)
+    away_formation: str = Field(max_length=20)
+    n_matches: int = Field(default=50, ge=1, le=200)
+    home_quality: float | None = Field(default=None, ge=QUALITY_MIN, le=QUALITY_MAX)
+    away_quality: float | None = Field(default=None, ge=QUALITY_MIN, le=QUALITY_MAX)
 
 
 @app.get("/tactics-lab/formations")
@@ -345,7 +431,8 @@ async def tactics_lab_formations():
 
 
 @app.post("/tactics-lab/simulate")
-async def tactics_lab_simulate(req: TacticsLabRequest):
+@limiter.limit(_RATE_LIMITS["simulate"])
+async def tactics_lab_simulate(request: Request, req: TacticsLabRequest):
     """Monte-Carlo formation comparison: runs req.n_matches full synthetic
     matches between the two chosen formations and returns the aggregate
     win/draw/loss record, goals, xG, possession, and pressing intensity for
@@ -353,43 +440,38 @@ async def tactics_lab_simulate(req: TacticsLabRequest):
     away_quality let a caller directly compare a big-money squad against a
     shoestring-budget one in the same formation. Pure CPU simulation, no
     LLM calls, so this stays fast even at the full 200-match cap."""
-    if not 1 <= req.n_matches <= 200:
-        raise HTTPException(400, "n_matches must be between 1 and 200")
     try:
         return await asyncio.to_thread(
             simulate_formation_matchup, req.home_formation, req.away_formation, req.n_matches,
             home_quality=req.home_quality, away_quality=req.away_quality,
         )
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
 
 
 class AskRequest(BaseModel):
-    question: str
-    locale: str = "en"
+    question: str = Field(min_length=1, max_length=500)
+    locale: Locale = "en"
 
 
 class CompareRequest(BaseModel):
-    persona_a: str
-    persona_b: str
-    lens_id_a: str | None = None
-    lens_id_b: str | None = None
-    player_id_a: str | None = None
-    player_id_b: str | None = None
-    locale: str = "en"
+    persona_a: Persona
+    persona_b: Persona
+    lens_id_a: str | None = Field(default=None, max_length=100)
+    lens_id_b: str | None = Field(default=None, max_length=100)
+    player_id_a: str | None = Field(default=None, max_length=100)
+    player_id_b: str | None = Field(default=None, max_length=100)
+    locale: Locale = "en"
 
 
 @app.post("/matches/{match_id}/compare")
-async def compare_personas(match_id: str, req: CompareRequest):
+@limiter.limit(_RATE_LIMITS["compare"])
+async def compare_personas(request: Request, match_id: str, req: CompareRequest):
     """Split-screen persona comparison: the same match's current insights,
     personalized two different ways side by side. Reuses
     agents.concierge.agent.personalize's existing on-demand, whole-match
     call path (the same one a single-persona full-match recap already
     uses), just run twice concurrently instead of once."""
-    valid_personas = {"analyst", "casual_fan", "player_tracker"}
-    for persona in (req.persona_a, req.persona_b):
-        if persona not in valid_personas:
-            raise HTTPException(400, f"unknown persona {persona!r} -- must be one of {sorted(valid_personas)}")
     for lens_id in (req.lens_id_a, req.lens_id_b):
         if lens_id is not None and lens_id not in _state["lenses"]:
             raise HTTPException(400, f"unknown lens_id {lens_id!r}")
@@ -420,7 +502,7 @@ async def compare_personas(match_id: str, req: CompareRequest):
             ),
         )
     except ValueError as exc:
-        raise HTTPException(400, str(exc))
+        raise HTTPException(400, str(exc)) from exc
 
     return {
         "match_id": match_id,
@@ -430,7 +512,8 @@ async def compare_personas(match_id: str, req: CompareRequest):
 
 
 @app.post("/matches/{match_id}/ask")
-async def ask_match(match_id: str, req: AskRequest):
+@limiter.limit(_RATE_LIMITS["ask"])
+async def ask_match(request: Request, match_id: str, req: AskRequest):
     """'Ask the match': a grounded free-text Q&A agent over everything this
     system has verified so far for one match. Only ever answers from the
     InsightCandidates already generated -- never from general football
@@ -441,6 +524,7 @@ async def ask_match(match_id: str, req: AskRequest):
         entries = await asyncio.to_thread(log.entries, match_id)
     except TypeError:
         entries = [e for e in log.entries() if e.match_id == match_id]
+    _require_known_match(match_id, entries)
 
     insights = [
         InsightCandidate(**e.summary) for e in entries if e.stage == "insight"
@@ -454,6 +538,24 @@ async def ask_match(match_id: str, req: AskRequest):
         "question": req.question, "answer_preview": answer[:120], "fact_checked": fact_checked,
     })
     return {"answer": answer, "fact_checked": fact_checked, "audio_base64": audio}
+
+
+_FINETUNED_TTL_S = 300.0
+
+
+async def cached_finetuned_narrator_comparison() -> dict:
+    """compute_finetuned_narrator_comparison makes a real model call; /stats
+    is public and unauthenticated, so without this every page load (or a
+    scripted loop) would spend one. A short TTL keeps the "it still works
+    right now" point of that field while capping it at one call per
+    process per _FINETUNED_TTL_S. Shared with the MCP get_match_stats tool."""
+    cached = _state.get("finetuned_narrator_cache")
+    now = time.monotonic()
+    if cached is not None and now - cached[0] < _FINETUNED_TTL_S:
+        return cached[1]
+    result = await asyncio.to_thread(compute_finetuned_narrator_comparison, _state)
+    _state["finetuned_narrator_cache"] = (now, result)
+    return result
 
 
 @app.get("/stats")
@@ -481,7 +583,7 @@ async def stats():
         entries = await asyncio.to_thread(log.entries)
 
     robustness = run_robustness_suite()
-    fine_tuned_narrator = await asyncio.to_thread(compute_finetuned_narrator_comparison, _state)
+    fine_tuned_narrator = await cached_finetuned_narrator_comparison()
     return {
         "tendency_recovery": _state["tendency_accuracy"],
         "fine_tuned_narrator": fine_tuned_narrator,
@@ -529,7 +631,8 @@ async def lenses():
 
 
 @app.post("/matches/run", response_model=RunMatchResponse)
-async def run_demo_match(req: RunMatchRequest):
+@limiter.limit(_RATE_LIMITS["run"])
+async def run_demo_match(request: Request, req: RunMatchRequest):
     if req.lens_id is not None and req.lens_id not in _state["lenses"]:
         raise HTTPException(400, f"unknown lens_id {req.lens_id!r}")
 
