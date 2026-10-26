@@ -59,8 +59,10 @@ from eval.robustness_suite import run as run_robustness_suite
 from service.eventhub_consumer import start_background
 from service.mcp_server import mcp
 from service.routers.agent_trace import router as agent_trace_router
+from service.routers.live_rating import router as live_rating_router
 from service.routers.make_it_lie import router as make_it_lie_router
 from service.routers.match_maps import router as match_maps_router
+from service.routers.match_stats import router as match_stats_router
 from service.routers.momentum import router as momentum_router
 from service.routers.player_graph import router as player_graph_router
 from service.routers.player_ratings import router as player_ratings_router
@@ -193,7 +195,7 @@ app.add_middleware(
 # than growing this file further.
 for _router in (
     agent_trace_router, make_it_lie_router, match_maps_router, momentum_router, player_graph_router,
-    player_ratings_router, player_tags_router, win_probability_router,
+    player_ratings_router, player_tags_router, win_probability_router, live_rating_router, match_stats_router,
 ):
     app.include_router(_router)
 # mcp.streamable_http_app() must be called before mcp.session_manager is

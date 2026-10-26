@@ -1,0 +1,114 @@
+.mb-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mb-state {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.mb-state-error {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.mb-chart-wrap {
+  position: relative;
+  padding-bottom: 1.9rem;
+}
+
+.mb-chart {
+  display: block;
+  width: 100%;
+  height: 150px;
+  cursor: crosshair;
+  touch-action: pan-y;
+}
+
+.mb-axis { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.mb-half { stroke: var(--border-subtle); stroke-dasharray: 3 4; vector-effect: non-scaling-stroke; }
+
+.mb-bar { transition: opacity 120ms ease; }
+.mb-bar-home { fill: var(--team-home); }
+.mb-bar-away { fill: var(--team-away); }
+.mb-chart:hover .mb-bar { opacity: 0.55; }
+.mb-chart:hover .mb-bar.is-hover { opacity: 1; }
+
+.mb-tooltip {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 9.5rem;
+  padding: 0.45rem 0.6rem;
+  transform: translateX(10px);
+  background: var(--bg-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.mb-tooltip.is-left { transform: translateX(calc(-100% - 10px)); }
+.mb-tooltip strong { font-family: var(--font-display); font-size: 0.9rem; color: var(--text-primary); }
+.mb-tt-home { color: var(--team-home); }
+.mb-tt-away { color: var(--team-away); }
+
+.mb-goals {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1.6rem;
+}
+
+.mb-goal {
+  position: absolute;
+  bottom: 0;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  white-space: nowrap;
+  cursor: default;
+}
+
+.mb-axis-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.mb-legend {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.74rem;
+  color: var(--text-secondary);
+}
+
+.mb-legend span { display: inline-flex; align-items: center; gap: 0.35rem; }
+
+.mb-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.mb-swatch-home { background: var(--team-home); }
+.mb-swatch-away { background: var(--team-away); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mb-bar { transition: none; }
+}

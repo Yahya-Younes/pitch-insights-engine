@@ -33,10 +33,10 @@ export function MatchHeader({ homeTeam, awayTeam, insightCount, homeMarketValueE
       </div>
       <div className="match-header-meta">
         <span className="live-badge">
-          <span className="live-dot" />
-          LIVE
+          <span className="live-dot" aria-hidden="true" />
+          EN DIRECT
         </span>
-        <span className="insight-count">{insightCount} insight{insightCount === 1 ? "" : "s"} so far</span>
+        <span className="insight-count">{insightCount} insight{insightCount === 1 ? "" : "s"} jusqu'ici</span>
       </div>
     </div>
   );

@@ -4,20 +4,34 @@ interface Props {
   audioBase64: string | null | undefined;
   autoPlay: boolean;
   label?: string;
+  /** Render a disabled button (instead of nothing) when there's no audio. */
+  showWhenEmpty?: boolean;
+  className?: string;
 }
 
-export function VoiceButton({ audioBase64, autoPlay, label }: Props) {
+export function VoiceButton({ audioBase64, autoPlay, label, showWhenEmpty = false, className }: Props) {
   const { isPlaying, blocked, play, pause, hasAudio } = useBase64Audio(audioBase64, autoPlay);
-  if (!hasAudio) return null;
+  const classes = `ui-btn lv-voice${isPlaying ? " is-playing" : ""}${blocked ? " is-blocked" : ""}${className ? ` ${className}` : ""}`;
+
+  if (!hasAudio) {
+    if (!showWhenEmpty) return null;
+    return (
+      <button type="button" className={classes} disabled title="Pas de narration audio pour cet insight">
+        <span aria-hidden="true">▶</span> {label ?? "Écouter"}
+      </button>
+    );
+  }
 
   return (
     <button
-      className={`voice-button${isPlaying ? " voice-button-playing" : ""}${blocked ? " voice-button-blocked" : ""}`}
+      type="button"
+      className={classes}
       onClick={isPlaying ? pause : play}
-      title={blocked ? "Click to play -- browser blocked autoplay" : isPlaying ? "Pause narration" : "Play narration"}
+      aria-pressed={isPlaying}
+      title={blocked ? "Clique pour lancer — le navigateur a bloqué la lecture automatique" : isPlaying ? "Mettre en pause" : "Écouter la narration"}
     >
-      <span className="voice-button-icon">{isPlaying ? "⏸" : "🔊"}</span>
-      {label ?? (blocked ? "Play voice" : isPlaying ? "Playing" : "Voice")}
+      <span aria-hidden="true">{isPlaying ? "⏸" : "▶"}</span>
+      {isPlaying ? "Pause" : (label ?? "Écouter")}
     </button>
   );
 }

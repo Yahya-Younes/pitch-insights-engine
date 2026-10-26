@@ -1,0 +1,77 @@
+.smm-pitch {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 10px;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.smm-grass {
+  fill: var(--pitch-grass, #13351f);
+}
+
+.smm-line {
+  fill: none;
+  stroke: var(--pitch-line, rgba(255, 255, 255, 0.35));
+  stroke-width: 0.5;
+}
+
+.smm-shot {
+  stroke-width: 0.7;
+  fill-opacity: 0.25;
+}
+
+.smm-shot.is-home {
+  fill: var(--team-home, #c6ff3d);
+  stroke: var(--team-home, #c6ff3d);
+}
+
+.smm-shot.is-away {
+  fill: var(--team-away, #3dd9ff);
+  stroke: var(--team-away, #3dd9ff);
+}
+
+.smm-shot.is-goal {
+  fill-opacity: 1;
+}
+
+.smm-goal-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 0.7;
+}
+
+.smm-totals {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.smm-total {
+  font-weight: 700;
+}
+
+.smm-total.is-home {
+  color: var(--team-home, #c6ff3d);
+}
+
+.smm-total.is-away {
+  color: var(--team-away, #3dd9ff);
+  text-align: right;
+}
+
+.smm-legend {
+  font-size: 10px;
+  color: var(--text-muted, #6b7785);
+  text-align: center;
+}
+
+.smm-skeleton {
+  aspect-ratio: 3 / 2;
+  margin-top: 10px;
+}

@@ -1,38 +1,91 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./App.css";
 import { fetchLenses } from "./lib/api";
 import type { LensSummary, RunMatchResponse } from "./lib/types";
+import { MatchContext, type MatchContextValue } from "./lib/matchContext";
 import { useOverlayFeed } from "./hooks/useOverlayFeed";
-import { Header } from "./components/Header";
-import { StatsBadge } from "./components/StatsBadge";
-import { MatchControls } from "./components/MatchControls";
-import { PipelineStatus } from "./components/PipelineStatus";
-import { MatchHeader } from "./components/MatchHeader";
-import { HeroStage } from "./components/HeroStage";
-import { Timeline } from "./components/Timeline";
-import { HistoryRail } from "./components/HistoryRail";
-import { PersonaFeed } from "./components/PersonaFeed";
-import { AskTheMatch } from "./components/AskTheMatch";
-import { PitchView } from "./components/PitchView";
-import { TacticalEvolution } from "./components/TacticalEvolution";
-import { WhatIfPanel } from "./components/WhatIfPanel";
-import { TacticsLab } from "./components/TacticsLab";
-import { ComparePersonas } from "./components/ComparePersonas";
-import { AgentTeam } from "./components/AgentTeam";
-import { WinProbability } from "./components/WinProbability";
-import { PlayerTags } from "./components/PlayerTags";
-import { MatchMaps } from "./components/MatchMaps";
-import { MakeItLie } from "./components/MakeItLie";
+import { useA11ySettings } from "./hooks/useA11ySettings";
+import { useFocusTrap } from "./hooks/useFocusTrap";
+import { AppBar, NewMatchDialog } from "./components/AppBar";
+import { Scorebug } from "./components/Scorebug";
+import { AppTabPanel, AppTabs, type AppTab } from "./components/AppTabs";
+import { PlayerDrawer } from "./components/PlayerDrawer";
+import { LiveTab } from "./tabs/LiveTab";
+import { SuiviLiveTab } from "./tabs/SuiviLiveTab";
+import { JoueursTab } from "./tabs/JoueursTab";
+import { RelationsTab } from "./tabs/RelationsTab";
+import { TactiqueTab } from "./tabs/TactiqueTab";
+import { AnalysesTab } from "./tabs/AnalysesTab";
+import { ConfianceTab } from "./tabs/ConfianceTab";
+
+type TabId = "live" | "suivi" | "joueurs" | "relations" | "tactique" | "analyses" | "confiance";
+
+const TABS: readonly AppTab<TabId>[] = [
+  { id: "live", label: "Live" },
+  { id: "suivi", label: "Suivi live" },
+  { id: "joueurs", label: "Joueurs" },
+  { id: "relations", label: "Relations" },
+  { id: "tactique", label: "Tactique" },
+  { id: "analyses", label: "Analyses" },
+  { id: "confiance", label: "Confiance & agents" },
+];
+
+const TAB_INTRO: Record<TabId, string> = {
+  live: "Le direct : l'action sur le terrain, les temps forts expliqués par les agents et la probabilité de victoire en temps réel.",
+  suivi: "Le match minute par minute : commentaire personnalisé, statistiques et questions posées au match.",
+  joueurs: "Les cartes joueurs façon FC : notes, profils et tendances. Sélectionne un joueur pour ouvrir sa fiche.",
+  relations: "Qui joue avec qui : le réseau de passes et les duos qui font tourner chaque équipe.",
+  tactique: "Les formations détectées au fil du match et un laboratoire pour simuler des confrontations tactiques.",
+  analyses: "Cartes de menace et de tirs, scénarios « et si ? », comparaison de profils de spectateurs et étiquettes joueurs.",
+  confiance: "Pourquoi croire ces insights : chiffres mesurés en direct, trace des 5 agents et tentative de faire mentir le narrateur.",
+};
+
+function isTabId(v: string): v is TabId {
+  return TABS.some((t) => t.id === v);
+}
+
+function tabFromHash(): TabId {
+  const h = window.location.hash.replace(/^#/, "");
+  return isTabId(h) ? h : "live";
+}
+
+function renderTab(id: TabId) {
+  switch (id) {
+    case "live": return <LiveTab />;
+    case "suivi": return <SuiviLiveTab />;
+    case "joueurs": return <JoueursTab />;
+    case "relations": return <RelationsTab />;
+    case "tactique": return <TactiqueTab />;
+    case "analyses": return <AnalysesTab />;
+    case "confiance": return <ConfianceTab />;
+  }
+}
 
 function App() {
   const [lenses, setLenses] = useState<LensSummary[]>([]);
   const [lastMatch, setLastMatch] = useState<RunMatchResponse | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [followLive, setFollowLive] = useState(true);
+  const [followedPlayerId, setFollowedPlayerId] = useState<string | null>(null);
+  const [drawerPlayerId, setDrawerPlayerId] = useState<string | null>(null);
+  const [newMatchOpen, setNewMatchOpen] = useState(false);
+  const [tab, setTab] = useState<TabId>(tabFromHash);
   const { events, status } = useOverlayFeed();
+  const { settings, cycleTextSize, toggleContrast, setLocale } = useA11ySettings();
 
   useEffect(() => {
     fetchLenses().then(setLenses).catch(() => setLenses([]));
+  }, []);
+
+  // Selected tab <-> URL hash, so a tab link is shareable and back/forward or
+  // a pasted link switches tab.
+  useEffect(() => {
+    const onHash = () => setTab(tabFromHash());
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
+
+  const selectTab = useCallback((id: TabId) => {
+    setTab(id);
+    if (window.location.hash !== `#${id}`) window.history.replaceState(null, "", `#${id}`);
   }, []);
 
   // Web PubSub's send_to_all has no concept of "room" -- every connected
@@ -54,117 +107,137 @@ function App() {
     [events, lastMatch],
   );
 
-  const latest = renderEvents[renderEvents.length - 1] ?? null;
-
-  useEffect(() => {
-    if (followLive && latest) setSelectedId(latest.render_id);
-  }, [followLive, latest]);
-
-  const selected = renderEvents.find((p) => p.render_id === selectedId) ?? latest;
-  const isBehindLive = !followLive && latest && selected?.render_id !== latest.render_id;
-
-  function selectManually(renderId: string) {
-    setSelectedId(renderId);
-    setFollowLive(renderId === latest?.render_id);
-  }
+  const openPlayer = useCallback((playerId: string) => setDrawerPlayerId(playerId), []);
+  const closeDrawer = useCallback(() => setDrawerPlayerId(null), []);
+  const closeNewMatch = useCallback(() => setNewMatchOpen(false), []);
 
   function handleMatchStarted(summary: RunMatchResponse) {
     setLastMatch(summary);
-    setSelectedId(null);
-    setFollowLive(true);
+    setFollowedPlayerId(null);
+    setDrawerPlayerId(null);
+    setNewMatchOpen(false);
+    selectTab("live");
   }
 
+  const ctx = useMemo<MatchContextValue>(() => ({
+    match: lastMatch,
+    matchId: lastMatch?.match_id ?? null,
+    homeTeam: lastMatch?.home_team ?? "",
+    awayTeam: lastMatch?.away_team ?? "",
+    renderEvents,
+    personalizedEvents,
+    lenses,
+    followedPlayerId,
+    setFollowedPlayerId,
+    openPlayer,
+  }), [lastMatch, renderEvents, personalizedEvents, lenses, followedPlayerId, openPlayer]);
+
+  // Player drawer: focus moves in on open, Esc closes, focus returns on close.
+  const drawerRef = useRef<HTMLDivElement>(null);
+  const drawerOpen = drawerPlayerId !== null;
+  useFocusTrap(drawerOpen, drawerRef, closeDrawer);
+
+  // No background scrolling behind a modal layer.
+  const modalOpen = drawerOpen || newMatchOpen;
+  useEffect(() => {
+    if (!modalOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [modalOpen]);
+
   return (
-    <div className="app">
-      <Header status={status} />
-      <StatsBadge />
+    <MatchContext.Provider value={ctx}>
+      <div className="app">
+        <a className="skip-link" href="#main-content">Aller au contenu</a>
 
-      <main className="app-main">
-        <MatchControls lenses={lenses} onMatchStarted={handleMatchStarted} />
-
-        {lastMatch && (
-          <>
-            <PipelineStatus
-              running={Boolean(lastMatch)}
-              sawRender={renderEvents.length > 0}
-              sawPersonalized={personalizedEvents.length > 0}
-            />
-            <MatchHeader
-              homeTeam={lastMatch.home_team}
-              awayTeam={lastMatch.away_team}
-              insightCount={renderEvents.length}
-              homeMarketValueEur={lastMatch.home_market_value_eur}
-              awayMarketValueEur={lastMatch.away_market_value_eur}
-            />
-            <AgentTeam matchId={lastMatch.match_id} running />
-          </>
-        )}
-
-        {selected ? (
-          <div className="broadcast-block">
-            <HeroStage payload={selected} homeTeam={lastMatch?.home_team ?? ""} awayTeam={lastMatch?.away_team ?? ""} />
-            {isBehindLive && (
-              <button className="jump-live-button" onClick={() => setFollowLive(true)}>
-                ● Jump to live -- {renderEvents.length - renderEvents.findIndex((p) => p.render_id === selectedId) - 1} newer
-              </button>
-            )}
-            <Timeline payloads={renderEvents} selectedId={selectedId} onSelect={selectManually} />
-          </div>
-        ) : (
-          lastMatch && (
-            <div className="hero-stage hero-stage-waiting">
-              <span className="spinner spinner-lg" />
-              Waiting for the first insight to clear the Narrator...
-            </div>
-          )
-        )}
-
-        <WinProbability
-          matchId={lastMatch?.match_id ?? null}
-          homeTeam={lastMatch?.home_team}
-          awayTeam={lastMatch?.away_team}
+        <AppBar
+          feedStatus={status}
+          textSize={settings.textSize}
+          contrast={settings.contrast}
+          locale={settings.locale}
+          onCycleTextSize={cycleTextSize}
+          onToggleContrast={toggleContrast}
+          onLocaleChange={setLocale}
+          onOpenNewMatch={() => setNewMatchOpen(true)}
+          newMatchOpen={newMatchOpen}
         />
 
-        <PitchView matchId={lastMatch?.match_id ?? null} />
-        <PlayerTags matchId={lastMatch?.match_id ?? null} />
-
-        <TacticalEvolution
-          matchId={lastMatch?.match_id ?? null}
-          homeTeam={lastMatch?.home_team ?? "Home"}
-          awayTeam={lastMatch?.away_team ?? "Away"}
-        />
-        <MatchMaps matchId={lastMatch?.match_id ?? null} />
-
-        <div className="columns">
-          <section className="feed-panel">
-            <div className="panel-heading">
-              <h2>Broadcast History</h2>
-              <span className="panel-tag">stage d &middot; render</span>
-            </div>
-            <HistoryRail payloads={renderEvents} selectedId={selectedId} onSelect={selectManually} />
-          </section>
-
-          <section className="feed-panel">
-            <div className="panel-heading">
-              <h2>Live Commentary</h2>
-              <span className="panel-tag">stage e &middot; personalize</span>
-            </div>
-            <PersonaFeed messages={personalizedEvents} />
-          </section>
-
-          <AskTheMatch matchId={lastMatch?.match_id ?? null} />
-          <WhatIfPanel matchId={lastMatch?.match_id ?? null} insights={renderEvents} />
-          <ComparePersonas matchId={lastMatch?.match_id ?? null} lenses={lenses} />
-          <MakeItLie matchId={lastMatch?.match_id ?? null} insightCount={renderEvents.length} />
+        <div className="app-sticky">
+          <Scorebug match={lastMatch} />
+          <AppTabs tabs={TABS} selected={tab} onSelect={selectTab} />
         </div>
 
-        <TacticsLab />
-      </main>
+        <main id="main-content" className="app-main" tabIndex={-1}>
+          {lastMatch && (
+            <h1 className="ui-sr-only">
+              Pitch Insights : {lastMatch.home_team} contre {lastMatch.away_team}
+            </h1>
+          )}
+          {!lastMatch && (
+            <section className="landing-hero" aria-labelledby="landing-title">
+              <span className="ui-pill is-home">Intelligence de match · 5 agents IA</span>
+              <h1 id="landing-title" className="landing-title">
+                Lance un match pour voir l'intelligence de match en direct
+              </h1>
+              <p className="landing-sub">
+                Un match synthétique est généré, analysé, raconté et vérifié en temps réel par une équipe
+                d'agents : choisis ton profil de spectateur, ta langue et un style de coach.
+              </p>
+              <button
+                type="button"
+                className="ui-btn ui-btn-primary landing-cta"
+                onClick={() => setNewMatchOpen(true)}
+                aria-haspopup="dialog"
+              >
+                <span aria-hidden="true">▶</span> Nouveau match
+              </button>
+            </section>
+          )}
 
-      <footer className="app-footer">
-        <span>Built on Microsoft Agent Framework &middot; Azure AI Foundry &middot; Container Apps &middot; Cosmos DB &middot; Event Hubs &middot; Web PubSub</span>
-      </footer>
-    </div>
+          <AppTabPanel key={tab} id={tab} intro={TAB_INTRO[tab]}>
+            {renderTab(tab)}
+          </AppTabPanel>
+        </main>
+
+        <footer className="app-footer">
+          <span>Built on Microsoft Agent Framework &middot; Azure AI Foundry &middot; Container Apps &middot; Cosmos DB &middot; Event Hubs &middot; Web PubSub</span>
+        </footer>
+      </div>
+
+      <NewMatchDialog
+        open={newMatchOpen}
+        onClose={closeNewMatch}
+        lenses={lenses}
+        onMatchStarted={handleMatchStarted}
+      />
+
+      {drawerPlayerId !== null && (
+        <div className="drawer-layer">
+          <div className="drawer-backdrop" onClick={closeDrawer} aria-hidden="true" />
+          <div
+            ref={drawerRef}
+            className="drawer-panel"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Fiche joueur"
+            tabIndex={-1}
+          >
+            <div className="drawer-chrome">
+              <span className="drawer-chrome-title">Fiche joueur</span>
+              <button type="button" className="ui-btn drawer-close" onClick={closeDrawer} aria-label="Fermer la fiche joueur">
+                <span aria-hidden="true">✕</span>
+              </button>
+            </div>
+            <div className="drawer-body">
+              <PlayerDrawer playerId={drawerPlayerId} onClose={closeDrawer} />
+            </div>
+          </div>
+        </div>
+      )}
+    </MatchContext.Provider>
   );
 }
 

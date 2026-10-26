@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { KeyboardEvent, PointerEvent, ReactNode } from "react";
 import { fetchWinProbability } from "../lib/winProbabilityApi";
 import type { SwingMoment, TeamSide, WinProbabilityPoint, WinProbabilityResponse } from "../lib/winProbabilityApi";
@@ -11,12 +11,12 @@ interface Props {
 }
 
 // SVG geometry (viewBox units; the SVG scales to its container width).
-const W = 640;
-const H = 220;
-const PL = 36;
-const PR = 10;
-const PT = 8;
-const PB = 30;
+const W = 360;
+const H = 170;
+const PL = 30;
+const PR = 6;
+const PT = 6;
+const PB = 22;
 const PLOT_W = W - PL - PR;
 const PLOT_H = H - PT - PB;
 const FULL_TIME = 90;
@@ -25,7 +25,7 @@ const xOf = (minute: number) => PL + (minute / FULL_TIME) * PLOT_W;
 const yOf = (cumulative: number) => PT + cumulative * PLOT_H;
 
 function pct(p: number): string {
-  return `${Math.round(p * 100)}%`;
+  return `${Math.round(p * 100)} %`;
 }
 
 /** Polygon for the band between two cumulative curves (0 = top, 1 = bottom). */
@@ -56,43 +56,47 @@ function goalMarkers(series: WinProbabilityPoint[]): GoalMarker[] {
 }
 
 const CAUSE_LABEL: Record<SwingMoment["cause"]["kind"], string> = {
-  goal: "Goal",
-  big_chance: "Big chance",
-  chance: "Chance",
-  time: "Time",
+  goal: "But",
+  big_chance: "Grosse occasion",
+  chance: "Occasion",
+  time: "Temps",
 };
 
 export function WinProbability({ matchId, homeTeam, awayTeam }: Props) {
-  const [data, setData] = useState<WinProbabilityResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{ key: string; data: WinProbabilityResponse | null; error: string | null } | null>(null);
   const [cursor, setCursor] = useState<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const titleId = useId();
+  const requestKey = matchId ? `${matchId}#${reloadKey}` : null;
 
   useEffect(() => {
-    setData(null);
-    setError(null);
-    setCursor(null);
     if (!matchId) return;
+    const key = `${matchId}#${reloadKey}`;
     const ctrl = new AbortController();
-    setLoading(true);
     fetchWinProbability(matchId, ctrl.signal)
-      .then(setData)
+      .then((d) => setResult({ key, data: d, error: null }))
       .catch((e: unknown) => {
-        if (ctrl.signal.aborted) return;
-        setError(e instanceof Error ? e.message : String(e));
-      })
-      .finally(() => {
-        if (!ctrl.signal.aborted) setLoading(false);
+        if (!ctrl.signal.aborted) setResult({ key, data: null, error: e instanceof Error ? e.message : String(e) });
       });
     return () => ctrl.abort();
-  }, [matchId]);
+  }, [matchId, reloadKey]);
+
+  const current = result && result.key === requestKey ? result : null;
+  const data = current?.data ?? null;
+  const error = current?.error ?? null;
+  const loading = requestKey !== null && current === null;
 
   const series = useMemo(() => data?.series ?? [], [data]);
   const goals = useMemo(() => goalMarkers(series), [series]);
+  const keySwing = useMemo(
+    () => (data?.swings ?? []).reduce<SwingMoment | null>(
+      (best, s) => (best === null || Math.abs(s.delta_home) > Math.abs(best.delta_home) ? s : best), null),
+    [data],
+  );
   const lastMinute = series[series.length - 1]?.minute ?? 0;
 
-  const homeName = homeTeam || data?.home_team || "Home";
-  const awayName = awayTeam || data?.away_team || "Away";
+  const homeName = homeTeam || data?.home_team || "Domicile";
+  const awayName = awayTeam || data?.away_team || "Extérieur";
   const teamName = (side: TeamSide | null) => (side === "home" ? homeName : side === "away" ? awayName : "");
 
   const shown: WinProbabilityPoint | undefined =
@@ -118,52 +122,51 @@ export function WinProbability({ matchId, homeTeam, awayTeam }: Props) {
 
   let body: ReactNode;
   if (!matchId) {
-    body = (
-      <div className="empty-state">
-        <span className="empty-icon" aria-hidden="true">📈</span>
-        <p>Run a match to see how each side's chances moved minute by minute.</p>
-      </div>
-    );
+    body = <p className="lv-muted">Lance un match pour suivre les chances de chaque équipe minute par minute.</p>;
   } else if (loading) {
-    body = <div className="wp-loading" role="status">Computing win probability…</div>;
-  } else if (error) {
-    body = <p className="error" role="alert">Couldn't load win probability: {error}</p>;
-  } else if (!data || series.length === 0 || !shown) {
     body = (
-      <div className="empty-state">
-        <span className="empty-icon" aria-hidden="true">📈</span>
-        <p>No match events recorded yet.</p>
+      <div className="wp-loading" role="status">
+        <span className="lv-spinner" aria-hidden="true" /> Calcul des probabilités…
       </div>
     );
+  } else if (error) {
+    body = (
+      <div className="wp-error">
+        <p className="lv-error" role="alert">Probabilités indisponibles : {error}</p>
+        <button type="button" className="ui-btn" onClick={() => setReloadKey((k) => k + 1)}>Réessayer</button>
+      </div>
+    );
+  } else if (!data || series.length === 0 || !shown) {
+    body = <p className="lv-muted">Aucun événement enregistré pour l'instant.</p>;
   } else {
     const cursorX = cursor !== null ? xOf(cursor) : null;
     body = (
       <>
         <div className="wp-now" aria-live="polite">
-          <div className="wp-now-minute">
-            {cursor !== null ? `${cursor}'` : data.full_time ? "FT" : `${lastMinute}'`}
-            <span className="wp-now-score">{shown.home_goals}–{shown.away_goals}</span>
-          </div>
           <div className="wp-stat wp-home">
             <span className="wp-stat-value">{pct(shown.home)}</span>
-            <span className="wp-stat-label">{homeName} win</span>
+            <span className="wp-stat-label">{homeName}</span>
           </div>
           <div className="wp-stat wp-draw">
             <span className="wp-stat-value">{pct(shown.draw)}</span>
-            <span className="wp-stat-label">Draw</span>
+            <span className="wp-stat-label">Nul</span>
           </div>
           <div className="wp-stat wp-away">
             <span className="wp-stat-value">{pct(shown.away)}</span>
-            <span className="wp-stat-label">{awayName} win</span>
+            <span className="wp-stat-label">{awayName}</span>
           </div>
         </div>
+        <p className="wp-minute">
+          {cursor !== null ? `${cursor}'` : data.full_time ? "Fin du match" : `${lastMinute}'`}
+          <span className="wp-score">{shown.home_goals} – {shown.away_goals}</span>
+        </p>
 
         <svg
           className="wp-chart"
           viewBox={`0 0 ${W} ${H}`}
           role="img"
           tabIndex={0}
-          aria-label={`Win probability chart, minute 0 to ${lastMinute}. ${homeName} ${pct(shown.home)}, draw ${pct(shown.draw)}, ${awayName} ${pct(shown.away)} at ${shown.minute} minutes. Use arrow keys to scrub.`}
+          aria-label={`Probabilité de victoire de la minute 0 à ${lastMinute}. ${homeName} ${pct(shown.home)}, nul ${pct(shown.draw)}, ${awayName} ${pct(shown.away)} à la ${shown.minute}e minute. Flèches gauche/droite pour parcourir.`}
           onPointerMove={(e) => setCursor(minuteFromPointer(e))}
           onPointerLeave={() => setCursor(null)}
           onKeyDown={onKey}
@@ -175,7 +178,7 @@ export function WinProbability({ matchId, homeTeam, awayTeam }: Props) {
           {[0.25, 0.5, 0.75].map((g) => (
             <g key={g}>
               <line className="wp-grid" x1={PL} x2={PL + PLOT_W} y1={yOf(g)} y2={yOf(g)} />
-              <text className="wp-axis-label" x={PL - 6} y={yOf(g) + 3} textAnchor="end">{pct(1 - g)}</text>
+              <text className="wp-axis-label" x={PL - 4} y={yOf(g) + 3} textAnchor="end">{Math.round((1 - g) * 100)}%</text>
             </g>
           ))}
           {lastMinute < FULL_TIME && (
@@ -188,8 +191,8 @@ export function WinProbability({ matchId, homeTeam, awayTeam }: Props) {
           {goals.map((g, i) => (
             <g key={i} className={`wp-goal wp-goal-${g.team}`}>
               <line x1={xOf(g.minute)} x2={xOf(g.minute)} y1={PT} y2={PT + PLOT_H} />
-              <circle cx={xOf(g.minute)} cy={PT + PLOT_H + 7} r={4.5}>
-                <title>{`${g.minute}' ${teamName(g.team)} goal (${g.score})`}</title>
+              <circle cx={xOf(g.minute)} cy={PT + PLOT_H + 6} r={3.5}>
+                <title>{`${g.minute}' but ${teamName(g.team)} (${g.score})`}</title>
               </circle>
             </g>
           ))}
@@ -198,26 +201,30 @@ export function WinProbability({ matchId, homeTeam, awayTeam }: Props) {
           )}
         </svg>
 
-        <div className="wp-legend" aria-hidden="true">
-          <span><i className="wp-swatch wp-swatch-home" />{homeName}</span>
-          <span><i className="wp-swatch wp-swatch-draw" />Draw</span>
-          <span><i className="wp-swatch wp-swatch-away" />{awayName}</span>
-          <span className="wp-legend-hint">● = goal</span>
-        </div>
+        {keySwing ? (
+          <p className="wp-key-swing">
+            <span className="wp-key-swing-label">Tournant</span>
+            <span className="wp-swing-minute">{keySwing.minute}'</span>
+            <span className={`wp-swing-kind wp-kind-${keySwing.cause.team ?? "none"}`}>{CAUSE_LABEL[keySwing.cause.kind]}</span>
+            <span className="wp-swing-text">
+              {keySwing.cause.team ? `${teamName(keySwing.cause.team)} · ` : ""}
+              {homeName} {pct(keySwing.home_before)} → {pct(keySwing.home_after)}
+            </span>
+          </p>
+        ) : (
+          <p className="lv-muted wp-key-swing-empty">Aucune minute n'a fait bouger les chances de 2 points ou plus.</p>
+        )}
 
-        <div className="wp-swings">
-          <h3>Swing moments</h3>
-          {data.swings.length === 0 ? (
-            <p className="wp-muted">No single minute moved the odds by 2 points or more.</p>
-          ) : (
+        {data.swings.length > 1 && (
+          <details className="wp-swings">
+            <summary>Tous les tournants ({data.swings.length})</summary>
             <ol>
               {data.swings.map((s) => (
                 <li key={s.minute} className="wp-swing">
                   <span className="wp-swing-minute">{s.minute}'</span>
-                  <span className={`wp-swing-kind wp-kind-${s.cause.team ?? "none"}`}>{CAUSE_LABEL[s.cause.kind]}</span>
                   <span className="wp-swing-text">
-                    {s.cause.team ? `${teamName(s.cause.team)}: ` : ""}{s.cause.description}
-                    <span className="wp-muted"> · {homeName} win {pct(s.home_before)} → {pct(s.home_after)} ({s.score_after})</span>
+                    {s.cause.team ? `${teamName(s.cause.team)} : ` : ""}{s.cause.description}
+                    <span className="lv-muted"> · {s.score_after}</span>
                   </span>
                   <span className={`wp-swing-delta ${s.delta_home >= 0 ? "wp-up" : "wp-down"}`}>
                     {s.delta_home >= 0 ? "+" : "−"}{Math.round(Math.abs(s.delta_home) * 100)}
@@ -225,26 +232,26 @@ export function WinProbability({ matchId, homeTeam, awayTeam }: Props) {
                 </li>
               ))}
             </ol>
-          )}
-        </div>
+          </details>
+        )}
 
         <p className="wp-disclosure">
-          {data.full_time ? "" : `Match simulated to ${lastMinute}' only, so not resolved. `}
-          Model: {data.method}
+          {data.full_time ? "" : `Match simulé jusqu'à la ${lastMinute}e minute seulement. `}
+          Modèle : {data.method}
         </p>
       </>
     );
   }
 
   return (
-    <section className="feed-panel wp-panel" aria-labelledby="wp-title">
-      <div className="panel-heading">
-        <h2 id="wp-title">Win Probability</h2>
+    <section className="ui-card wp-panel" aria-labelledby={titleId}>
+      <div className="lv-card-head">
+        <h2 id={titleId} className="ui-heading">Probabilité de victoire</h2>
         <span
-          className="panel-tag"
-          title="Deterministic: current score plus each side's xG pace projected over the remaining minutes as Poisson goals. No LLM involved."
+          className="ui-tag"
+          title="Déterministe : score actuel + rythme d'xG de chaque équipe projeté sur les minutes restantes (buts de Poisson). Aucun LLM."
         >
-          live model
+          modèle live
         </span>
       </div>
       {body}

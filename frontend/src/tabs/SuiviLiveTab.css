@@ -1,0 +1,337 @@
+/* ---- Layout ------------------------------------------------------------ */
+.sl {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.sl-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.sl-col {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+@media (min-width: 860px) {
+  .sl-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .sl-col-side {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1320px) {
+  .sl-grid {
+    grid-template-columns: minmax(0, 470px) minmax(0, 430px) minmax(0, 1fr);
+  }
+
+  .sl-col-side {
+    grid-column: auto;
+    display: flex;
+  }
+}
+
+/* ---- Header ------------------------------------------------------------ */
+.sl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sl-head-left,
+.sl-head-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.sl-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
+  animation: sl-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes sl-pulse {
+  50% {
+    opacity: 0.3;
+  }
+}
+
+.sl-minute {
+  font: 700 22px/1 var(--font-display, "Barlow Condensed", sans-serif);
+  color: var(--text-primary, #f2f5f8);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-score {
+  display: inline-flex;
+  gap: 6px;
+  font: 800 26px/1 var(--font-display, "Barlow Condensed", sans-serif);
+  color: var(--text-muted, #6b7785);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-score .is-home {
+  color: var(--team-home, #c6ff3d);
+}
+
+.sl-score .is-away {
+  color: var(--team-away, #3dd9ff);
+}
+
+.sl-updated {
+  font-size: 12px;
+  color: var(--text-muted, #6b7785);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-sub {
+  color: var(--text-muted, #6b7785);
+  font-weight: 500;
+  font-size: 0.8em;
+}
+
+/* ---- Shared states ----------------------------------------------------- */
+.sl-sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.sl-error {
+  margin: 8px 0 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--status-danger, #ff4d5e) 50%, transparent);
+  background: color-mix(in srgb, var(--status-danger, #ff4d5e) 10%, transparent);
+  color: var(--text-primary, #f2f5f8);
+  font-size: 13px;
+}
+
+.sl-retry {
+  margin-left: 10px;
+}
+
+.sl-stale {
+  margin: 0 0 8px;
+  font-size: 11px;
+  color: var(--accent-gold, #f5c542);
+}
+
+.sl-empty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--text-muted, #6b7785);
+}
+
+.sl-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sl-skeleton-line,
+.sl-skeleton-block,
+.smm-skeleton {
+  display: block;
+  border-radius: 6px;
+  background: linear-gradient(
+    90deg,
+    var(--bg-raised, #121820) 0%,
+    color-mix(in srgb, var(--text-primary, #f2f5f8) 8%, var(--bg-raised, #121820)) 50%,
+    var(--bg-raised, #121820) 100%
+  );
+  background-size: 200% 100%;
+  animation: sl-shimmer 1.4s linear infinite;
+}
+
+.sl-skeleton-line {
+  height: 28px;
+}
+
+.sl-skeleton-line.is-tall {
+  height: 48px;
+}
+
+.sl-skeleton-block {
+  height: 64px;
+}
+
+@keyframes sl-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.sl-empty-state {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--text-secondary, #a9b4c2);
+}
+
+.sl-empty-icon {
+  font-size: 32px;
+  margin: 0 0 8px;
+}
+
+/* ---- Win probability (compact) ----------------------------------------- */
+.sl-wp-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 10px 0 0;
+}
+
+.sl-wp-cell {
+  margin: 0;
+  text-align: center;
+}
+
+.sl-wp-cell dt {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-secondary, #a9b4c2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sl-wp-cell dd {
+  margin: 2px 0 0;
+  font: 800 34px/1 var(--font-display, "Barlow Condensed", sans-serif);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-primary, #f2f5f8);
+}
+
+.sl-wp-cell.is-home dd {
+  color: var(--team-home, #c6ff3d);
+}
+
+.sl-wp-cell.is-away dd {
+  color: var(--team-away, #3dd9ff);
+}
+
+.sl-wp-cell.is-draw dd {
+  color: var(--text-secondary, #a9b4c2);
+}
+
+.sl-wp-bar {
+  display: flex;
+  gap: 2px;
+  height: 6px;
+  margin-top: 10px;
+}
+
+.sl-wp-bar span {
+  display: block;
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.sl-wp-bar .is-home {
+  background: var(--team-home, #c6ff3d);
+}
+
+.sl-wp-bar .is-draw {
+  background: var(--text-muted, #6b7785);
+}
+
+.sl-wp-bar .is-away {
+  background: var(--team-away, #3dd9ff);
+}
+
+/* ---- Momentum mini ----------------------------------------------------- */
+.sl-mom {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin-top: 10px;
+}
+
+.sl-mom-axis {
+  stroke: var(--border-strong, rgba(255, 255, 255, 0.24));
+  stroke-width: 0.6;
+}
+
+.sl-mom rect.is-home {
+  fill: var(--team-home, #c6ff3d);
+}
+
+.sl-mom rect.is-away {
+  fill: var(--team-away, #3dd9ff);
+}
+
+.sl-mom-goal {
+  fill: #fff;
+}
+
+.sl-mom-legend {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--text-muted, #6b7785);
+  font-variant-numeric: tabular-nums;
+}
+
+.sl-mom-lead {
+  font-weight: 700;
+  color: var(--text-secondary, #a9b4c2);
+}
+
+/* ---- Agents strip ------------------------------------------------------ */
+.sl-agent-list {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sl-agent {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sl-dot,
+  .sl-skeleton-line,
+  .sl-skeleton-block,
+  .smm-skeleton {
+    animation: none;
+  }
+
+  .sl-wp-bar span {
+    transition: none;
+  }
+}

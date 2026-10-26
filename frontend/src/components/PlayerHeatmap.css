@@ -1,0 +1,55 @@
+.ph-heatmap {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ph-heatmap__svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--radius-card, 10px);
+}
+
+.ph-heatmap__grass { fill: var(--pitch-grass, #1d5a35); }
+
+.ph-heatmap__cell { fill: var(--team-home, #c6ff3d); }
+
+.ph-heatmap__lines rect,
+.ph-heatmap__lines line,
+.ph-heatmap__lines circle {
+  fill: none;
+  stroke: var(--pitch-line, rgba(255, 255, 255, 0.55));
+  stroke-width: 0.5;
+}
+
+.ph-heatmap__arrow line {
+  stroke: var(--text-secondary, #a8a9ac);
+  stroke-width: 1.2;
+}
+
+.ph-heatmap__arrow path { fill: var(--text-secondary, #a8a9ac); }
+
+.ph-heatmap__caption {
+  margin: 0;
+  color: var(--text-muted, #717275);
+  font-size: 12px;
+}
+
+.ph-heatmap__pitch-skeleton {
+  aspect-ratio: 124 / 94;
+  border-radius: var(--radius-card, 10px);
+  background: linear-gradient(90deg, var(--bg-raised, #161718), var(--bg-card-hover, #232426), var(--bg-raised, #161718));
+  background-size: 200% 100%;
+  animation: ph-shimmer 1.4s linear infinite;
+}
+
+@keyframes ph-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ph-heatmap__pitch-skeleton { animation: none; }
+}

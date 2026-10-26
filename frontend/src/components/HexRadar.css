@@ -1,0 +1,56 @@
+.hex-radar {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.hex-radar__ring {
+  fill: none;
+  stroke: var(--border-subtle, rgba(255, 255, 255, 0.12));
+  stroke-width: 1;
+}
+
+.hex-radar__ring:last-of-type { stroke: var(--border-strong, rgba(255, 255, 255, 0.22)); }
+
+.hex-radar__axis {
+  stroke: var(--border-subtle, rgba(255, 255, 255, 0.1));
+  stroke-width: 1;
+}
+
+.hex-radar__series { --radar-color: var(--team-home, #c6ff3d); }
+.hex-radar__series--away { --radar-color: var(--team-away, #3dd9ff); }
+.hex-radar__series--gold { --radar-color: var(--accent-gold, #f5c542); }
+
+.hex-radar__shape {
+  fill: var(--radar-color);
+  fill-opacity: 0.25;
+  stroke: var(--radar-color);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.hex-radar__series--b .hex-radar__shape {
+  fill-opacity: 0.18;
+  stroke-dasharray: 6 3;
+}
+
+.hex-radar__dot { fill: var(--radar-color); }
+
+.hex-radar__code {
+  fill: var(--text-secondary, #a8a9ac);
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 15px;
+  letter-spacing: 0.06em;
+}
+
+.hex-radar__values {
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.hex-radar__value--home { fill: var(--team-home, #c6ff3d); }
+.hex-radar__value--away { fill: var(--team-away, #3dd9ff); }
+.hex-radar__value--gold { fill: var(--accent-gold, #f5c542); }

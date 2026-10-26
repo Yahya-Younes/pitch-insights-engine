@@ -1,0 +1,266 @@
+/* EA FC-style player card. All inner sizes are in em so the compact variant
+   is a pure font-size change. */
+.fc-card {
+  --fc-w: 184px;
+  --fc-h: 268px;
+  --fc-ink: #1b1407;
+  --fc-ink-soft: rgba(27, 20, 7, 0.72);
+  --fc-glow: rgba(245, 197, 66, 0.45);
+  --fc-team: var(--team-home, #c6ff3d);
+  --fc-bg: linear-gradient(160deg, #f7cc4d 0%, #dcab3c 42%, #9e731f 84%, #2e2108 100%);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  box-sizing: border-box;
+  width: var(--fc-w);
+  height: var(--fc-h);
+  flex: 0 0 auto;
+  padding: 0.85em 0.9em 1.1em;
+  margin: 0;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 1em 1em 1.6em 1.6em;
+  background: var(--fc-bg);
+  color: var(--fc-ink);
+  font-family: var(--font-body, "Inter", system-ui, sans-serif);
+  font-size: 16px;
+  text-align: left;
+  overflow: hidden;
+  isolation: isolate;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  animation: fc-card-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  animation-delay: var(--fc-delay, 0ms);
+}
+
+/* glossy sheen */
+.fc-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.38) 0%, rgba(255, 255, 255, 0) 38%),
+    repeating-linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0 2px, transparent 2px 9px);
+  pointer-events: none;
+}
+
+.fc-card--compact {
+  --fc-w: 148px;
+  --fc-h: 216px;
+  font-size: 12.85px;
+}
+
+.fc-card--away { --fc-team: var(--team-away, #3dd9ff); }
+
+.fc-card--silver {
+  --fc-bg: linear-gradient(160deg, #d9dee8 0%, #b6bdca 42%, #7f8796 84%, #262a33 100%);
+  --fc-ink: #12151b;
+  --fc-ink-soft: rgba(18, 21, 27, 0.72);
+  --fc-glow: rgba(217, 222, 232, 0.4);
+}
+
+.fc-card--bronze {
+  --fc-bg: linear-gradient(160deg, #e0a46b 0%, #c1834b 44%, #8c5a2e 86%, #2b1a0c 100%);
+  --fc-ink: #1a0e04;
+  --fc-ink-soft: rgba(26, 14, 4, 0.75);
+  --fc-glow: rgba(224, 164, 107, 0.4);
+}
+
+.fc-card--none {
+  --fc-bg: linear-gradient(160deg, #4a505c 0%, #353a44 50%, #1e2128 100%);
+  --fc-ink: #eef0f4;
+  --fc-ink-soft: rgba(238, 240, 244, 0.7);
+  --fc-glow: rgba(255, 255, 255, 0.18);
+}
+
+.fc-card--interactive {
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease;
+}
+
+.fc-card--interactive:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--fc-glow), 0 0 26px var(--fc-glow);
+  filter: saturate(1.08);
+}
+
+.fc-card--interactive:focus-visible {
+  outline: 3px solid var(--fc-team);
+  outline-offset: 3px;
+}
+
+.fc-card--interactive:active { transform: translateY(-1px) scale(0.99); }
+
+.fc-card__stripe {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 0.38em;
+  background: var(--fc-team);
+  box-shadow: 0 -1px 8px var(--fc-team);
+}
+
+.fc-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.25em;
+}
+
+.fc-card__rating-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 2.6em;
+  line-height: 1;
+}
+
+.fc-card__rating {
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 800;
+  font-size: 2.75em;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-card__pos {
+  margin-top: 0.15em;
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 1.05em;
+  letter-spacing: 0.06em;
+  color: var(--fc-ink-soft);
+}
+
+.fc-card__avatar {
+  display: grid;
+  place-items: center;
+  width: 5.4em;
+  height: 5.4em;
+  margin-top: 0.2em;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.35), transparent 60%),
+    rgba(0, 0, 0, 0.22);
+  border: 2px solid var(--fc-team);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.fc-card__avatar-num {
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 800;
+  font-size: 2.3em;
+  line-height: 1;
+  color: var(--fc-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.fc-card--gold .fc-card__avatar-num,
+.fc-card--silver .fc-card__avatar-num,
+.fc-card--bronze .fc-card__avatar-num {
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.fc-card__motm {
+  position: absolute;
+  top: 4.05em;
+  left: 0.6em;
+  padding: 0.12em 0.45em;
+  border-radius: 999px;
+  background: #1b1407;
+  color: var(--accent-gold, #f5c542);
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 700;
+  font-size: 0.72em;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+}
+
+.fc-card__followed {
+  position: absolute;
+  top: 0.55em;
+  right: 0.55em;
+  padding: 0.1em 0.4em;
+  border-radius: 999px;
+  background: var(--fc-team);
+  color: #0b0c0f;
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.fc-card__name {
+  margin-top: auto;
+  padding-top: 0.35em;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 800;
+  font-size: 1.45em;
+  letter-spacing: 0.03em;
+  line-height: 1.05;
+}
+
+.fc-card__divider {
+  height: 1px;
+  margin: 0.35em 0.4em 0.4em;
+  background: linear-gradient(90deg, transparent, var(--fc-ink-soft), transparent);
+  opacity: 0.6;
+}
+
+.fc-card__stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-auto-flow: column;
+  grid-template-rows: repeat(3, auto);
+  column-gap: 0.6em;
+  row-gap: 0.1em;
+  padding: 0 0.35em;
+}
+
+.fc-card__stat:nth-child(n + 4) {
+  border-left: 1px solid color-mix(in srgb, var(--fc-ink) 25%, transparent);
+}
+
+.fc-card__stat {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 0.3em;
+  line-height: 1.15;
+}
+
+.fc-card__stat-value {
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 800;
+  font-size: 1.12em;
+  font-variant-numeric: tabular-nums;
+  min-width: 1.4em;
+  text-align: right;
+}
+
+.fc-card__stat-code {
+  font-family: var(--font-display, "Barlow Condensed", system-ui, sans-serif);
+  font-weight: 600;
+  font-size: 0.9em;
+  letter-spacing: 0.05em;
+  color: var(--fc-ink-soft);
+  min-width: 1.9em;
+}
+
+@keyframes fc-card-in {
+  from { opacity: 0; transform: translateY(10px) scale(0.97); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fc-card { animation: none; }
+  .fc-card--interactive { transition: box-shadow 120ms ease; }
+  .fc-card--interactive:hover,
+  .fc-card--interactive:active { transform: none; }
+}
