@@ -11,7 +11,7 @@ import math
 from collections import Counter
 from dataclasses import dataclass
 
-from datagen.schema import AnyEvent, Location, PITCH_X_MAX, PITCH_Y_MAX, Team
+from datagen.schema import PITCH_X_MAX, PITCH_Y_MAX, AnyEvent, Location, Team
 
 HOME_DIRECTION = "left_to_right"
 AWAY_DIRECTION = "right_to_left"

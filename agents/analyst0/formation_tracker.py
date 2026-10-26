@@ -17,7 +17,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from datagen.pitch_grid import zone_of
-from datagen.schema import AnyEvent, Location, PITCH_X_MAX
+from datagen.schema import PITCH_X_MAX, AnyEvent, Location
 
 WINDOW_MINUTES = 20.0
 STEP_MINUTES = 5.0

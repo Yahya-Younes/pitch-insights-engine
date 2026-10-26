@@ -12,7 +12,7 @@ datagen/agents/analyst0.
 """
 from __future__ import annotations
 
-from datagen.schema import Location, PITCH_X_MAX, PITCH_Y_MAX
+from datagen.schema import PITCH_X_MAX, Location
 
 Position = str  # "GK" | "CB" | "FB" | "CM" | "WM" | "FW" -- kept as str to avoid a circular import on player_profiles.Position
 FormationSlot = tuple[Position, float, float]

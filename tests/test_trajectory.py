@@ -1,4 +1,4 @@
-from datagen.schema import ActionBias, PITCH_X_MAX, PITCH_Y_MAX, PassEvent, PlayerTendencyProfile
+from datagen.schema import PITCH_X_MAX, PITCH_Y_MAX, ActionBias, PassEvent, PlayerTendencyProfile
 from datagen.trajectory import generate_positions
 
 

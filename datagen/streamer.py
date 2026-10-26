@@ -13,8 +13,8 @@ import json
 import os
 import time
 
-from azure.eventhub.aio import EventHubProducerClient
 from azure.eventhub import EventData
+from azure.eventhub.aio import EventHubProducerClient
 from azure.identity.aio import DefaultAzureCredential
 
 from datagen.match_simulator import MatchSimulator

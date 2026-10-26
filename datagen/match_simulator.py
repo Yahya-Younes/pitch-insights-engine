@@ -21,6 +21,8 @@ from dataclasses import dataclass
 from datagen.formations import FORMATIONS, formation_names, plausible_shift_target, slot_to_location
 from datagen.player_profiles import generate_market_value_eur, generate_squad, generate_squad_quality
 from datagen.schema import (
+    PITCH_X_MAX,
+    PITCH_Y_MAX,
     AnyEvent,
     CardEvent,
     CarryEvent,
@@ -30,8 +32,6 @@ from datagen.schema import (
     InterceptionEvent,
     Location,
     MatchMetadataEvent,
-    PITCH_X_MAX,
-    PITCH_Y_MAX,
     PassEvent,
     PlayerTendencyProfile,
     PossessionChangeEvent,
@@ -214,7 +214,7 @@ def build_squad(
     direction = "left_to_right" if team == "home" else "right_to_left"
     profiles = {p.player_id: p for p in profiles_list}
     slots = FORMATIONS[formation]
-    expected = {p.player_id: slot_to_location(slot, direction) for p, slot in zip(profiles_list, slots)}
+    expected = {p.player_id: slot_to_location(slot, direction) for p, slot in zip(profiles_list, slots, strict=False)}
     market_value_eur = generate_market_value_eur(quality, rng)
     return SquadState(team=team, team_name=team_name, direction=direction,
                        profiles=profiles, expected_locations=expected, starting_formation=formation,

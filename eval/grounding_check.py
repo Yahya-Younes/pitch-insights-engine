@@ -139,7 +139,7 @@ def _entity_check(text: str, insight: InsightCandidate, player_names: dict[str, 
     allowed_names = {player_names[pid] for pid in insight.related_players if pid in player_names}
     text_lower = text.lower()
     unmatched = []
-    for pid, name in player_names.items():
+    for name in player_names.values():
         if name.lower() in text_lower and name not in allowed_names:
             unmatched.append(name)
     return len(unmatched) == 0, unmatched

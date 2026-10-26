@@ -7,9 +7,21 @@ to agents that assume well-typed input.
 from __future__ import annotations
 
 from datagen.schema import (
-    AnyEvent, CardEvent, CarryEvent, DribbleEvent, DuelEvent, FoulEvent,
-    InterceptionEvent, MatchMetadataEvent, PassEvent, PossessionChangeEvent,
-    PressureEvent, RefereeDecisionEvent, RefereePositionEvent, ShotEvent, TackleEvent,
+    AnyEvent,
+    CardEvent,
+    CarryEvent,
+    DribbleEvent,
+    DuelEvent,
+    FoulEvent,
+    InterceptionEvent,
+    MatchMetadataEvent,
+    PassEvent,
+    PossessionChangeEvent,
+    PressureEvent,
+    RefereeDecisionEvent,
+    RefereePositionEvent,
+    ShotEvent,
+    TackleEvent,
 )
 
 _EVENT_TYPES: dict[str, type] = {

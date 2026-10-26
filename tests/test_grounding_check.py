@@ -1,5 +1,5 @@
-from eval.grounding_check import check_grounding, check_grounding_multi, grounding_pass_rate
 from agents.shared.models import InsightCandidate
+from eval.grounding_check import check_grounding, check_grounding_multi, grounding_pass_rate
 
 PLAYER_NAMES = {"home_7": "J. Okafor", "away_4": "M. Ferreira", "home_9": "D. Ribeiro"}
 

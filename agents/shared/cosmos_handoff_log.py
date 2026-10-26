@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from uuid import uuid4
 
 from azure.cosmos import CosmosClient

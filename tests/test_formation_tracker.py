@@ -1,7 +1,10 @@
-from datagen.match_simulator import MatchSimulator
 from agents.analyst0.formation_tracker import (
-    build_tactical_timeline, identify_goalkeeper, infer_formation_label, score_shift_detection,
+    build_tactical_timeline,
+    identify_goalkeeper,
+    infer_formation_label,
+    score_shift_detection,
 )
+from datagen.match_simulator import MatchSimulator
 
 DURATION_MS = 90 * 60000
 

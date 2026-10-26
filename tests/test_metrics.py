@@ -1,11 +1,17 @@
-import math
 
 import pytest
 
 from agents.analyst0 import metrics as m
 from datagen.schema import (
-    CarryEvent, DribbleEvent, DuelEvent, FoulEvent, InterceptionEvent,
-    PassEvent, PossessionChangeEvent, ShotEvent, TackleEvent,
+    CarryEvent,
+    DribbleEvent,
+    DuelEvent,
+    FoulEvent,
+    InterceptionEvent,
+    PassEvent,
+    PossessionChangeEvent,
+    ShotEvent,
+    TackleEvent,
 )
 
 MATCH_ID = "TEST-MATCH"

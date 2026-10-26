@@ -25,7 +25,7 @@ def test_bucket_minutes_are_contiguous_and_cover_the_match():
     buckets = result["buckets"]
     assert buckets[0]["start_min"] == 0.0
     assert buckets[-1]["end_min"] == 90.0
-    for a, b in zip(buckets, buckets[1:]):
+    for a, b in zip(buckets, buckets[1:], strict=False):
         assert a["end_min"] == b["start_min"]
 
 

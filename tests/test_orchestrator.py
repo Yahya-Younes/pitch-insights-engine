@@ -187,7 +187,7 @@ def test_crash_then_resume_from_checkpoint():
             narrate_fn=_fake_narrate, personalize_fn=_fake_personalize,
             inject_crash=True, checkpoint_storage=storage, handoff_log=log,
         ))
-        assert False, "expected run_match to raise WorkflowCrashed"
+        raise AssertionError("expected run_match to raise WorkflowCrashed")
     except WorkflowCrashed as exc:
         checkpoint_id = exc.checkpoint_id
 
@@ -235,7 +235,7 @@ def test_crash_then_resume_with_file_checkpoint_storage(tmp_path):
             narrate_fn=_fake_narrate, personalize_fn=_fake_personalize,
             inject_crash=True, checkpoint_storage=storage, handoff_log=log,
         ))
-        assert False, "expected run_match to raise WorkflowCrashed"
+        raise AssertionError("expected run_match to raise WorkflowCrashed")
     except WorkflowCrashed as exc:
         checkpoint_id = exc.checkpoint_id
 

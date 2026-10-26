@@ -20,7 +20,7 @@ from collections import deque
 from dataclasses import dataclass, field
 
 from datagen.pitch_grid import expected_location_from_bias
-from datagen.schema import AnyEvent, Location, PITCH_X_MAX, PITCH_Y_MAX, PlayerTendencyProfile
+from datagen.schema import PITCH_X_MAX, PITCH_Y_MAX, AnyEvent, Location, PlayerTendencyProfile
 
 SAMPLE_HZ = 10.0
 _SAMPLE_INTERVAL_MS = 1000.0 / SAMPLE_HZ

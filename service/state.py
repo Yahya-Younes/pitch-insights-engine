@@ -47,6 +47,7 @@ def build_checkpoint_storage():
     # exactly the failure mode the crash-resume demo exists to avoid
     # becoming invisible again.
     from agent_framework import FileCheckpointStorage
+
     from agents.orchestrator.workflow import CHECKPOINT_ALLOWED_TYPES
     path = os.environ.get("CHECKPOINT_DIR", os.path.join(tempfile.gettempdir(), "pitch-checkpoints"))
     return FileCheckpointStorage(path, allowed_checkpoint_types=CHECKPOINT_ALLOWED_TYPES)

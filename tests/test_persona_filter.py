@@ -51,7 +51,7 @@ def test_player_tracker_persona_only_includes_that_players_insights():
 def test_player_tracker_persona_requires_player_id():
     try:
         filter_for_persona([_insight("milestone", 10)], "player_tracker")
-        assert False, "expected ValueError"
+        raise AssertionError("expected ValueError")
     except ValueError:
         pass
 
