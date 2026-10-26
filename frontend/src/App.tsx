@@ -212,6 +212,7 @@ function App() {
         onClose={closeNewMatch}
         lenses={lenses}
         onMatchStarted={handleMatchStarted}
+        locale={settings.locale}
       />
 
       {drawerPlayerId !== null && (

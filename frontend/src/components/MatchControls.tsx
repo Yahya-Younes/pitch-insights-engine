@@ -8,13 +8,17 @@ import { LensPicker } from "./LensPicker";
 interface Props {
   lenses: LensSummary[];
   onMatchStarted: (summary: RunMatchResponse) => void;
+  /** Commentary language preselected from the app's language setting. */
+  defaultLocale?: Locale;
 }
 
 
-export function MatchControls({ lenses, onMatchStarted }: Props) {
+export function MatchControls({ lenses, onMatchStarted, defaultLocale = "en" }: Props) {
   const [persona, setPersona] = useState<Persona>("casual_fan");
   const [lensId, setLensId] = useState<string | null>(null);
-  const [locale, setLocale] = useState<Locale>("en");
+  const [locale, setLocale] = useState<Locale>(defaultLocale);
+  // Follow the app-wide language until the user picks one here.
+  useEffect(() => setLocale(defaultLocale), [defaultLocale]);
   const [injectFault, setInjectFault] = useState(false);
   const [injectCrash, setInjectCrash] = useState(false);
   const [busy, setBusy] = useState(false);

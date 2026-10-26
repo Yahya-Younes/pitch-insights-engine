@@ -92,12 +92,13 @@ interface NewMatchDialogProps {
   onClose: () => void;
   lenses: LensSummary[];
   onMatchStarted: (summary: RunMatchResponse) => void;
+  locale: Locale;
 }
 
 /** The match-start flow (persona, lens, commentary language, demo toggles).
  * MatchControls stays mounted while the dialog is closed so its crash-recovery
  * polling and "resume" button survive -- reopen the dialog to resume. */
-export function NewMatchDialog({ open, onClose, lenses, onMatchStarted }: NewMatchDialogProps) {
+export function NewMatchDialog({ open, onClose, lenses, onMatchStarted, locale }: NewMatchDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   useFocusTrap(open, panelRef, onClose);
@@ -122,7 +123,7 @@ export function NewMatchDialog({ open, onClose, lenses, onMatchStarted }: NewMat
             <span aria-hidden="true">✕</span>
           </button>
         </div>
-        <MatchControls lenses={lenses} onMatchStarted={onMatchStarted} />
+        <MatchControls lenses={lenses} onMatchStarted={onMatchStarted} defaultLocale={locale} />
       </div>
     </div>
   );

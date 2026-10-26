@@ -866,3 +866,8 @@ section.lv-ask { border-top: none; padding-top: revert; }
   .lv-moment,
   .lv-ask-send { transition: none; }
 }
+
+/* Primary voice button: keep dark text on the lime fill (button-colour rules
+   above would otherwise paint the label lime-on-lime). */
+.lv-root .lv-voice.ui-btn-primary,
+.lv-root .lv-voice.ui-btn-primary:hover { color: var(--bg-base); }
