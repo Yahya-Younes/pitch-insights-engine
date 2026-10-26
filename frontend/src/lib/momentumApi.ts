@@ -278,8 +278,15 @@ export function isKeyMoment(p: RenderPayload): boolean {
 export function splitHeadline(text: string): { headline: string; rest: string } {
   const trimmed = text.trim();
   const match = /^(.{12,140}?[.!?])(\s+|$)/.exec(trimmed);
-  if (!match || !match[1]) return { headline: trimmed, rest: "" };
-  return { headline: match[1], rest: trimmed.slice(match[0].length).trim() };
+  if (match?.[1]) return { headline: match[1], rest: trimmed.slice(match[0].length).trim() };
+  if (trimmed.length <= 110) return { headline: trimmed, rest: "" };
+  // One long sentence: headline up to the first clause break (", " / " — "),
+  // else the last word boundary before ~90 chars, and keep the rest as body.
+  const clause = /^(.{24,110}?)(,\s+|\s+[—–-]\s+)/.exec(trimmed);
+  if (clause?.[1]) return { headline: clause[1], rest: trimmed.slice(clause[0].length).trim() };
+  const cut = trimmed.lastIndexOf(" ", 90);
+  const at = cut > 40 ? cut : 90;
+  return { headline: `${trimmed.slice(0, at).trim()}…`, rest: `…${trimmed.slice(at).trim()}` };
 }
 
 export function prefersReducedMotion(): boolean {
