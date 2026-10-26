@@ -1,22 +1,17 @@
 import { useId } from "react";
-import { formatDec2 } from "../lib/liveApi";
-import type { Shot, ShotMapResponse } from "../lib/matchMapsTypes";
+import { useT } from "../i18n";
+import { describeError, formatDec2 } from "../lib/liveApi";
+import type { LiveError } from "../lib/liveTypes";
+import type { ShotMapResponse } from "../lib/matchMapsTypes";
 import "./ShotMapMini.css";
 
 // StatsBomb pitch units (same as MatchMaps): home attacks right, away attacks left.
 const W = 120;
 const H = 80;
 
-const OUTCOME: Record<Shot["outcome"], string> = {
-  goal: "but",
-  saved: "arrêté",
-  blocked: "contré",
-  off_target: "non cadré",
-};
-
 interface Props {
   data: ShotMapResponse | null;
-  error: string | null;
+  error: LiveError | null;
   homeTeam: string;
   awayTeam: string;
   /** Hide shots after this minute (null = all). */
@@ -24,6 +19,8 @@ interface Props {
 }
 
 export function ShotMapMini({ data, error, homeTeam, awayTeam, maxMinute }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
   const headingId = useId();
 
   let body;
@@ -42,9 +39,10 @@ export function ShotMapMini({ data, error, homeTeam, awayTeam, maxMinute }: Prop
     };
     const home = sum("home");
     const away = sum("away");
-    const label =
-      `Carte des tirs. ${homeTeam} (attaque à droite) : ${home.n} tirs, ${formatDec2(home.xg)} xG, ${home.goals} but(s). ` +
-      `${awayTeam} (attaque à gauche) : ${away.n} tirs, ${formatDec2(away.xg)} xG, ${away.goals} but(s).`;
+    const label = t("suivi.shots.aria", {
+      home: homeTeam, homeShots: home.n, homeXg: formatDec2(i18n, home.xg), homeGoals: home.goals,
+      away: awayTeam, awayShots: away.n, awayXg: formatDec2(i18n, away.xg), awayGoals: away.goals,
+    });
     body = (
       <>
         <svg className="smm-pitch" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={label}>
@@ -66,29 +64,31 @@ export function ShotMapMini({ data, error, homeTeam, awayTeam, maxMinute }: Prop
               <g key={s.event_id}>
                 {goal ? <circle cx={x} cy={y} r={r + 1.1} className="smm-goal-ring" /> : null}
                 <circle cx={x} cy={y} r={r} className={`smm-shot is-${s.team}${goal ? " is-goal" : ""}`}>
-                  <title>{`${s.player_name} · ${s.minute}' · ${OUTCOME[s.outcome]} · xG ${formatDec2(s.xg)}`}</title>
+                  <title>
+                    {`${s.player_name} · ${s.minute}' · ${t(`suivi.shots.outcome.${s.outcome}`)} · xG ${formatDec2(i18n, s.xg)}`}
+                  </title>
                 </circle>
               </g>
             );
           })}
         </svg>
         <div className="smm-totals" aria-hidden="true">
-          <span className="smm-total is-home">{home.n} tirs · {formatDec2(home.xg)} xG</span>
-          <span className="smm-legend">taille = xG · anneau = but</span>
-          <span className="smm-total is-away">{away.n} tirs · {formatDec2(away.xg)} xG</span>
+          <span className="smm-total is-home">{t("suivi.shots.total", { n: home.n, xg: formatDec2(i18n, home.xg) })}</span>
+          <span className="smm-legend">{t("suivi.shots.legend")}</span>
+          <span className="smm-total is-away">{t("suivi.shots.total", { n: away.n, xg: formatDec2(i18n, away.xg) })}</span>
         </div>
-        {error ? <p className="sl-stale" role="alert">Mise à jour impossible : {error}</p> : null}
+        {error ? <p className="sl-stale" role="alert">{t("suivi.stale", { error: describeError(i18n, error) })}</p> : null}
       </>
     );
   } else if (error) {
-    body = <p className="sl-error" role="alert">Carte des tirs indisponible : {error}</p>;
+    body = <p className="sl-error" role="alert">{t("suivi.shots.error", { error: describeError(i18n, error) })}</p>;
   } else {
-    body = <div className="sl-skeleton smm-skeleton" aria-busy="true" aria-label="Chargement de la carte des tirs" />;
+    body = <div className="sl-skeleton smm-skeleton" aria-busy="true" aria-label={t("suivi.shots.loading")} />;
   }
 
   return (
     <section className="ui-card smm" aria-labelledby={headingId}>
-      <h2 id={headingId} className="ui-heading">Carte des tirs</h2>
+      <h2 id={headingId} className="ui-heading">{t("suivi.shots.title")}</h2>
       {body}
     </section>
   );

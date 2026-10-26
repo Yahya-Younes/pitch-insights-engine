@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 import type { LensSummary } from "../lib/types";
+import { useT } from "../i18n";
 
 interface Props {
   lenses: LensSummary[];
@@ -21,6 +22,7 @@ function initials(name: string): string {
 }
 
 export function LensPicker({ lenses, selected, onSelect }: Props) {
+  const { t } = useT();
   return (
     <div className="lens-picker">
       <button
@@ -30,8 +32,8 @@ export function LensPicker({ lenses, selected, onSelect }: Props) {
       >
         <div className="lens-avatar lens-avatar-neutral">--</div>
         <div className="lens-card-body">
-          <span className="lens-name">Neutral</span>
-          <span className="lens-desc">No tactical lens -- straight analytical framing</span>
+          <span className="lens-name">{t("shell.lens.neutral")}</span>
+          <span className="lens-desc">{t("shell.lens.neutralDesc")}</span>
         </div>
       </button>
 

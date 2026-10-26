@@ -4,7 +4,7 @@ import { PlayerTags } from "../components/PlayerTags";
 import { WhatIfPanel } from "../components/WhatIfPanel";
 import { useMatch } from "../lib/matchContext";
 
-/** Cartes de menace/tirs/réseau, contrefactuels, comparaison de profils et étiquettes joueurs. */
+/** Threat/shot/network maps, counterfactuals, persona comparison and player tags. */
 export function AnalysesTab() {
   const { matchId, renderEvents, lenses } = useMatch();
   return (

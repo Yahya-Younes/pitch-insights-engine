@@ -1,7 +1,9 @@
 import { useEffect, useId, useMemo, useState } from "react";
 import type { PointerEvent, ReactNode } from "react";
-import { fetchMomentum, fr2 } from "../lib/momentumApi";
+import { fetchMomentum, num2 } from "../lib/momentumApi";
 import type { MomentumBucket, MomentumResponse } from "../lib/momentumApi";
+import { useT } from "../i18n";
+import type { I18n } from "../i18n";
 import "./MomentumBar.css";
 
 interface Props {
@@ -17,7 +19,7 @@ const PLOT_W = W - PAD_X * 2;
 const MID = H / 2;
 const HALF = MID - 6;
 
-function summarize(buckets: MomentumBucket[], homeTeam: string, awayTeam: string, lastMinute: number): string {
+function summarize(i18n: I18n, buckets: MomentumBucket[], homeTeam: string, awayTeam: string, lastMinute: number): string {
   let home = 0;
   let away = 0;
   let peak: MomentumBucket | null = null;
@@ -27,12 +29,15 @@ function summarize(buckets: MomentumBucket[], homeTeam: string, awayTeam: string
     if (!peak || Math.abs(b.momentum) > Math.abs(peak.momentum)) peak = b;
   }
   const peakText = peak && Math.abs(peak.momentum) > 0.05
-    ? ` Plus forte poussée : ${peak.momentum > 0 ? homeTeam : awayTeam} à la ${peak.minute}e minute.`
+    ? ` ${i18n.t("live.mb.peak", { team: peak.momentum > 0 ? homeTeam : awayTeam, minute: peak.minute })}`
     : "";
-  return `Momentum de la minute 0 à ${lastMinute}. ${homeTeam} a dominé ${home} tranches, ${awayTeam} ${away}.${peakText}`;
+  const summary = i18n.t("live.mb.summary", { last: lastMinute, home: homeTeam, homeCount: home, away: awayTeam, awayCount: away });
+  return `${summary}${peakText}`;
 }
 
 export function MomentumBar({ matchId, homeTeam, awayTeam }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
   const [reloadKey, setReloadKey] = useState(0);
   const [result, setResult] = useState<{ key: string; data: MomentumResponse | null; error: string | null } | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -75,22 +80,22 @@ export function MomentumBar({ matchId, homeTeam, awayTeam }: Props) {
 
   let body: ReactNode;
   if (!matchId) {
-    body = <p className="lv-muted">Lance un match pour voir qui pousse, minute par minute.</p>;
+    body = <p className="lv-muted">{t("live.mb.noMatch")}</p>;
   } else if (loading) {
     body = (
       <div className="mb-state" role="status">
-        <span className="lv-spinner" aria-hidden="true" /> Calcul du momentum…
+        <span className="lv-spinner" aria-hidden="true" /> {t("live.mb.loading")}
       </div>
     );
   } else if (error) {
     body = (
       <div className="mb-state mb-state-error">
-        <p className="lv-error" role="alert">Momentum indisponible : {error}</p>
-        <button type="button" className="ui-btn" onClick={() => setReloadKey((k) => k + 1)}>Réessayer</button>
+        <p className="lv-error" role="alert">{t("live.mb.error", { error })}</p>
+        <button type="button" className="ui-btn" onClick={() => setReloadKey((k) => k + 1)}>{t("live.retry")}</button>
       </div>
     );
   } else if (buckets.length === 0) {
-    body = <p className="lv-muted">Pas encore assez d'actions pour mesurer le momentum.</p>;
+    body = <p className="lv-muted">{t("live.mb.empty")}</p>;
   } else {
     body = (
       <>
@@ -100,7 +105,7 @@ export function MomentumBar({ matchId, homeTeam, awayTeam }: Props) {
             viewBox={`0 0 ${W} ${H}`}
             preserveAspectRatio="none"
             role="img"
-            aria-label={summarize(buckets, homeTeam, awayTeam, lastMinute)}
+            aria-label={summarize(i18n, buckets, homeTeam, awayTeam, lastMinute)}
             onPointerMove={onPointerMove}
             onPointerLeave={() => setHover(null)}
           >
@@ -132,12 +137,12 @@ export function MomentumBar({ matchId, homeTeam, awayTeam }: Props) {
               aria-hidden="true"
             >
               <strong>{hovered.minute}'–{hovered.minute + bucketMin}'</strong>
-              <span className="mb-tt-home">{homeTeam} : xT {fr2(hovered.home_xt)}</span>
-              <span className="mb-tt-away">{awayTeam} : xT {fr2(hovered.away_xt)}</span>
+              <span className="mb-tt-home">{t("live.mb.tooltipXt", { team: homeTeam, value: num2(i18n, hovered.home_xt) })}</span>
+              <span className="mb-tt-away">{t("live.mb.tooltipXt", { team: awayTeam, value: num2(i18n, hovered.away_xt) })}</span>
               <span>
                 {Math.abs(hovered.momentum) < 0.05
-                  ? "Équilibré"
-                  : `Avantage ${hovered.momentum > 0 ? homeTeam : awayTeam}`}
+                  ? t("live.mb.balanced")
+                  : t("live.mb.advantage", { team: hovered.momentum > 0 ? homeTeam : awayTeam })}
               </span>
             </div>
           )}
@@ -165,25 +170,25 @@ export function MomentumBar({ matchId, homeTeam, awayTeam }: Props) {
         </div>
 
         <table className="ui-sr-only">
-          <caption>Momentum minute par minute (menace attendue xT ajoutée par équipe)</caption>
+          <caption>{t("live.mb.caption")}</caption>
           <thead>
-            <tr><th scope="col">Minute</th><th scope="col">xT {homeTeam}</th><th scope="col">xT {awayTeam}</th><th scope="col">Momentum</th></tr>
+            <tr><th scope="col">{t("live.mb.colMinute")}</th><th scope="col">xT {homeTeam}</th><th scope="col">xT {awayTeam}</th><th scope="col">{t("live.mb.colMomentum")}</th></tr>
           </thead>
           <tbody>
             {buckets.map((b) => (
               <tr key={b.minute}>
                 <th scope="row">{b.minute}'</th>
-                <td>{fr2(b.home_xt)}</td>
-                <td>{fr2(b.away_xt)}</td>
-                <td>{fr2(b.momentum)}</td>
+                <td>{num2(i18n, b.home_xt)}</td>
+                <td>{num2(i18n, b.away_xt)}</td>
+                <td>{num2(i18n, b.momentum)}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {(data?.goals.length ?? 0) > 0 && (
-          <ul className="ui-sr-only" aria-label="Buts">
+          <ul className="ui-sr-only" aria-label={t("live.mb.goalsAria")}>
             {data?.goals.map((g, i) => (
-              <li key={i}>{g.minute}e minute : but de {g.player_name} ({g.team === "home" ? homeTeam : awayTeam})</li>
+              <li key={i}>{t("live.mb.goalItem", { minute: g.minute, player: g.player_name, team: g.team === "home" ? homeTeam : awayTeam })}</li>
             ))}
           </ul>
         )}
@@ -194,8 +199,8 @@ export function MomentumBar({ matchId, homeTeam, awayTeam }: Props) {
   return (
     <section className="ui-card mb-panel" aria-labelledby={titleId}>
       <div className="lv-card-head">
-        <h2 id={titleId} className="ui-heading">Momentum</h2>
-        <span className="ui-tag" title={data?.method ?? "Menace attendue (xT) ajoutée par chaque équipe, par minute."}>xT / minute</span>
+        <h2 id={titleId} className="ui-heading">{t("live.mb.title")}</h2>
+        <span className="ui-tag" title={t("live.mb.method")}>{t("live.mb.tag")}</span>
       </div>
       {body}
     </section>

@@ -3,9 +3,11 @@ import type { KeyboardEvent as ReactKeyboardEvent } from "react";
 import { PlayerGraph } from "../components/PlayerGraph";
 import type { GraphLayoutMode } from "../components/PlayerGraph";
 import { TimeRangeSlider } from "../components/TimeRangeSlider";
+import { useT } from "../i18n";
+import type { I18n } from "../i18n";
 import { shirtNumber, useMatch } from "../lib/matchContext";
 import {
-  cachedPlayerGraph, fetchMatchMinute, fetchPlayerGraph, fetchRunStatus, fmtNum, fmtXt, shortName,
+  cachedPlayerGraph, fetchMatchMinute, fetchPlayerGraph, fetchRunStatus, fmtXt, pluralForm, shortName,
 } from "../lib/playerGraphApi";
 import type {
   GraphNode, GraphSelection, GraphTeamFilter, PlayerGraphParams, PlayerGraphResponse,
@@ -60,15 +62,17 @@ function partnersOf(data: PlayerGraphResponse, id: string): { partners: Partner[
   };
 }
 
-function frenchHubReason(n: GraphNode | undefined): string {
+function hubReason(i18n: I18n, n: GraphNode | undefined): string {
   if (!n) return "";
-  const pct = fmtNum(n.betweenness * 100);
-  return `Sur ${pct} % des circuits de passes les plus courts entre coéquipiers `
-    + `(${fmtNum(n.passes_made)} passes données, ${fmtNum(n.passes_received)} reçues).`;
+  return i18n.t("relations.hubReason", {
+    pct: i18n.pct(n.betweenness), made: i18n.num(n.passes_made), received: i18n.num(n.passes_received),
+  });
 }
 
 export function RelationsTab() {
   const { matchId, homeTeam, awayTeam, followedPlayerId, setFollowedPlayerId, openPlayer } = useMatch();
+  const i18n = useT();
+  const { t, num: fmtNum } = i18n;
 
   const [team, setTeam] = useState<GraphTeamFilter>("both");
   const [duelsOn, setDuelsOn] = useState(true);
@@ -172,7 +176,7 @@ export function RelationsTab() {
   }, [matchId, params, live, pollTick]);
 
   const nodesById = useMemo(() => new Map((data?.nodes ?? []).map((n) => [n.id, n])), [data]);
-  const nameOf = (id: string) => shortName(nodesById.get(id), id);
+  const nameOf = (id: string) => shortName(i18n, nodesById.get(id), id);
 
   // Side panel player: explicit selection, else followed, else the hub.
   const panelId = selection?.kind === "node" ? selection.id
@@ -187,9 +191,9 @@ export function RelationsTab() {
   const partnerMax = Math.max(1, ...panelLinks.partners.map((p) => p.total));
 
   const teamOptions: { value: GraphTeamFilter; label: string }[] = [
-    { value: "both", label: "Les deux équipes" },
-    { value: "home", label: homeTeam || "Domicile" },
-    { value: "away", label: awayTeam || "Extérieur" },
+    { value: "both", label: t("relations.team.both") },
+    { value: "home", label: homeTeam || t("relations.team.home") },
+    { value: "away", label: awayTeam || t("relations.team.away") },
   ];
 
   const onTeamKey = (ev: ReactKeyboardEvent<HTMLDivElement>) => {
@@ -211,8 +215,8 @@ export function RelationsTab() {
   if (!matchId) {
     return (
       <div className="ui-card rel-empty">
-        <p className="ui-heading">Graphe des relations</p>
-        <p>Lance un match pour voir qui se trouve, qui se cherche et qui s'affronte.</p>
+        <p className="ui-heading">{t("relations.title")}</p>
+        <p>{t("relations.noMatch")}</p>
       </div>
     );
   }
@@ -228,14 +232,18 @@ export function RelationsTab() {
       <div className="rel-main">
         <section className="ui-card rel-controls" aria-labelledby="rel-title">
           <div className="rel-controls-head">
-            <h2 className="ui-heading" id="rel-title">Graphe des relations</h2>
-            <span className="ui-tag">passes · duels</span>
-            {live && <span className="ui-pill is-danger rel-live">● Direct{liveMinute !== null ? ` ${liveMinute}'` : ""}</span>}
-            <span className="rel-status" aria-live="polite">{loading && data ? "Mise à jour…" : ""}</span>
+            <h2 className="ui-heading" id="rel-title">{t("relations.title")}</h2>
+            <span className="ui-tag">{t("relations.tag")}</span>
+            {live && (
+              <span className="ui-pill is-danger rel-live">
+                {liveMinute !== null ? t("relations.liveAt", { m: liveMinute }) : t("relations.live")}
+              </span>
+            )}
+            <span className="rel-status" aria-live="polite">{loading && data ? t("relations.updating") : ""}</span>
           </div>
 
           <div className="rel-controls-row">
-            <div className="rel-seg" role="radiogroup" aria-label="Équipe affichée" onKeyDown={onTeamKey}>
+            <div className="rel-seg" role="radiogroup" aria-label={t("relations.team.aria")} onKeyDown={onTeamKey}>
               {teamOptions.map((o) => (
                 <button
                   key={o.value}
@@ -259,29 +267,29 @@ export function RelationsTab() {
               aria-describedby={team !== "both" ? "rel-duel-note" : undefined}
               onClick={() => setDuelsOn((v) => !v)}
             >
-              ⚔ Duels
+              {t("relations.duelsToggle")}
             </button>
 
-            <div className="rel-seg rel-seg--small" role="group" aria-label="Disposition">
+            <div className="rel-seg rel-seg--small" role="group" aria-label={t("relations.layout.aria")}>
               <button type="button" className={`rel-seg-btn${layout === "force" ? " is-active" : ""}`}
-                aria-pressed={layout === "force"} onClick={() => setLayout("force")}>Force</button>
+                aria-pressed={layout === "force"} onClick={() => setLayout("force")}>{t("relations.layout.force")}</button>
               <button type="button" className={`rel-seg-btn${layout === "pitch" ? " is-active" : ""}`}
-                aria-pressed={layout === "pitch"} onClick={() => setLayout("pitch")}>Terrain</button>
+                aria-pressed={layout === "pitch"} onClick={() => setLayout("pitch")}>{t("relations.layout.pitch")}</button>
             </div>
 
             <div className="rel-stepper" role="group" aria-labelledby="rel-minp-label">
-              <span id="rel-minp-label" className="rel-stepper-label">Passes min.</span>
-              <button type="button" className="ui-btn" aria-label="Diminuer le minimum de passes"
+              <span id="rel-minp-label" className="rel-stepper-label">{t("relations.minPasses")}</span>
+              <button type="button" className="ui-btn" aria-label={t("relations.minPasses.dec")}
                 disabled={minPasses <= MIN_PASSES_RANGE[0]} onClick={() => setMinPasses((v) => Math.max(MIN_PASSES_RANGE[0], v - 1))}>−</button>
               <output className="rel-stepper-value" aria-live="polite">{minPasses}</output>
-              <button type="button" className="ui-btn" aria-label="Augmenter le minimum de passes"
+              <button type="button" className="ui-btn" aria-label={t("relations.minPasses.inc")}
                 disabled={minPasses >= MIN_PASSES_RANGE[1]} onClick={() => setMinPasses((v) => Math.min(MIN_PASSES_RANGE[1], v + 1))}>+</button>
             </div>
           </div>
 
           {team !== "both" && (
             <p className="rel-note" id="rel-duel-note">
-              Duels masqués : ils opposent les deux équipes, ils n'apparaissent qu'avec « Les deux équipes ».
+              {t("relations.duelNote", { both: t("relations.team.both") })}
             </p>
           )}
 
@@ -293,20 +301,20 @@ export function RelationsTab() {
           />
         </section>
 
-        <section className="ui-card rel-graph-card" aria-label="Graphe">
+        <section className="ui-card rel-graph-card" aria-label={t("relations.graph.aria")}>
           {error && (
             <div className="rel-error" role="alert">
-              Impossible de charger le graphe. <span className="rel-error-detail">{error}</span>
+              {t("relations.error")} <span className="rel-error-detail">{error}</span>
             </div>
           )}
           {!data && !error && (
             <div className="rel-loading" role="status">
-              <span className="rel-spinner" aria-hidden="true" /> Chargement du graphe…
+              <span className="rel-spinner" aria-hidden="true" /> {t("relations.loading")}
             </div>
           )}
           {data && data.nodes.length === 0 && (
             <div className="rel-loading" role="status">
-              Aucune action dans cette fenêtre ({data.window.from_min}' → {data.window.to_min}'). Élargis la fenêtre ou baisse le minimum de passes.
+              {t("relations.emptyWindow", { from: data.window.from_min, to: data.window.to_min })}
             </div>
           )}
           {data && data.nodes.length > 0 && (
@@ -326,21 +334,21 @@ export function RelationsTab() {
         </section>
 
         {data && data.nodes.length > 0 && (
-          <section className="rel-insights" aria-label="Enseignements">
+          <section className="rel-insights" aria-label={t("relations.insights.aria")}>
             <button
               type="button"
               className={`ui-card rel-insight is-gold${selection?.kind === "node" && selection.id === hub?.player_id ? " is-active" : ""}`}
               disabled={!hub}
               onClick={() => hub && setSelection({ kind: "node", id: hub.player_id })}
             >
-              <span className="rel-insight-kicker">Pivot</span>
+              <span className="rel-insight-kicker">{t("relations.hub")}</span>
               {hub ? (
                 <>
                   <span className="rel-insight-title">{hub.name}</span>
-                  <span className="rel-insight-stat">Centralité <strong>{fmtNum(hub.betweenness, 2)}</strong></span>
-                  <span className="rel-insight-body">{frenchHubReason(nodesById.get(hub.player_id))}</span>
+                  <span className="rel-insight-stat">{t("relations.centrality")} <strong>{fmtNum(hub.betweenness, 2)}</strong></span>
+                  <span className="rel-insight-body">{hubReason(i18n, nodesById.get(hub.player_id))}</span>
                 </>
-              ) : <span className="rel-insight-body">Aucun relais net dans cette fenêtre.</span>}
+              ) : <span className="rel-insight-body">{t("relations.noHub")}</span>}
             </button>
 
             <button
@@ -349,15 +357,15 @@ export function RelationsTab() {
               disabled={!duo}
               onClick={() => duo && setSelection({ kind: "pair", a: duo.a, b: duo.b, edge: "pass" })}
             >
-              <span className="rel-insight-kicker">Duo</span>
+              <span className="rel-insight-kicker">{t("relations.duo")}</span>
               {duo ? (
                 <>
                   <span className="rel-insight-title">{nameOf(duo.a)} ⇄ {nameOf(duo.b)}</span>
                   <span className="rel-insight-stat">
-                    <strong>{fmtNum(duo.passes)}</strong> passes · {fmtXt(duo.xt_added)}
+                    <strong>{fmtNum(duo.passes)}</strong> {t(`relations.unit.pass.${pluralForm(i18n, duo.passes)}`)} · {fmtXt(i18n, duo.xt_added)}
                   </span>
                 </>
-              ) : <span className="rel-insight-body">Pas de duo au-dessus du seuil.</span>}
+              ) : <span className="rel-insight-body">{t("relations.noDuo")}</span>}
             </button>
 
             <button
@@ -366,25 +374,25 @@ export function RelationsTab() {
               disabled={!duel}
               onClick={() => duel && setSelection({ kind: "pair", a: duel.a, b: duel.b, edge: "duel" })}
             >
-              <span className="rel-insight-kicker">Duel</span>
+              <span className="rel-insight-kicker">{t("relations.duel")}</span>
               {duel ? (
                 <>
                   <span className="rel-insight-title">{nameOf(duel.a)} ⚔ {nameOf(duel.b)}</span>
-                  <span className="rel-insight-stat"><strong>{fmtNum(duel.count)}</strong> duels</span>
+                  <span className="rel-insight-stat"><strong>{fmtNum(duel.count)}</strong> {t(`relations.unit.duel.${pluralForm(i18n, duel.count)}`)}</span>
                 </>
               ) : (
                 <span className="rel-insight-body">
-                  {params.includeDuels ? "Aucun duel dans cette fenêtre." : "Duels non affichés dans cette vue."}
+                  {params.includeDuels ? t("relations.noDuel") : t("relations.duelsHidden")}
                 </span>
               )}
             </button>
 
             <div className="ui-card rel-insight rel-insight--static">
-              <span className="rel-insight-kicker">Isolés</span>
+              <span className="rel-insight-kicker">{t("relations.isolated")}</span>
               {isolated.length === 0 ? (
-                <span className="rel-insight-body">Personne n'est coupé du jeu.</span>
+                <span className="rel-insight-body">{t("relations.noIsolated")}</span>
               ) : (
-                <ul className="rel-chips" aria-label="Joueurs isolés">
+                <ul className="rel-chips" aria-label={t("relations.isolatedAria")}>
                   {isolated.map((id) => (
                     <li key={id}>
                       <button
@@ -404,11 +412,11 @@ export function RelationsTab() {
         )}
       </div>
 
-      <aside className="rel-side" aria-label="Joueur sélectionné">
+      <aside className="rel-side" aria-label={t("relations.panel.aria")}>
         <section className="ui-card rel-panel">
           {!panelNode ? (
             <p className="rel-panel-empty">
-              {data ? "Clique un joueur dans le graphe pour voir ses connexions." : "En attente du graphe…"}
+              {data ? t("relations.panel.hint") : t("relations.panel.waiting")}
             </p>
           ) : (
             <>
@@ -418,26 +426,29 @@ export function RelationsTab() {
                   <h3 className="rel-panel-name">{panelNode.name}</h3>
                   <p className="rel-panel-sub">
                     {panelNode.team === "home" ? homeTeam : awayTeam}
-                    {selection === null && (panelNode.id === followedPlayerId ? " · suivi" : " · pivot")}
+                    {selection === null && ` · ${panelNode.id === followedPlayerId ? t("relations.panel.followed") : t("relations.panel.hub")}`}
                   </p>
                 </div>
               </header>
               <dl className="rel-panel-stats">
-                <div><dt>Données</dt><dd className="ui-stat-value">{fmtNum(panelNode.passes_made)}</dd></div>
-                <div><dt>Reçues</dt><dd className="ui-stat-value">{fmtNum(panelNode.passes_received)}</dd></div>
-                <div><dt>Centralité</dt><dd className="ui-stat-value">{fmtNum(panelNode.betweenness, 2)}</dd></div>
+                <div><dt>{t("relations.panel.given")}</dt><dd className="ui-stat-value">{fmtNum(panelNode.passes_made)}</dd></div>
+                <div><dt>{t("relations.panel.received")}</dt><dd className="ui-stat-value">{fmtNum(panelNode.passes_received)}</dd></div>
+                <div><dt>{t("relations.centrality")}</dt><dd className="ui-stat-value">{fmtNum(panelNode.betweenness, 2)}</dd></div>
               </dl>
 
-              <h4 className="rel-panel-h">Partenaires</h4>
+              <h4 className="rel-panel-h">{t("relations.panel.partners")}</h4>
               {panelLinks.partners.length === 0 ? (
-                <p className="rel-panel-muted">Aucun lien de passes au-dessus du seuil.</p>
+                <p className="rel-panel-muted">{t("relations.panel.noPartners")}</p>
               ) : (
                 <ol className="rel-partners">
                   {panelLinks.partners.slice(0, 6).map((p) => (
                     <li key={p.id}>
                       <button type="button" className="rel-partner"
                         onClick={() => setSelection({ kind: "pair", a: panelNode.id, b: p.id, edge: "pass" })}
-                        aria-label={`${nodesById.get(p.id)?.name ?? p.id} : ${p.given} passes données, ${p.received} reçues, ${fmtXt(p.xt)}`}>
+                        aria-label={t("relations.panel.partnerAria", {
+                          name: nodesById.get(p.id)?.name ?? p.id, given: fmtNum(p.given),
+                          received: fmtNum(p.received), xt: fmtXt(i18n, p.xt),
+                        })}>
                         <span className="rel-partner-name">{nameOf(p.id)}</span>
                         <span className="rel-partner-bar" aria-hidden="true">
                           <span className={`rel-partner-fill is-${panelNode.team}`} style={{ width: `${(p.total / partnerMax) * 100}%` }} />
@@ -451,9 +462,9 @@ export function RelationsTab() {
 
               {params.includeDuels && (
                 <>
-                  <h4 className="rel-panel-h">Duels</h4>
+                  <h4 className="rel-panel-h">{t("relations.duels")}</h4>
                   {panelLinks.duels.length === 0 ? (
-                    <p className="rel-panel-muted">Aucun duel répété.</p>
+                    <p className="rel-panel-muted">{t("relations.panel.noDuels")}</p>
                   ) : (
                     <ul className="rel-duels">
                       {panelLinks.duels.slice(0, 5).map((d) => (
@@ -471,7 +482,7 @@ export function RelationsTab() {
 
               <div className="rel-panel-actions">
                 <button type="button" className="ui-btn is-solid" onClick={() => openPlayer(panelNode.id)}>
-                  Ouvrir la fiche
+                  {t("relations.panel.open")}
                 </button>
                 <button
                   type="button"
@@ -479,13 +490,18 @@ export function RelationsTab() {
                   aria-pressed={isFollowed}
                   onClick={() => setFollowedPlayerId(isFollowed ? null : panelNode.id)}
                 >
-                  {isFollowed ? "Ne plus suivre" : "Suivre"}
+                  {isFollowed ? t("relations.panel.unfollow") : t("relations.panel.follow")}
                 </button>
               </div>
             </>
           )}
         </section>
-        {data && <p className="rel-method"><span className="rel-method-k">Méthode :</span> {data.method}</p>}
+        {data && (
+          <p className="rel-method">
+            <span className="rel-method-k">{t("relations.method.label")}</span>{" "}
+            {t("relations.method.text", { min: params.minPasses })}
+          </p>
+        )}
       </aside>
     </div>
   );

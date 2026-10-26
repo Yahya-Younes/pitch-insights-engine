@@ -1,4 +1,5 @@
 import { useRef, type KeyboardEvent, type ReactNode } from "react";
+import { useT } from "../i18n";
 
 export interface AppTab<Id extends string = string> {
   id: Id;
@@ -29,6 +30,7 @@ export function AppTabPanel({ id, intro, children }: { id: string; intro?: strin
  * (ArrowLeft/Right, Home, End). Pair with <AppTabPanel id=...>. */
 export function AppTabs<Id extends string>({ tabs, selected, onSelect }: Props<Id>) {
   const refs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const { t } = useT();
 
   function focusAndSelect(index: number) {
     const tab = tabs[index];
@@ -52,8 +54,8 @@ export function AppTabs<Id extends string>({ tabs, selected, onSelect }: Props<I
   }
 
   return (
-    <nav className="app-tabs" aria-label="Sections">
-      <div className="app-tabs-list" role="tablist" aria-label="Sections du match">
+    <nav className="app-tabs" aria-label={t("shell.tabs.nav")}>
+      <div className="app-tabs-list" role="tablist" aria-label={t("shell.tabs.list")}>
         {tabs.map((t, i) => {
           const isSelected = t.id === selected;
           return (

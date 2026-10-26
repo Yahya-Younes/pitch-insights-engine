@@ -3,18 +3,15 @@ import { fetchPassNetwork, fetchShotMap, fetchThreatPrevented } from "../lib/mat
 import type {
   PassNetworkResponse, Shot, ShotMapResponse, TeamSide, ThreatPreventedResponse,
 } from "../lib/matchMapsTypes";
-import { frNum } from "../lib/frLabels";
+import { useT, type I18n } from "../i18n";
+import { plural } from "../lib/panelLabels";
 import "./MatchMaps.css";
 
 const W = 120;
 const H = 80;
 
 type TabId = "threat" | "shots" | "network";
-const TABS: { id: TabId; label: string }[] = [
-  { id: "threat", label: "Menace évitée" },
-  { id: "shots", label: "Carte des tirs" },
-  { id: "network", label: "Réseau de passes" },
-];
+const TABS: TabId[] = ["threat", "shots", "network"];
 
 type Load<T> =
   | { status: "idle" }
@@ -94,21 +91,19 @@ function surname(name: string): string {
   return parts[parts.length - 1] ?? name;
 }
 
-const fmt = (n: number, d = 2) => frNum(n, d);
-const plural = (n: number, word: string) => `${word}${n > 1 ? "s" : ""}`;
-
-function Status({ state, onRetry, what }: { state: Load<unknown>; onRetry: () => void; what: string }) {
+function Status({ state, onRetry, what }: { state: Load<unknown>; onRetry: () => void; what: TabId }) {
+  const { t } = useT();
   if (state.status === "error") {
     return (
       <div className="empty-state">
-        <p className="error" role="alert">Impossible de charger {what} pour ce match.</p>
-        <button type="button" className="pitch-play-button" onClick={onRetry}>Réessayer</button>
+        <p className="error" role="alert">{t(`panels.maps.error.${what}`)}</p>
+        <button type="button" className="pitch-play-button" onClick={onRetry}>{t("panels.retry")}</button>
       </div>
     );
   }
   return (
     <div className="empty-state" aria-live="polite">
-      <p>Chargement de {what}…</p>
+      <p>{t(`panels.maps.loading.${what}`)}</p>
     </div>
   );
 }
@@ -116,21 +111,28 @@ function Status({ state, onRetry, what }: { state: Load<unknown>; onRetry: () =>
 function TeamToggle({ team, onChange, names }: {
   team: TeamSide; onChange: (t: TeamSide) => void; names: Record<TeamSide, string>;
 }) {
+  const { t } = useT();
   return (
-    <div className="mm-toggle" role="group" aria-label="Équipe">
-      {(["home", "away"] as const).map((t) => (
+    <div className="mm-toggle" role="group" aria-label={t("panels.maps.teamAria")}>
+      {(["home", "away"] as const).map((side) => (
         <button
-          key={t}
+          key={side}
           type="button"
-          className={`mm-toggle-btn mm-${t}${team === t ? " is-active" : ""}`}
-          aria-pressed={team === t}
-          onClick={() => onChange(t)}
+          className={`mm-toggle-btn mm-${side}${team === side ? " is-active" : ""}`}
+          aria-pressed={team === side}
+          onClick={() => onChange(side)}
         >
-          {names[t]}
+          {names[side]}
         </button>
       ))}
     </div>
   );
+}
+
+const outcomeLabel = (i18n: I18n, outcome: Shot["outcome"]) => i18n.t(`panels.outcome.${outcome}`);
+
+function actionLabel(i18n: I18n, action: string): string {
+  return action === "tackle" || action === "interception" ? i18n.t(`panels.maps.action.${action}`) : action;
 }
 
 // ---------------------------------------------------------------------------
@@ -138,6 +140,9 @@ function TeamToggle({ team, onChange, names }: {
 // ---------------------------------------------------------------------------
 
 function ThreatView({ data }: { data: ThreatPreventedResponse }) {
+  const i18n = useT();
+  const { t } = i18n;
+  const fmt = (n: number, d = 2) => i18n.num(n, d);
   const { home, away } = data.teams;
   const total = home.xt_prevented + away.xt_prevented;
   const homePct = total > 0 ? (home.xt_prevented / total) * 100 : 50;
@@ -145,21 +150,23 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
   const maxMoment = Math.max(0.0001, ...data.top_moments.map((m) => m.xt_prevented));
 
   if (data.n_actions === 0) {
-    return <div className="empty-state"><p>Aucune interception ni tacle gagné pour l'instant.</p></div>;
+    return <div className="empty-state"><p>{t("panels.maps.threat.none")}</p></div>;
   }
 
   const label =
-    `Terrain montrant les ${data.top_moments.length} plus grosses interventions défensives. ` +
+    t("panels.maps.threat.pitchAria", { n: data.top_moments.length }) + " " +
     data.top_moments
-      .map((m, i) => `${i + 1} : ${m.player_name}, ${actionFr(m.action)}, ${m.minute}e minute, ${fmt(m.xt_prevented, 3)} xT`)
+      .map((m, i) => t("panels.maps.threat.momentAria", {
+        rank: i + 1, name: m.player_name, action: actionLabel(i18n, m.action), minute: m.minute, xt: fmt(m.xt_prevented, 3),
+      }))
       .join("; ") + ".";
 
   return (
     <div className="mm-body">
-      <div className="mm-split" aria-label="Menace évitée par équipe">
+      <div className="mm-split" aria-label={t("panels.maps.threat.splitAria")}>
         <div className="mm-split-labels">
-          <span className="mm-home-text">{home.team_name} <strong>{fmt(home.xt_prevented)}</strong> xT · {home.actions} {plural(home.actions, "action")}</span>
-          <span className="mm-away-text">{away.actions} {plural(away.actions, "action")} · <strong>{fmt(away.xt_prevented)}</strong> xT {away.team_name}</span>
+          <span className="mm-home-text">{home.team_name} <strong>{fmt(home.xt_prevented)}</strong> xT · {plural(i18n, "panels.maps.actions", home.actions)}</span>
+          <span className="mm-away-text">{plural(i18n, "panels.maps.actions", away.actions)} · <strong>{fmt(away.xt_prevented)}</strong> xT {away.team_name}</span>
         </div>
         <div className="mm-split-bar" aria-hidden="true">
           <span className="mm-split-home" style={{ width: `${homePct}%` }} />
@@ -178,7 +185,9 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
                   <line x1={m.valued_at[0]} y1={m.valued_at[1]} x2={x} y2={y} className={`mm-intent mm-stroke-${m.team}`} />
                 ) : null}
                 <circle cx={x} cy={y} r={r} className={`mm-moment mm-fill-${m.team}`}>
-                  <title>{`${m.player_name} · ${actionFr(m.action)} · ${m.minute}' · ${fmt(m.xt_prevented, 3)} xT évité`}</title>
+                  <title>{t("panels.maps.threat.momentTitle", {
+                    name: m.player_name, action: actionLabel(i18n, m.action), minute: m.minute, xt: fmt(m.xt_prevented, 3),
+                  })}</title>
                 </circle>
                 <text x={x} y={y + 0.9} className="mm-moment-num" aria-hidden="true">{i + 1}</text>
               </g>
@@ -187,27 +196,27 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
         </PitchSvg>
 
         <div className="mm-side">
-          <h3 className="mm-h3">Plus grosses interventions</h3>
+          <h3 className="mm-h3">{t("panels.maps.threat.topMoments")}</h3>
           <ol className="mm-list">
             {data.top_moments.map((m, i) => (
               <li key={m.event_id || i} className="mm-list-item">
                 <span className={`mm-rank mm-fill-${m.team}`}>{i + 1}</span>
                 <span className="mm-list-main">
                   <span className="mm-name">{m.player_name}</span>
-                  <span className="mm-meta">{m.minute}' · {actionFr(m.action)}</span>
+                  <span className="mm-meta">{m.minute}' · {actionLabel(i18n, m.action)}</span>
                 </span>
                 <span className="mm-value">{fmt(m.xt_prevented, 3)}</span>
               </li>
             ))}
           </ol>
-          <h3 className="mm-h3">Meilleurs défenseurs</h3>
+          <h3 className="mm-h3">{t("panels.maps.threat.topDefenders")}</h3>
           <ol className="mm-list">
             {topPlayers.map((p) => (
               <li key={p.player_id} className="mm-list-item">
                 <span className={`mm-dot mm-fill-${p.team}`} aria-hidden="true" />
                 <span className="mm-list-main">
                   <span className="mm-name">{p.player_name}</span>
-                  <span className="mm-meta">{p.interceptions} int. · {p.tackles_won} tac.</span>
+                  <span className="mm-meta">{t("panels.maps.threat.defMeta", { int: p.interceptions, tac: p.tackles_won })}</span>
                 </span>
                 <span className="mm-value">{fmt(p.xt_prevented, 3)}</span>
               </li>
@@ -215,12 +224,7 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
           </ol>
         </div>
       </div>
-      <p className="mm-note">
-        Chaque interception ou tacle gagné est crédité de la menace (xT) que détenait l'équipe adverse à l'endroit de la
-        récupération (interceptions : la cible visée par la passe interceptée), d'après la même grille xT de Markov que le
-        reste d'Analyste-0. Les duels aériens, tirs contrés et dégagements ne sont pas comptés — les événements synthétiques
-        ne les attribuent pas proprement.
-      </p>
+      <p className="mm-note">{t("panels.maps.threat.note")}</p>
     </div>
   );
 }
@@ -229,43 +233,38 @@ function ThreatView({ data }: { data: ThreatPreventedResponse }) {
 // Shot map
 // ---------------------------------------------------------------------------
 
-const OUTCOME_LABEL: Record<Shot["outcome"], string> = {
-  goal: "But", saved: "Arrêté", blocked: "Contré", off_target: "Non cadré",
-};
-
-function actionFr(action: string): string {
-  return action === "tackle" ? "tacle gagné" : action === "interception" ? "interception" : action;
-}
-
 function ShotView({ data }: { data: ShotMapResponse }) {
+  const i18n = useT();
+  const { t } = i18n;
+  const fmt = (n: number, d = 2) => i18n.num(n, d);
   const { home, away } = data.teams;
-  const label =
-    `Carte des tirs. ${home.team_name} (attaque vers la droite) : ${home.shots} tirs, ${fmt(home.xg)} xG, ${home.goals} buts. ` +
-    `${away.team_name} (attaque vers la gauche) : ${away.shots} tirs, ${fmt(away.xg)} xG, ${away.goals} buts. ` +
-    "La taille des cercles est proportionnelle aux xG ; les buts sont pleins et cerclés.";
+  const label = t("panels.maps.shots.aria", {
+    home: home.team_name, hs: home.shots, hxg: fmt(home.xg), hg: home.goals,
+    away: away.team_name, as: away.shots, axg: fmt(away.xg), ag: away.goals,
+  });
   // Draw goals last so they sit on top.
   const ordered = [...data.shots].sort((a, b) => Number(a.outcome === "goal") - Number(b.outcome === "goal"));
 
   return (
     <div className="mm-body">
       <div className="mm-totals">
-        {(["home", "away"] as const).map((t) => {
-          const s = data.teams[t];
+        {(["home", "away"] as const).map((side) => {
+          const s = data.teams[side];
           return (
-            <div key={t} className={`mm-total mm-total-${t}`}>
-              <span className="mm-total-team">{s.team_name} <span className="mm-meta">{t === "home" ? "→" : "←"}</span></span>
+            <div key={side} className={`mm-total mm-total-${side}`}>
+              <span className="mm-total-team">{s.team_name} <span className="mm-meta">{side === "home" ? "→" : "←"}</span></span>
               <span className="mm-total-stats">
-                <span><strong>{s.shots}</strong> {plural(s.shots, "tir")}</span>
+                <span><strong>{s.shots}</strong> {plural(i18n, "panels.maps.word.shot", s.shots)}</span>
                 <span><strong>{fmt(s.xg)}</strong> xG</span>
-                <span><strong>{s.goals}</strong> {plural(s.goals, "but")}</span>
-                <span><strong>{s.on_target}</strong> {s.on_target > 1 ? "cadrés" : "cadré"}</span>
+                <span><strong>{s.goals}</strong> {plural(i18n, "panels.maps.word.goal", s.goals)}</span>
+                <span><strong>{s.on_target}</strong> {plural(i18n, "panels.maps.word.onTarget", s.on_target)}</span>
               </span>
             </div>
           );
         })}
       </div>
       {data.shots.length === 0 ? (
-        <div className="empty-state"><p>Aucun tir pour l'instant.</p></div>
+        <div className="empty-state"><p>{t("panels.maps.shots.none")}</p></div>
       ) : (
         <PitchSvg label={label}>
           {ordered.map((s) => {
@@ -282,7 +281,7 @@ function ShotView({ data }: { data: ShotMapResponse }) {
                   className={`mm-shot mm-stroke-${s.team} ${goal ? `mm-fill-${s.team}` : "mm-shot-miss"}`}
                 >
                   <title>
-                    {`${s.player_name} · ${s.minute}' · ${OUTCOME_LABEL[s.outcome]} · xG ${fmt(s.xg)} · ${frNum(s.shot_speed_kmh, 1)} km/h`}
+                    {`${s.player_name} · ${s.minute}' · ${outcomeLabel(i18n, s.outcome)} · xG ${fmt(s.xg)} · ${fmt(s.shot_speed_kmh, 1)} km/h`}
                   </title>
                 </circle>
               </g>
@@ -290,10 +289,7 @@ function ShotView({ data }: { data: ShotMapResponse }) {
           })}
         </PitchSvg>
       )}
-      <p className="mm-note">
-        Aire du cercle ∝ xG ; plein + cerclé = but. Survole un tir pour voir le joueur, la minute, l'issue et la vitesse
-        de frappe. Le domicile attaque vers la droite, l'extérieur vers la gauche.
-      </p>
+      <p className="mm-note">{t("panels.maps.shots.note")}</p>
     </div>
   );
 }
@@ -303,19 +299,24 @@ function ShotView({ data }: { data: ShotMapResponse }) {
 // ---------------------------------------------------------------------------
 
 function NetworkView({ data }: { data: PassNetworkResponse }) {
+  const { t } = useT();
   const byId = new Map(data.nodes.map((n) => [n.player_id, n]));
   const maxInv = Math.max(1, ...data.nodes.map((n) => n.involvement));
   const maxEdge = Math.max(1, data.max_edge_count);
   const strongest = data.edges.slice(0, 3)
-    .map((e) => `${byId.get(e.source)?.player_name ?? e.source} vers ${byId.get(e.target)?.player_name ?? e.target} (${e.count})`)
+    .map((e) => t("panels.maps.network.strongEdge", {
+      from: byId.get(e.source)?.player_name ?? e.source, to: byId.get(e.target)?.player_name ?? e.target, n: e.count,
+    }))
     .join(", ");
   const label =
-    `Réseau de passes de ${data.team_name} : ${data.nodes.length} joueurs, ${data.edges.length} liaisons d'au moins ` +
-    `${data.min_edge_count} passes réussies, sur ${data.completed_passes} passes réussies.` +
-    (strongest ? ` Liaisons les plus fortes : ${strongest}.` : "");
+    t("panels.maps.network.aria", {
+      team: data.team_name, nodes: data.nodes.length, edges: data.edges.length,
+      min: data.min_edge_count, total: data.completed_passes,
+    }) +
+    (strongest ? " " + t("panels.maps.network.ariaStrongest", { list: strongest }) : "");
 
   if (data.nodes.length === 0) {
-    return <div className="empty-state"><p>Aucune passe réussie pour {data.team_name} pour l'instant.</p></div>;
+    return <div className="empty-state"><p>{t("panels.maps.network.none", { team: data.team_name })}</p></div>;
   }
 
   return (
@@ -343,7 +344,7 @@ function NetworkView({ data }: { data: PassNetworkResponse }) {
                 strokeWidth={w}
                 strokeOpacity={0.25 + (e.count / maxEdge) * 0.6}
               >
-                <title>{`${a.player_name} → ${b.player_name} : ${e.count} passes`}</title>
+                <title>{t("panels.maps.network.edgeTitle", { from: a.player_name, to: b.player_name, n: e.count })}</title>
               </line>
             );
           })}
@@ -354,7 +355,7 @@ function NetworkView({ data }: { data: PassNetworkResponse }) {
           return (
             <g key={n.player_id}>
               <circle cx={x} cy={y} r={r} className={`mm-node mm-fill-${data.team}`}>
-                <title>{`${n.player_name} : ${n.passes} passes données, ${n.received} reçues`}</title>
+                <title>{t("panels.maps.network.nodeTitle", { name: n.player_name, given: n.passes, received: n.received })}</title>
               </circle>
               <text x={x} y={y + r + 2.2} className="mm-node-label" aria-hidden="true">{surname(n.player_name)}</text>
             </g>
@@ -362,11 +363,8 @@ function NetworkView({ data }: { data: PassNetworkResponse }) {
         })}
       </PitchSvg>
       <p className="mm-note">
-        Chaque joueur est placé à sa position moyenne de passe/réception, taille selon son implication ; les traits
-        montrent les liaisons passeur→receveur d'au moins {data.min_edge_count} passes réussies (plus épais = plus
-        fréquent), {data.completed_passes} passes réussies au total. Le receveur vient du destinataire enregistré de
-        chaque passe — rien n'est déduit.
-        {data.team === "home" ? " Attaque vers la droite." : " Attaque vers la gauche."}
+        {t("panels.maps.network.note", { min: data.min_edge_count, total: data.completed_passes })}{" "}
+        {t(data.team === "home" ? "panels.maps.network.attackRight" : "panels.maps.network.attackLeft")}
       </p>
     </div>
   );
@@ -381,6 +379,7 @@ interface Props {
 }
 
 export function MatchMaps({ matchId }: Props) {
+  const { t } = useT();
   const [tab, setTab] = useState<TabId>("threat");
   const [team, setTeam] = useState<TeamSide>("home");
   const tabRefs = useRef<Record<TabId, HTMLButtonElement | null>>({ threat: null, shots: null, network: null });
@@ -398,10 +397,11 @@ export function MatchMaps({ matchId }: Props) {
     (s) => fetchPassNetwork(matchId ?? "", team, 3, s),
   );
 
-  // Team names for the toggle: from whichever payload has them, else Domicile/Extérieur.
-  const [names, setNames] = useState<Record<TeamSide, string>>({ home: "Domicile", away: "Extérieur" });
+  // Team names for the toggle: from whichever payload has them, else the
+  // generic home/away labels (resolved at render so they follow the language).
+  const [names, setNames] = useState<Record<TeamSide, string | null>>({ home: null, away: null });
   useEffect(() => {
-    setNames({ home: "Domicile", away: "Extérieur" });
+    setNames({ home: null, away: null });
   }, [matchId]);
   useEffect(() => {
     const src = threat.status === "ok" ? threat.data.teams : shots.status === "ok" ? shots.data.teams : null;
@@ -413,15 +413,19 @@ export function MatchMaps({ matchId }: Props) {
       setNames((prev) => ({ ...prev, [network.data.team]: network.data.team_name, [other]: prev[other] }));
     }
   }, [network]);
+  const shownNames: Record<TeamSide, string> = {
+    home: names.home ?? t("panels.home"),
+    away: names.away ?? t("panels.away"),
+  };
 
   const onTabKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
-    const idx = TABS.findIndex((t) => t.id === tab);
+    const idx = TABS.indexOf(tab);
     const next = TABS[(idx + (e.key === "ArrowRight" ? 1 : TABS.length - 1)) % TABS.length];
     if (!next) return;
     e.preventDefault();
-    setTab(next.id);
-    tabRefs.current[next.id]?.focus();
+    setTab(next);
+    tabRefs.current[next]?.focus();
   };
 
   let body: ReactNode;
@@ -429,21 +433,21 @@ export function MatchMaps({ matchId }: Props) {
     body = (
       <div className="empty-state">
         <span className="empty-icon" aria-hidden="true">🗺️</span>
-        <p>Lance un match pour voir la menace évitée en défense, la carte des tirs et les réseaux de passes.</p>
+        <p>{t("panels.maps.empty")}</p>
       </div>
     );
   } else if (tab === "threat") {
     body = threat.status === "ok" ? <ThreatView data={threat.data} />
-      : <Status state={threat} onRetry={retryThreat} what="la menace évitée" />;
+      : <Status state={threat} onRetry={retryThreat} what="threat" />;
   } else if (tab === "shots") {
     body = shots.status === "ok" ? <ShotView data={shots.data} />
-      : <Status state={shots} onRetry={retryShots} what="la carte des tirs" />;
+      : <Status state={shots} onRetry={retryShots} what="shots" />;
   } else {
     body = (
       <>
-        <TeamToggle team={team} onChange={setTeam} names={names} />
+        <TeamToggle team={team} onChange={setTeam} names={shownNames} />
         {network.status === "ok" ? <NetworkView data={network.data} />
-          : <Status state={network} onRetry={retryNetwork} what="le réseau de passes" />}
+          : <Status state={network} onRetry={retryNetwork} what="network" />}
       </>
     );
   }
@@ -451,30 +455,27 @@ export function MatchMaps({ matchId }: Props) {
   return (
     <section className="feed-panel mm-panel">
       <div className="panel-heading">
-        <h2>Cartes du match</h2>
-        <span
-          className="panel-tag"
-          title="Déterministe, calculé à partir du flux d'événements du match -- aucun LLM."
-        >
-          analyste-0 · déterministe
+        <h2>{t("panels.maps.title")}</h2>
+        <span className="panel-tag" title={t("panels.maps.tagTitle")}>
+          {t("panels.maps.tag")}
         </span>
       </div>
 
-      <div className="mm-tabs" role="tablist" aria-label="Vues des cartes du match" onKeyDown={onTabKey}>
-        {TABS.map((t) => (
+      <div className="mm-tabs" role="tablist" aria-label={t("panels.maps.tabsAria")} onKeyDown={onTabKey}>
+        {TABS.map((id) => (
           <button
-            key={t.id}
-            ref={(el) => { tabRefs.current[t.id] = el; }}
-            id={`mm-tab-${t.id}`}
+            key={id}
+            ref={(el) => { tabRefs.current[id] = el; }}
+            id={`mm-tab-${id}`}
             type="button"
             role="tab"
-            aria-selected={tab === t.id}
+            aria-selected={tab === id}
             aria-controls="mm-tabpanel"
-            tabIndex={tab === t.id ? 0 : -1}
-            className={`mm-tab${tab === t.id ? " is-active" : ""}`}
-            onClick={() => setTab(t.id)}
+            tabIndex={tab === id ? 0 : -1}
+            className={`mm-tab${tab === id ? " is-active" : ""}`}
+            onClick={() => setTab(id)}
           >
-            {t.label}
+            {t(`panels.maps.tab.${id}`)}
           </button>
         ))}
       </div>
@@ -482,9 +483,7 @@ export function MatchMaps({ matchId }: Props) {
       <div id="mm-tabpanel" role="tabpanel" aria-labelledby={`mm-tab-${tab}`}>
         {body}
       </div>
-      <p className="mm-disclosure">
-        Données de match synthétiques : les valeurs proviennent d'événements simulés, pas d'un vrai tracking de Premier League.
-      </p>
+      <p className="mm-disclosure">{t("panels.maps.disclosure")}</p>
     </section>
   );
 }

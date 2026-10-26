@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchTactics } from "../lib/api";
+import { useT } from "../i18n";
 import type { MatchTacticsResponse, TacticalTimelineResponse } from "../lib/types";
 import { describeZone } from "../lib/zoneLabels";
 
@@ -10,15 +11,19 @@ interface Props {
 }
 
 function TeamTimeline({ timeline, teamName }: { timeline: TacticalTimelineResponse; teamName: string }) {
+  const i18n = useT();
+  const { t } = i18n;
   const lastLabeled = [...timeline.windows].reverse().find((w) => w.label);
 
   return (
     <div className="tactics-team">
       <div className="tactics-team-header">
         <span className="tactics-team-name">{teamName}</span>
-        <span className="tactics-formation-badge">Départ {timeline.starting_formation}</span>
+        <span className="tactics-formation-badge">{t("panels.tactics.start", { f: timeline.starting_formation })}</span>
         {lastLabeled && lastLabeled.label !== timeline.starting_formation && (
-          <span className="tactics-formation-badge tactics-formation-badge-current">Actuel {lastLabeled.label}</span>
+          <span className="tactics-formation-badge tactics-formation-badge-current">
+            {t("panels.tactics.current", { f: lastLabeled.label ?? "" })}
+          </span>
         )}
       </div>
 
@@ -37,7 +42,7 @@ function TeamTimeline({ timeline, teamName }: { timeline: TacticalTimelineRespon
             <li key={i} className="tactics-shift-item">
               <span className="tactics-shift-icon" aria-hidden="true">⟲</span>
               <span>
-                <strong>{s.at_min.toFixed(0)}'</strong> changement de système {s.from_label} {"→"} {s.to_label}
+                <strong>{s.at_min.toFixed(0)}'</strong> {t("panels.tactics.shift", { from: s.from_label, to: s.to_label })}
               </span>
             </li>
           ))}
@@ -48,20 +53,24 @@ function TeamTimeline({ timeline, teamName }: { timeline: TacticalTimelineRespon
         <ul className="tactics-role-list">
           {timeline.role_changes.map((r, i) => (
             <li key={i} className="tactics-role-item">
-              <strong>{r.player_name}</strong> : {describeZone(r.from_zone)} {"→"} {describeZone(r.to_zone)} (vers la {r.at_min.toFixed(0)}e minute)
+              <strong>{r.player_name}</strong>
+              {t("panels.tactics.role", {
+                from: describeZone(i18n, r.from_zone), to: describeZone(i18n, r.to_zone), min: r.at_min.toFixed(0),
+              })}
             </li>
           ))}
         </ul>
       )}
 
       {timeline.shifts.length === 0 && timeline.role_changes.length === 0 && (
-        <p className="tactics-no-change">Aucun changement tactique détecté pour l'instant : le bloc tient depuis le coup d'envoi.</p>
+        <p className="tactics-no-change">{t("panels.tactics.noChange")}</p>
       )}
     </div>
   );
 }
 
 export function TacticalEvolution({ matchId, homeTeam, awayTeam }: Props) {
+  const { t } = useT();
   const [tactics, setTactics] = useState<MatchTacticsResponse | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
@@ -101,26 +110,23 @@ export function TacticalEvolution({ matchId, homeTeam, awayTeam }: Props) {
   return (
     <section className="feed-panel tactics-panel">
       <div className="panel-heading">
-        <h2>Évolution tactique</h2>
-        <span
-          className="panel-tag"
-          title="Forme du système et moment des changements déduits uniquement des positions observées des événements, jamais de la vérité cachée du générateur -- voir le chiffre de détection des formations (onglet Confiance) pour sa précision."
-        >
-          analyste-0 · déduit
+        <h2>{t("panels.tactics.title")}</h2>
+        <span className="panel-tag" title={t("panels.tactics.tagTitle")}>
+          {t("panels.tactics.tag")}
         </span>
       </div>
 
       {matchId && !tactics && loadError ? (
         <div className="empty-state">
-          <p className="error" role="alert">Impossible de charger la chronologie tactique de ce match.</p>
+          <p className="error" role="alert">{t("panels.tactics.loadError")}</p>
           <button type="button" className="pitch-play-button" onClick={() => setReloadKey((k) => k + 1)}>
-            Réessayer
+            {t("panels.retry")}
           </button>
         </div>
       ) : !matchId || !tactics ? (
         <div className="empty-state">
           <span className="empty-icon" aria-hidden="true">🧭</span>
-          <p>{matchId ? "Chargement de la chronologie tactique…" : "Lance un match pour voir comment évolue le système de chaque équipe."}</p>
+          <p>{t(matchId ? "panels.tactics.loading" : "panels.tactics.empty")}</p>
         </div>
       ) : (
         <div className="tactics-teams">

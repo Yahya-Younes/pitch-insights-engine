@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useT, type I18n } from "../i18n";
 import { fetchPlayerHeatmap } from "../lib/playersApi";
 import type { PlayerHeatmapResponse } from "../lib/playersTypes";
 import "./PlayerHeatmap.css";
@@ -19,7 +20,7 @@ const W = 120;
 const H = 80;
 
 /** Plain-language summary of the busiest cell, relative to the attack direction. */
-function describePeak(data: PlayerHeatmapResponse): string | null {
+function describePeak(i18n: I18n, data: PlayerHeatmapResponse): string | null {
   let best = -1;
   let br = 0;
   let bc = 0;
@@ -39,8 +40,8 @@ function describePeak(data: PlayerHeatmapResponse): string | null {
   const yFrac = (br + 0.5) / rows;
   const forward = ltr ? xFrac : 1 - xFrac;
   const left = ltr ? yFrac : 1 - yFrac;
-  const third = forward < 1 / 3 ? "tiers défensif" : forward < 2 / 3 ? "milieu de terrain" : "tiers offensif";
-  const lane = left < 1 / 3 ? "côté gauche" : left < 2 / 3 ? "axe" : "côté droit";
+  const third = i18n.t(forward < 1 / 3 ? "players.heat.thirdDef" : forward < 2 / 3 ? "players.heat.thirdMid" : "players.heat.thirdAtt");
+  const lane = i18n.t(left < 1 / 3 ? "players.heat.laneLeft" : left < 2 / 3 ? "players.heat.laneCentre" : "players.heat.laneRight");
   return `${third}, ${lane}`;
 }
 
@@ -49,6 +50,8 @@ export function PlayerHeatmap({ matchId, playerId, playerName, cols = 12, rows =
   const key = `${matchId}:${playerId}:${cols}x${rows}`;
   const [state, setState] = useState<HeatState | null>(null);
   const [retry, setRetry] = useState(0);
+  const i18n = useT();
+  const { t } = i18n;
 
   useEffect(() => {
     let cancelled = false;
@@ -67,7 +70,7 @@ export function PlayerHeatmap({ matchId, playerId, playerName, cols = 12, rows =
     return (
       <div className="ph-heatmap ph-heatmap--loading" aria-busy="true">
         <div className="ph-heatmap__pitch-skeleton" />
-        <p className="ph-heatmap__caption">Chargement de la carte de chaleur…</p>
+        <p className="ph-heatmap__caption">{t("players.heat.loading")}</p>
       </div>
     );
   }
@@ -76,10 +79,10 @@ export function PlayerHeatmap({ matchId, playerId, playerName, cols = 12, rows =
     return (
       <div className="ph-heatmap" role={notFound ? undefined : "alert"}>
         <p className="ph-heatmap__caption">
-          {notFound ? "Pas encore de données de position pour ce joueur." : "Carte de chaleur indisponible."}
+          {notFound ? t("players.heat.noData") : t("players.heat.unavailable")}
         </p>
         {!notFound && (
-          <button type="button" className="ui-btn" onClick={() => setRetry((n) => n + 1)}>Réessayer</button>
+          <button type="button" className="ui-btn" onClick={() => setRetry((n) => n + 1)}>{t("players.retry")}</button>
         )}
       </div>
     );
@@ -89,12 +92,18 @@ export function PlayerHeatmap({ matchId, playerId, playerName, cols = 12, rows =
   const cw = W / Math.max(1, data.grid.cols);
   const ch = H / Math.max(1, data.grid.rows);
   const ltr = data.attack_direction !== "right_to_left";
-  const peak = describePeak(data);
+  const peak = describePeak(i18n, data);
   const empty = peak === null;
+  const title = playerName ? t("players.heat.titleOf", { name: playerName }) : t("players.heat.title");
+  const touches = t("players.heat.touches", { n: i18n.num(data.touches) });
   const label = empty
-    ? `Carte de chaleur${playerName ? ` de ${playerName}` : ""} : aucune présence enregistrée.`
-    : `Carte de chaleur${playerName ? ` de ${playerName}` : ""} : zone la plus fréquentée ${peak}. ` +
-      `Attaque vers la ${ltr ? "droite" : "gauche"}. ${data.touches} ballons touchés.`;
+    ? t("players.heat.emptyLabel", { title })
+    : t("players.heat.label", {
+        title,
+        zone: peak,
+        attack: t(ltr ? "players.heat.attackRight" : "players.heat.attackLeft"),
+        touches,
+      });
 
   return (
     <figure className="ph-heatmap">
@@ -130,10 +139,10 @@ export function PlayerHeatmap({ matchId, playerId, playerName, cols = 12, rows =
         </g>
       </svg>
       <figcaption className="ph-heatmap__caption">
-        {empty ? "Aucune présence enregistrée pour l'instant." : (
+        {empty ? t("players.heat.emptyCaption") : (
           <>
-            Sens d'attaque {ltr ? "→" : "←"} · {data.touches} ballons touchés ·{" "}
-            {data.source === "positions" ? "positions synthétiques" : "positions des actions"}
+            {t("players.heat.direction", { arrow: ltr ? "→" : "←" })} · {touches} ·{" "}
+            {t(data.source === "positions" ? "players.heat.sourceSynthetic" : "players.heat.sourceEvents")}
           </>
         )}
       </figcaption>

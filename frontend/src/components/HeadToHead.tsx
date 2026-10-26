@@ -1,8 +1,9 @@
 import { useId, useState, type CSSProperties } from "react";
 import { HexRadar, type RadarSeries } from "./HexRadar";
+import { useT } from "../i18n";
 import {
-  ATTRIBUTE_META,
   ATTRIBUTE_ORDER,
+  attributeLabel,
   formatRating,
   cardName,
   type MatchPlayer,
@@ -35,6 +36,7 @@ function PlayerSelect({
   id: string; label: string; value: string; players: MatchPlayer[];
   homeTeam: string; awayTeam: string; onChange: (id: string) => void;
 }) {
+  const i18n = useT();
   const groups: [string, MatchPlayer[]][] = [
     [homeTeam, players.filter((p) => p.team === "home")],
     [awayTeam, players.filter((p) => p.team === "away")],
@@ -49,7 +51,7 @@ function PlayerSelect({
               {list.map((p) => (
                 <option key={p.id} value={p.id}>
                   #{p.number} {p.name}
-                  {p.rating !== null ? ` — ${formatRating(p.rating)}` : ""}
+                  {p.rating !== null ? ` — ${formatRating(i18n, p.rating)}` : ""}
                 </option>
               ))}
             </optgroup>
@@ -63,6 +65,8 @@ function PlayerSelect({
 /** Two players face to face: overlaid hexagon radar + six duel bars. */
 export function HeadToHead({ players, homeTeam, awayTeam, defaultA, defaultB }: HeadToHeadProps) {
   const baseId = useId();
+  const i18n = useT();
+  const { t } = i18n;
   const [pickA, setPickA] = useState<string | null>(null);
   const [pickB, setPickB] = useState<string | null>(null);
 
@@ -77,8 +81,8 @@ export function HeadToHead({ players, homeTeam, awayTeam, defaultA, defaultB }: 
   if (players.length < 2 || !a || !b) {
     return (
       <section className="h2h ui-card" aria-labelledby={`${baseId}-title`}>
-        <h3 id={`${baseId}-title`} className="ui-heading h2h__title">Face-à-face</h3>
-        <p className="h2h__empty">Pas assez de joueurs pour comparer.</p>
+        <h3 id={`${baseId}-title`} className="ui-heading h2h__title">{t("players.h2h.title")}</h3>
+        <p className="h2h__empty">{t("players.h2h.notEnough")}</p>
       </section>
     );
   }
@@ -88,11 +92,14 @@ export function HeadToHead({ players, homeTeam, awayTeam, defaultA, defaultB }: 
 
   const rows: DuelRow[] = [];
   if (a.rating !== null && b.rating !== null) {
-    rows.push({ key: "rating", label: "Note /10", a: a.rating, b: b.rating, max: 10, text: formatRating });
+    rows.push({
+      key: "rating", label: t("players.h2h.rating"), a: a.rating, b: b.rating, max: 10,
+      text: (v) => formatRating(i18n, v),
+    });
   }
   if (a.attributes && b.attributes) {
     for (const k of ATTRIBUTE_ORDER) {
-      rows.push({ key: k, label: ATTRIBUTE_META[k].label, a: a.attributes[k], b: b.attributes[k], max: 99, text: String });
+      rows.push({ key: k, label: attributeLabel(i18n, k), a: a.attributes[k], b: b.attributes[k], max: 99, text: String });
     }
   }
 
@@ -107,15 +114,15 @@ export function HeadToHead({ players, homeTeam, awayTeam, defaultA, defaultB }: 
 
   return (
     <section className="h2h ui-card" aria-labelledby={`${baseId}-title`} style={style}>
-      <h3 id={`${baseId}-title`} className="ui-heading h2h__title">Face-à-face</h3>
+      <h3 id={`${baseId}-title`} className="ui-heading h2h__title">{t("players.h2h.title")}</h3>
       <div className="h2h__pickers">
         <PlayerSelect
-          id={`${baseId}-a`} label="Joueur A" value={a.id} players={players}
+          id={`${baseId}-a`} label={t("players.h2h.playerA")} value={a.id} players={players}
           homeTeam={homeTeam} awayTeam={awayTeam} onChange={setPickA}
         />
         <span className="h2h__vs" aria-hidden="true">VS</span>
         <PlayerSelect
-          id={`${baseId}-b`} label="Joueur B" value={b.id} players={players}
+          id={`${baseId}-b`} label={t("players.h2h.playerB")} value={b.id} players={players}
           homeTeam={homeTeam} awayTeam={awayTeam} onChange={setPickB}
         />
       </div>
@@ -125,7 +132,7 @@ export function HeadToHead({ players, homeTeam, awayTeam, defaultA, defaultB }: 
           {series.length ? (
             <HexRadar series={series} size={240} />
           ) : (
-            <p className="h2h__empty">Attributs indisponibles.</p>
+            <p className="h2h__empty">{t("players.attrsUnavailable")}</p>
           )}
           <div className="h2h__legend" aria-hidden="true">
             <span className="h2h__legend-item h2h__legend-item--a">{cardName(a.name)}</span>
@@ -137,8 +144,8 @@ export function HeadToHead({ players, homeTeam, awayTeam, defaultA, defaultB }: 
           <ul className="h2h__duels">
             {rows.map((r) => {
               const winner = r.a === r.b ? "tie" : r.a > r.b ? "a" : "b";
-              const sr = `${r.label} : ${a.name} ${r.text(r.a)}, ${b.name} ${r.text(r.b)}` +
-                (winner === "tie" ? ", égalité" : `, avantage ${winner === "a" ? a.name : b.name}`);
+              const sr = `${t("players.h2h.row", { label: r.label, a: a.name, va: r.text(r.a), b: b.name, vb: r.text(r.b) })}, ` +
+                (winner === "tie" ? t("players.h2h.tie") : t("players.h2h.advantage", { name: winner === "a" ? a.name : b.name }));
               return (
                 <li key={r.key} className={`h2h__duel h2h__duel--${winner}`}>
                   <span className="ui-sr-only">{sr}</span>
@@ -158,7 +165,7 @@ export function HeadToHead({ players, homeTeam, awayTeam, defaultA, defaultB }: 
             })}
           </ul>
         ) : (
-          <p className="h2h__empty">Comparaison indisponible : attributs non chargés.</p>
+          <p className="h2h__empty">{t("players.h2h.unavailable")}</p>
         )}
       </div>
     </section>

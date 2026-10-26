@@ -1,8 +1,11 @@
 import type { CSSProperties } from "react";
+import { useT } from "../i18n";
 import {
-  ATTRIBUTE_META,
   ATTRIBUTE_ORDER,
+  attributeCode,
+  attributeLabel,
   formatRating,
+  positionCode,
   positionLabel,
   cardName,
   type MatchPlayer,
@@ -37,21 +40,23 @@ export interface FcPlayerCardProps {
 export function FcPlayerCard({
   player, motm = false, compact = false, followed = false, teamName, onSelect, enterDelayMs,
 }: FcPlayerCardProps) {
+  const i18n = useT();
+  const { t } = i18n;
   const tier = cardTier(player.rating, motm);
-  const ratingText = player.rating === null ? "–" : formatRating(player.rating);
-  const posCode = player.position ?? "—";
+  const ratingText = player.rating === null ? "–" : formatRating(i18n, player.rating);
+  const posCode = positionCode(i18n, player.position);
 
   const attrsLabel = player.attributes
-    ? ATTRIBUTE_ORDER.map((k) => `${ATTRIBUTE_META[k].label} ${player.attributes?.[k] ?? 0}`).join(", ")
-    : "attributs indisponibles";
+    ? ATTRIBUTE_ORDER.map((k) => `${attributeLabel(i18n, k)} ${player.attributes?.[k] ?? 0}`).join(", ")
+    : t("players.card.attrsUnavailable");
   const label = [
     player.name,
-    `numéro ${player.number}`,
+    t("players.card.number", { n: player.number }),
     teamName,
-    positionLabel(player.position),
-    player.rating === null ? "note indisponible" : `note ${ratingText} sur 10`,
-    motm ? "homme du match" : null,
-    followed ? "joueur suivi" : null,
+    positionLabel(i18n, player.position),
+    player.rating === null ? t("players.ratingUnavailable") : t("players.card.rating", { r: ratingText }),
+    motm ? t("players.card.motm") : null,
+    followed ? t("players.card.followed") : null,
     attrsLabel,
   ].filter(Boolean).join(", ");
 
@@ -78,15 +83,15 @@ export function FcPlayerCard({
           <span className="fc-card__avatar-num">{player.number}</span>
         </span>
       </span>
-      {motm && <span className="fc-card__motm" aria-hidden="true">★ MOTM</span>}
-      {followed && <span className="fc-card__followed" aria-hidden="true">◉ Suivi</span>}
+      {motm && <span className="fc-card__motm" aria-hidden="true">{t("players.card.motmBadge")}</span>}
+      {followed && <span className="fc-card__followed" aria-hidden="true">{t("players.card.followedBadge")}</span>}
       <span className="fc-card__name" aria-hidden="true">{cardName(player.name)}</span>
       <span className="fc-card__divider" aria-hidden="true" />
       <span className="fc-card__stats" aria-hidden="true">
         {ATTRIBUTE_ORDER.map((k) => (
           <span key={k} className="fc-card__stat">
             <span className="fc-card__stat-value">{player.attributes ? player.attributes[k] : "–"}</span>
-            <span className="fc-card__stat-code">{ATTRIBUTE_META[k].code}</span>
+            <span className="fc-card__stat-code">{attributeCode(i18n, k)}</span>
           </span>
         ))}
       </span>
@@ -99,7 +104,7 @@ export function FcPlayerCard({
         type="button"
         className={className}
         style={style}
-        aria-label={`${label}. Ouvrir la fiche`}
+        aria-label={t("players.card.open", { label })}
         onClick={() => onSelect(player.id)}
       >
         {body}

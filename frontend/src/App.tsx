@@ -5,7 +5,7 @@ import type { LensSummary, RunMatchResponse } from "./lib/types";
 import { MatchContext, type MatchContextValue } from "./lib/matchContext";
 import { useOverlayFeed } from "./hooks/useOverlayFeed";
 import { useA11ySettings } from "./hooks/useA11ySettings";
-import { I18nProvider } from "./i18n";
+import { I18nProvider, makeI18n } from "./i18n";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { AppBar, NewMatchDialog } from "./components/AppBar";
 import { Scorebug } from "./components/Scorebug";
@@ -21,28 +21,10 @@ import { ConfianceTab } from "./tabs/ConfianceTab";
 
 type TabId = "live" | "suivi" | "joueurs" | "relations" | "tactique" | "analyses" | "confiance";
 
-const TABS: readonly AppTab<TabId>[] = [
-  { id: "live", label: "Live" },
-  { id: "suivi", label: "Suivi live" },
-  { id: "joueurs", label: "Joueurs" },
-  { id: "relations", label: "Relations" },
-  { id: "tactique", label: "Tactique" },
-  { id: "analyses", label: "Analyses" },
-  { id: "confiance", label: "Confiance & agents" },
-];
-
-const TAB_INTRO: Record<TabId, string> = {
-  live: "Le direct : l'action sur le terrain, les temps forts expliqués par les agents et la probabilité de victoire en temps réel.",
-  suivi: "Le match minute par minute : commentaire personnalisé, statistiques et questions posées au match.",
-  joueurs: "Les cartes joueurs façon FC : notes, profils et tendances. Sélectionne un joueur pour ouvrir sa fiche.",
-  relations: "Qui joue avec qui : le réseau de passes et les duos qui font tourner chaque équipe.",
-  tactique: "Les formations détectées au fil du match et un laboratoire pour simuler des confrontations tactiques.",
-  analyses: "Cartes de menace et de tirs, scénarios « et si ? », comparaison de profils de spectateurs et étiquettes joueurs.",
-  confiance: "Pourquoi croire ces insights : chiffres mesurés en direct, trace des 5 agents et tentative de faire mentir le narrateur.",
-};
+const TAB_IDS: readonly TabId[] = ["live", "suivi", "joueurs", "relations", "tactique", "analyses", "confiance"];
 
 function isTabId(v: string): v is TabId {
-  return TABS.some((t) => t.id === v);
+  return (TAB_IDS as readonly string[]).includes(v);
 }
 
 function tabFromHash(): TabId {
@@ -71,6 +53,12 @@ function App() {
   const [tab, setTab] = useState<TabId>(tabFromHash);
   const { events, status } = useOverlayFeed();
   const { settings, cycleTextSize, toggleContrast, setLocale } = useA11ySettings();
+  // App renders the I18nProvider itself, so its own JSX translates directly.
+  const { t } = useMemo(() => makeI18n(settings.locale), [settings.locale]);
+  const tabs = useMemo<readonly AppTab<TabId>[]>(
+    () => TAB_IDS.map((id) => ({ id, label: t(`shell.tab.${id}`) })),
+    [t],
+  );
 
   useEffect(() => {
     fetchLenses().then(setLenses).catch(() => setLenses([]));
@@ -153,7 +141,7 @@ function App() {
     <I18nProvider locale={settings.locale}>
     <MatchContext.Provider value={ctx}>
       <div className="app">
-        <a className="skip-link" href="#main-content">Aller au contenu</a>
+        <a className="skip-link" href="#main-content">{t("shell.skipLink")}</a>
 
         <AppBar
           feedStatus={status}
@@ -169,24 +157,23 @@ function App() {
 
         <div className="app-sticky">
           <Scorebug match={lastMatch} />
-          <AppTabs tabs={TABS} selected={tab} onSelect={selectTab} />
+          <AppTabs tabs={tabs} selected={tab} onSelect={selectTab} />
         </div>
 
         <main id="main-content" className="app-main" tabIndex={-1}>
           {lastMatch && (
             <h1 className="ui-sr-only">
-              Pitch Insights : {lastMatch.home_team} contre {lastMatch.away_team}
+              {t("shell.srTitle", { home: lastMatch.home_team, away: lastMatch.away_team })}
             </h1>
           )}
           {!lastMatch && (
             <section className="landing-hero" aria-labelledby="landing-title">
-              <span className="ui-pill is-home">Intelligence de match · 5 agents IA</span>
+              <span className="ui-pill is-home">{t("shell.landing.pill")}</span>
               <h1 id="landing-title" className="landing-title">
-                Lance un match pour voir l'intelligence de match en direct
+                {t("shell.landing.title")}
               </h1>
               <p className="landing-sub">
-                Un match synthétique est généré, analysé, raconté et vérifié en temps réel par une équipe
-                d'agents : choisis ton profil de spectateur, ta langue et un style de coach.
+                {t("shell.landing.sub")}
               </p>
               <button
                 type="button"
@@ -194,18 +181,18 @@ function App() {
                 onClick={() => setNewMatchOpen(true)}
                 aria-haspopup="dialog"
               >
-                <span aria-hidden="true">▶</span> Nouveau match
+                <span aria-hidden="true">▶</span> {t("shell.newMatch")}
               </button>
             </section>
           )}
 
-          <AppTabPanel key={tab} id={tab} intro={TAB_INTRO[tab]}>
+          <AppTabPanel key={tab} id={tab} intro={t(`shell.intro.${tab}`)}>
             {renderTab(tab)}
           </AppTabPanel>
         </main>
 
         <footer className="app-footer">
-          <span>Built on Microsoft Agent Framework &middot; Azure AI Foundry &middot; Container Apps &middot; Cosmos DB &middot; Event Hubs &middot; Web PubSub</span>
+          <span>{t("shell.footer.builtOn")} Microsoft Agent Framework &middot; Azure AI Foundry &middot; Container Apps &middot; Cosmos DB &middot; Event Hubs &middot; Web PubSub</span>
         </footer>
       </div>
 
@@ -225,12 +212,12 @@ function App() {
             className="drawer-panel"
             role="dialog"
             aria-modal="true"
-            aria-label="Fiche joueur"
+            aria-label={t("shell.drawer.title")}
             tabIndex={-1}
           >
             <div className="drawer-chrome">
-              <span className="drawer-chrome-title">Fiche joueur</span>
-              <button type="button" className="ui-btn drawer-close" onClick={closeDrawer} aria-label="Fermer la fiche joueur">
+              <span className="drawer-chrome-title">{t("shell.drawer.title")}</span>
+              <button type="button" className="ui-btn drawer-close" onClick={closeDrawer} aria-label={t("shell.drawer.close")}>
                 <span aria-hidden="true">✕</span>
               </button>
             </div>

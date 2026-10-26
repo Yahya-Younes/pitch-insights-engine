@@ -6,6 +6,7 @@
 // through a tiny TTL cache instead of firing twice.
 
 import { useCallback, useEffect, useState } from "react";
+import { useT } from "../i18n";
 import { shirtNumber } from "./matchContext";
 import {
   asPosition,
@@ -147,6 +148,7 @@ const ATTRS_EVERY_N_POLLS = 3;
 export function usePlayersData(matchId: string | null): PlayersData {
   const [snap, setSnap] = useState<Snapshot | null>(null);
   const [nonce, setNonce] = useState(0);
+  const { t } = useT();
 
   useEffect(() => {
     if (!matchId) return;
@@ -210,7 +212,7 @@ export function usePlayersData(matchId: string | null): PlayersData {
     liveAvailable: current.live !== null,
     liveError: current.liveError,
     attrsError: current.attrsError,
-    error: failed ? (current.liveError ?? current.attrsError ?? "Données joueurs indisponibles") : null,
+    error: failed ? (current.liveError ?? current.attrsError ?? t("players.error.unavailable")) : null,
     reload,
   };
 }

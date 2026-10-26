@@ -5,6 +5,7 @@ import {
   type ScorebugStats, type ScorebugStatus, type ScorebugWinProb,
 } from "../lib/scorebugApi";
 import type { RunMatchResponse } from "../lib/types";
+import { useT } from "../i18n";
 import { TeamCrest } from "./TeamCrest";
 
 const POLL_MS = 3000;
@@ -17,19 +18,20 @@ interface LiveState {
   winProb: ScorebugWinProb | null;
 }
 
-function pct(v: number): number {
-  return Math.round(Math.max(0, Math.min(1, v)) * 100);
+function clamp01(v: number): number {
+  return Math.max(0, Math.min(1, v));
 }
 
 function MinutePill({ status, minute }: { status: ScorebugStatus | null; minute: number | null }) {
-  if (status === "done") return <span className="ui-pill is-solid scorebug-pill">Terminé</span>;
-  if (status === "failed") return <span className="ui-pill is-danger scorebug-pill">Échec</span>;
-  if (status === "crashed") return <span className="ui-pill is-gold scorebug-pill">Interrompu</span>;
+  const { t } = useT();
+  if (status === "done") return <span className="ui-pill is-solid scorebug-pill">{t("shell.score.done")}</span>;
+  if (status === "failed") return <span className="ui-pill is-danger scorebug-pill">{t("shell.score.failed")}</span>;
+  if (status === "crashed") return <span className="ui-pill is-gold scorebug-pill">{t("shell.score.crashed")}</span>;
   return (
     <span className="ui-pill is-danger scorebug-pill">
       {minute !== null ? `${minute}'` : "0'"}
       <span className="scorebug-live-dot" aria-hidden="true">●</span>
-      En direct
+      {t("shell.score.live")}
     </span>
   );
 }
@@ -37,6 +39,7 @@ function MinutePill({ status, minute }: { status: ScorebugStatus | null; minute:
 export function Scorebug({ match }: { match: RunMatchResponse | null }) {
   const matchId = match?.match_id ?? null;
   const [live, setLive] = useState<LiveState | null>(null);
+  const { t, pct } = useT();
 
   useEffect(() => {
     if (!matchId) return;
@@ -84,9 +87,9 @@ export function Scorebug({ match }: { match: RunMatchResponse | null }) {
 
   if (!match) {
     return (
-      <div className="scorebug scorebug-empty" role="region" aria-label="Tableau de score">
-        <span className="scorebug-empty-text">Aucun match en cours</span>
-        <span className="ui-tag">Lance un match pour afficher le score</span>
+      <div className="scorebug scorebug-empty" role="region" aria-label={t("shell.score.region")}>
+        <span className="scorebug-empty-text">{t("shell.score.empty")}</span>
+        <span className="ui-tag">{t("shell.score.emptyHint")}</span>
       </div>
     );
   }
@@ -99,12 +102,12 @@ export function Scorebug({ match }: { match: RunMatchResponse | null }) {
   const away = stats?.score.away ?? 0;
   const homeCode = teamCrest(match.home_team).initials;
   const awayCode = teamCrest(match.away_team).initials;
-  const wpHome = wp ? pct(wp.home) : null;
-  const wpDraw = wp ? pct(wp.draw) : null;
-  const wpAway = wp ? pct(wp.away) : null;
+  const wpHome = wp ? pct(clamp01(wp.home)) : "–";
+  const wpDraw = wp ? pct(clamp01(wp.draw)) : "–";
+  const wpAway = wp ? pct(clamp01(wp.away)) : "–";
 
   return (
-    <div className="scorebug" role="region" aria-label="Tableau de score">
+    <div className="scorebug" role="region" aria-label={t("shell.score.region")}>
       <div className="scorebug-match">
         <div className="scorebug-team scorebug-team-home">
           <TeamCrest name={match.home_team} size={36} />
@@ -127,11 +130,11 @@ export function Scorebug({ match }: { match: RunMatchResponse | null }) {
       </div>
 
       <p className="ui-sr-only" aria-live="polite">
-        Score : {match.home_team} {home}, {match.away_team} {away}
-        {status === "done" ? ". Match terminé." : ""}
+        {t("shell.score.sr", { home: match.home_team, homeGoals: home, away: match.away_team, awayGoals: away })}
+        {status === "done" ? t("shell.score.srDone") : ""}
       </p>
 
-      <div className="scorebug-wp" aria-label="Probabilité de victoire" role="group">
+      <div className="scorebug-wp" aria-label={t("shell.score.winProb")} role="group">
         <div className="scorebug-wp-bar" aria-hidden="true">
           {wp ? (
             <>
@@ -144,9 +147,9 @@ export function Scorebug({ match }: { match: RunMatchResponse | null }) {
           )}
         </div>
         <div className="scorebug-wp-labels">
-          <span className="is-home"><abbr title={match.home_team}>{homeCode}</abbr> {wpHome !== null ? `${wpHome}%` : "–"}</span>
-          <span className="is-draw">Nul {wpDraw !== null ? `${wpDraw}%` : "–"}</span>
-          <span className="is-away"><abbr title={match.away_team}>{awayCode}</abbr> {wpAway !== null ? `${wpAway}%` : "–"}</span>
+          <span className="is-home"><abbr title={match.home_team}>{homeCode}</abbr> {wpHome}</span>
+          <span className="is-draw">{t("common.draw")} {wpDraw}</span>
+          <span className="is-away"><abbr title={match.away_team}>{awayCode}</abbr> {wpAway}</span>
         </div>
       </div>
     </div>

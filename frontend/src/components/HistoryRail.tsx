@@ -1,5 +1,7 @@
 import type { RenderPayload } from "../lib/types";
 import { themeFor } from "../lib/triggerTheme";
+import { triggerLabel } from "../lib/momentumApi";
+import { useT } from "../i18n";
 
 interface Props {
   payloads: RenderPayload[];
@@ -8,11 +10,13 @@ interface Props {
 }
 
 export function HistoryRail({ payloads, selectedId, onSelect }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
   if (payloads.length === 0) {
     return (
       <div className="history-rail-empty">
         <span className="empty-icon" aria-hidden="true">📺</span>
-        Lance un match pour démarrer le flux de diffusion.
+        {t("shell.history.empty")}
       </div>
     );
   }
@@ -33,10 +37,10 @@ export function HistoryRail({ payloads, selectedId, onSelect }: Props) {
             <span className="history-chip-icon">{theme.icon}</span>
             <div className="history-chip-text">
               <span className="history-chip-clock">{p.game_clock}</span>
-              <span className="history-chip-label">{theme.label}</span>
+              <span className="history-chip-label">{triggerLabel(i18n, p.graphic_type)}</span>
             </div>
             {!p.fact_checked && (
-              <span className="history-chip-corrected" title="Auto-corrected by the live grounding check">⚠</span>
+              <span className="history-chip-corrected" title={t("shell.history.corrected")}>⚠</span>
             )}
           </button>
         );

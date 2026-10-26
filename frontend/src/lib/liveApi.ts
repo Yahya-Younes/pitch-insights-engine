@@ -6,8 +6,9 @@ import { fetchShotMap } from "./matchMapsApi";
 import type { ShotMapResponse } from "./matchMapsTypes";
 import type { PlayerTagsResponse } from "./playerTagsApi";
 import { fetchWinProbability, type WinProbabilityResponse } from "./winProbabilityApi";
+import type { I18n } from "../i18n";
 import type {
-  LiveRatingsResponse, LiveStatusResponse, MatchStatsResponse, MomentumResponse, Resource, StatsWindow,
+  LiveError, LiveRatingsResponse, LiveStatusResponse, MatchStatsResponse, MomentumResponse, Resource, StatsWindow,
 } from "./liveTypes";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -56,40 +57,47 @@ export function fetchPlayerTagsLive(matchId: string, signal?: AbortSignal): Prom
   return fetch(`${API_BASE}/matches/${enc(matchId)}/player-tags`, { signal }).then(asJson<PlayerTagsResponse>);
 }
 
-/** Human (French) wording for a failed request. */
-export function describeError(err: unknown): string {
-  if (err instanceof ApiError) {
-    if (err.status === 404) return "Pas encore de données pour ce match (404).";
-    if (err.status >= 500) return `Le serveur a renvoyé une erreur (${err.status}).`;
-    return `Requête refusée (${err.status}).`;
-  }
-  if (err instanceof TypeError) return "API injoignable — vérifie que le backend tourne.";
-  return err instanceof Error ? err.message : String(err);
+/** Normalise any thrown value into a LiveError. The other API clients throw
+ * plain Errors whose message starts with the HTTP status ("404 Not Found: ..."). */
+export function toLiveError(err: unknown): LiveError {
+  if (err instanceof ApiError) return { status: err.status, network: false, message: err.message };
+  if (err instanceof TypeError) return { status: null, network: true, message: err.message };
+  const message = err instanceof Error ? err.message : String(err);
+  const m = /^(\d{3})\s/.exec(message);
+  return { status: m ? Number(m[1]) : null, network: false, message };
+}
+
+/** Human wording for a failed request, in the UI language. */
+export function describeError(i18n: I18n, err: LiveError): string {
+  if (err.status === 404) return i18n.t("suivi.error.notFound");
+  if (err.status !== null && err.status >= 500) return i18n.t("suivi.error.server", { status: err.status });
+  if (err.status !== null) return i18n.t("suivi.error.refused", { status: err.status });
+  if (err.network) return i18n.t("suivi.error.network");
+  return err.message;
 }
 
 // ---------------------------------------------------------------------------
-// Formatting (French decimals)
+// Formatting (locale-aware)
 // ---------------------------------------------------------------------------
 
-// signDisplay "negative" / "exceptZero": values that round to zero never print "-0,0".
-const RATING_FMT = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "negative" });
-const SIGNED_FMT = new Intl.NumberFormat("fr-FR", {
-  minimumFractionDigits: 1, maximumFractionDigits: 2, signDisplay: "exceptZero",
-});
-const DEC2_FMT = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "negative" });
-
-/** 8.4 -> "8,4" */
-export function formatRating(n: number): string {
-  return RATING_FMT.format(n);
+/** Values that round to zero never print "-0,0". */
+function unsignedZero(n: number, decimals: number): number {
+  return Number(n.toFixed(decimals)) === 0 ? 0 : n;
 }
 
-/** 0.45 -> "+0,45", -0.3 -> "-0,3" */
-export function formatSigned(n: number): string {
-  return SIGNED_FMT.format(n);
+/** 8.4 -> "8,4" (fr) / "8.4" (en) */
+export function formatRating(i18n: I18n, n: number): string {
+  return i18n.num(unsignedZero(n, 1), 1);
 }
 
-export function formatDec2(n: number): string {
-  return DEC2_FMT.format(n);
+/** 0.45 -> "+0,45", -0.3 -> "−0,3": one or two decimals, sign except at zero. */
+export function formatSigned(i18n: I18n, n: number): string {
+  const decimals = Number(n.toFixed(2)) === Number(n.toFixed(1)) ? 1 : 2;
+  return i18n.signed(n, decimals);
+}
+
+export function formatDec2(i18n: I18n, n: number): string {
+  return i18n.num(unsignedZero(n, 2), 2);
 }
 
 /** "R. Ribeiro" from "Rafael Ribeiro" -- single source of truth in matchContext. */
@@ -139,7 +147,7 @@ function initialSnapshot(matchId: string | null): LiveSnapshot {
 function merge<T>(prev: Resource<T>, result: PromiseSettledResult<T> | null): Resource<T> {
   if (result === null) return prev;
   if (result.status === "fulfilled") return { data: result.value, error: null };
-  return { data: prev.data, error: describeError(result.reason) };
+  return { data: prev.data, error: toLiveError(result.reason) };
 }
 
 function settle<T>(p: Promise<T>): Promise<PromiseSettledResult<T>> {

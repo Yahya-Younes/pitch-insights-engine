@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
+import { useT } from "../i18n";
 import "./TimeRangeSlider.css";
 
 const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
@@ -41,6 +42,7 @@ export function TimeRangeSlider({
   liveMinute = null, disabled = false,
 }: Props) {
   const uid = useId();
+  const { t } = useT();
   const reduced = useReducedMotion();
   const [playRequested, setPlaying] = useState(false);
   const playing = playRequested && !disabled;
@@ -91,7 +93,7 @@ export function TimeRangeSlider({
     <div className="trs" data-disabled={disabled || undefined}>
       <div className="trs-head">
         <span className="trs-label" id={`${uid}-label`}>
-          Fenêtre : <strong>{from}'</strong> → <strong>{to}'</strong>
+          {t("relations.slider.window")} <strong>{from}'</strong> → <strong>{to}'</strong>
         </span>
         <button
           type="button"
@@ -100,14 +102,14 @@ export function TimeRangeSlider({
           disabled={disabled}
           aria-pressed={playing}
         >
-          {playing ? "❚❚ Pause" : "▶ Rejouer l'évolution"}
+          {playing ? t("relations.slider.pause") : t("relations.slider.replay")}
         </button>
       </div>
       <div className="trs-track" role="group" aria-labelledby={`${uid}-label`}>
         <div className="trs-rail" aria-hidden="true" />
         <div className="trs-fill" aria-hidden="true" style={{ left: `${pct(from)}%`, width: `${pct(to) - pct(from)}%` }} />
         {live !== null && (
-          <div className="trs-live" aria-hidden="true" style={{ left: `${pct(live)}%` }} title={`Direct : ${live}'`} />
+          <div className="trs-live" aria-hidden="true" style={{ left: `${pct(live)}%` }} title={t("relations.slider.liveAt", { m: live })} />
         )}
         <input
           type="range"
@@ -117,8 +119,8 @@ export function TimeRangeSlider({
           step={1}
           value={from}
           disabled={disabled}
-          aria-label="Début"
-          aria-valuetext={`Début : ${from}e minute`}
+          aria-label={t("relations.slider.start")}
+          aria-valuetext={t("relations.slider.startValue", { m: from })}
           onChange={(e) => {
             setPlaying(false);
             const v = Math.min(Number(e.currentTarget.value), to - minGap);
@@ -133,8 +135,8 @@ export function TimeRangeSlider({
           step={1}
           value={to}
           disabled={disabled}
-          aria-label="Fin"
-          aria-valuetext={`Fin : ${to}e minute`}
+          aria-label={t("relations.slider.end")}
+          aria-valuetext={t("relations.slider.endValue", { m: to })}
           onChange={(e) => {
             setPlaying(false);
             const v = Math.max(Number(e.currentTarget.value), from + minGap);

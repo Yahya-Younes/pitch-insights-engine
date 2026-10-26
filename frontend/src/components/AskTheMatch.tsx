@@ -3,6 +3,7 @@ import type { FormEvent, ReactNode } from "react";
 import type { Locale } from "../lib/types";
 import { askMatch } from "../lib/api";
 import { LOCALES } from "../lib/locales";
+import { useT } from "../i18n";
 import { VoiceButton } from "./VoiceButton";
 
 interface QaTurn {
@@ -21,8 +22,11 @@ interface Props {
 }
 
 export function AskTheMatch({ matchId, focusPlayerName = null, embedded = false }: Props) {
+  const { t, locale: uiLocale } = useT();
   const [question, setQuestion] = useState("");
-  const [locale, setLocale] = useState<Locale>("fr");
+  // Answers follow the page language unless the user picks another one here.
+  const [localeOverride, setLocaleOverride] = useState<Locale | null>(null);
+  const locale = localeOverride ?? uiLocale;
   const [turns, setTurns] = useState<QaTurn[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,17 +50,17 @@ export function AskTheMatch({ matchId, focusPlayerName = null, embedded = false 
   }
 
   const placeholder = focusPlayerName
-    ? `Ex. : Qu'a fait ${focusPlayerName} depuis la reprise ?`
-    : "Pose une question au match…";
+    ? t("live.ask.placeholderFocus", { name: focusPlayerName })
+    : t("live.ask.placeholder");
 
   let content: ReactNode;
   if (!matchId) {
-    content = <p className="lv-muted">Lance un match, puis pose-lui n'importe quelle question.</p>;
+    content = <p className="lv-muted">{t("live.ask.noMatch")}</p>;
   } else {
     content = (
       <>
         <form className="lv-ask-form" onSubmit={handleAsk}>
-          <label htmlFor={`${uid}-q`} className="ui-sr-only">Question sur le match</label>
+          <label htmlFor={`${uid}-q`} className="ui-sr-only">{t("live.ask.questionLabel")}</label>
           <input
             id={`${uid}-q`}
             className="lv-ask-input"
@@ -67,14 +71,14 @@ export function AskTheMatch({ matchId, focusPlayerName = null, embedded = false 
             disabled={busy}
             autoComplete="off"
           />
-          <label htmlFor={`${uid}-lang`} className="ui-sr-only">Langue de la réponse</label>
+          <label htmlFor={`${uid}-lang`} className="ui-sr-only">{t("live.ask.langLabel")}</label>
           <select
             id={`${uid}-lang`}
             className="lv-ask-locale"
             value={locale}
             onChange={(e) => {
               const next = LOCALES.find((l) => l.value === e.target.value);
-              if (next) setLocale(next.value);
+              if (next) setLocaleOverride(next.value === uiLocale ? null : next.value);
             }}
             disabled={busy}
           >
@@ -86,31 +90,31 @@ export function AskTheMatch({ matchId, focusPlayerName = null, embedded = false 
             type="submit"
             className="lv-ask-send"
             disabled={busy || !question.trim()}
-            aria-label={busy ? "Réponse en cours" : "Envoyer la question"}
+            aria-label={busy ? t("live.ask.sending") : t("live.ask.send")}
           >
             {busy ? <span className="lv-spinner" aria-hidden="true" /> : <span aria-hidden="true">➤</span>}
           </button>
         </form>
-        {error && <p className="lv-error" role="alert">Impossible d'obtenir une réponse : {error}</p>}
+        {error && <p className="lv-error" role="alert">{t("live.ask.error", { error })}</p>}
 
         {turns.length > 0 && (
-          <ul className="lv-qa-feed" aria-live="polite" aria-label="Réponses">
-            {turns.map((t, i) => (
+          <ul className="lv-qa-feed" aria-live="polite" aria-label={t("live.ask.answersAria")}>
+            {turns.map((turn, i) => (
               <li key={turns.length - i} className={`lv-qa-turn${i === 0 ? " is-latest" : ""}`}>
-                <p className="lv-qa-question">« {t.question} »</p>
-                <p className="lv-qa-answer">{t.answer}</p>
+                <p className="lv-qa-question">{t("live.ask.quote", { question: turn.question })}</p>
+                <p className="lv-qa-answer">{turn.answer}</p>
                 <div className="lv-qa-foot">
-                  {t.factChecked ? (
-                    <span className="ui-pill is-success">✓ Vérifié</span>
+                  {turn.factChecked ? (
+                    <span className="ui-pill is-success">{t("live.ask.verified")}</span>
                   ) : (
                     <span
                       className="ui-pill is-danger"
-                      title="La réponse du modèle n'a pas pu être vérifiée sur les insights du match ; une réponse prudente a été utilisée."
+                      title={t("live.ask.unverifiedTitle")}
                     >
-                      ⚠ Non vérifié
+                      {t("live.ask.unverified")}
                     </span>
                   )}
-                  <VoiceButton audioBase64={t.audioBase64} autoPlay={i === 0} className="lv-btn-sm" />
+                  <VoiceButton audioBase64={turn.audioBase64} autoPlay={i === 0} className="lv-btn-sm" />
                 </div>
               </li>
             ))}
@@ -123,7 +127,7 @@ export function AskTheMatch({ matchId, focusPlayerName = null, embedded = false 
   if (embedded) {
     return (
       <div className="lv-ask" aria-labelledby={`${uid}-title`}>
-        <h3 id={`${uid}-title`} className="lv-subheading">Demande au match</h3>
+        <h3 id={`${uid}-title`} className="lv-subheading">{t("live.ask.title")}</h3>
         {content}
       </div>
     );
@@ -131,7 +135,7 @@ export function AskTheMatch({ matchId, focusPlayerName = null, embedded = false 
 
   return (
     <section className="ui-card lv-ask" aria-labelledby={`${uid}-title`}>
-      <h2 id={`${uid}-title`} className="ui-heading">Demande au match</h2>
+      <h2 id={`${uid}-title`} className="ui-heading">{t("live.ask.title")}</h2>
       {content}
     </section>
   );

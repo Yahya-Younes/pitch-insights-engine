@@ -5,11 +5,13 @@ import { HistoryRail } from "../components/HistoryRail";
 import { MakeItLie } from "../components/MakeItLie";
 import { PipelineStatus } from "../components/PipelineStatus";
 import { StatsBadge } from "../components/StatsBadge";
+import { useT } from "../i18n";
 import { useMatch } from "../lib/matchContext";
 
-/** Pourquoi faire confiance aux insights : chiffres mesurés en direct, trace
- * des agents, tentative de faire mentir le narrateur, historique diffusé. */
+/** Why trust the insights: figures measured live, the agents' trace, an
+ * attempt to make the narrator lie, and the broadcast history. */
 export function ConfianceTab() {
+  const { t } = useT();
   const { match, matchId, homeTeam, awayTeam, renderEvents, personalizedEvents } = useMatch();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const selected = renderEvents.find((p) => p.render_id === selectedId) ?? renderEvents[renderEvents.length - 1] ?? null;
@@ -26,8 +28,8 @@ export function ConfianceTab() {
 
       <section className="ui-card confiance-stats" aria-labelledby="confiance-stats-title">
         <div className="ui-card-head">
-          <h2 id="confiance-stats-title" className="ui-heading">Chiffres de confiance</h2>
-          <span className="ui-tag">mesurés en direct</span>
+          <h2 id="confiance-stats-title" className="ui-heading">{t("panels.confiance.statsTitle")}</h2>
+          <span className="ui-tag">{t("panels.confiance.statsTag")}</span>
         </div>
         <StatsBadge />
       </section>
@@ -37,8 +39,8 @@ export function ConfianceTab() {
 
       <section className="ui-card confiance-history" aria-labelledby="confiance-history-title">
         <div className="ui-card-head">
-          <h2 id="confiance-history-title" className="ui-heading">Historique diffusé</h2>
-          <span className="ui-tag">étape d · diffusion</span>
+          <h2 id="confiance-history-title" className="ui-heading">{t("panels.confiance.historyTitle")}</h2>
+          <span className="ui-tag">{t("panels.confiance.historyTag")}</span>
         </div>
         <HistoryRail
           payloads={renderEvents}

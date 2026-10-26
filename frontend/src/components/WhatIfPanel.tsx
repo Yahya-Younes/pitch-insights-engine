@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { whatIf } from "../lib/api";
-import { frRaw, triggerFr } from "../lib/frLabels";
+import { useT, type I18n } from "../i18n";
+import { rawNum, triggerLabel } from "../lib/panelLabels";
 import type { RenderPayload } from "../lib/types";
 import { VoiceButton } from "./VoiceButton";
 
@@ -18,11 +19,18 @@ interface Props {
 const SUPPORTED_TYPES = new Set(["xt_surge", "referee_decision", "tendency_match", "tendency_break"]);
 
 const ACTION_OPTIONS = ["pass", "dribble", "carry", "lose_possession"];
-const ACTION_FR: Record<string, string> = {
-  pass: "Passe", dribble: "Dribble", carry: "Conduite de balle", lose_possession: "Perte de balle",
-};
+
+interface Knob {
+  endX: number;
+  endY: number;
+  distanceM: number;
+  angleDeg: number;
+  action: string;
+}
 
 interface WhatIfResultState {
+  graphicType: string;
+  knob: Knob;
   actual_value: number;
   hypothetical_value: number;
   delta: number;
@@ -30,7 +38,34 @@ interface WhatIfResultState {
   audioBase64: string | null;
 }
 
+/** The backend's explanation is English-only; rebuild the same sentence from
+ * the structured result and the knob the viewer chose, in the page language. */
+function explain(i18n: I18n, r: WhatIfResultState): string {
+  const dir = r.delta > 0 ? "up" : r.delta < 0 ? "down" : "same";
+  if (r.graphicType === "xt_surge") {
+    return i18n.t(`panels.whatif.explain.xt.${dir}`, {
+      x: i18n.num(r.knob.endX), y: i18n.num(r.knob.endY), delta: i18n.num(Math.abs(r.delta), 3),
+      from: i18n.num(r.actual_value, 3), to: i18n.num(r.hypothetical_value, 3),
+    });
+  }
+  if (r.graphicType === "referee_decision") {
+    return i18n.t(`panels.whatif.explain.ref.${dir}`, {
+      d: i18n.num(r.knob.distanceM, 1), a: i18n.num(r.knob.angleDeg),
+      from: i18n.num(r.actual_value, 2), to: i18n.num(r.hypothetical_value, 2),
+    });
+  }
+  if (r.graphicType === "tendency_match" || r.graphicType === "tendency_break") {
+    return i18n.t(`panels.whatif.explain.tendency.${dir}`, {
+      action: i18n.t(`panels.whatif.action.${r.knob.action}`),
+      from: i18n.num(r.actual_value, 2), to: i18n.num(r.hypothetical_value, 2),
+    });
+  }
+  return r.explanation;
+}
+
 export function WhatIfPanel({ matchId, insights }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
   const [selectedId, setSelectedId] = useState<string>("");
   const [endX, setEndX] = useState(100);
   const [endY, setEndY] = useState(40);
@@ -55,7 +90,12 @@ export function WhatIfPanel({ matchId, insights }: Props) {
       else knob = { actual_action: action };
 
       const res = await whatIf(matchId, selected.source_insight_id, knob);
-      setResult({ ...res, audioBase64: res.audio_base64 });
+      setResult({
+        ...res,
+        graphicType: selected.graphic_type,
+        knob: { endX, endY, distanceM, angleDeg, action },
+        audioBase64: res.audio_base64,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
       setResult(null);
@@ -67,40 +107,33 @@ export function WhatIfPanel({ matchId, insights }: Props) {
   return (
     <section className="feed-panel whatif-panel">
       <div className="panel-heading">
-        <h2>Et si… ?</h2>
-        <span
-          className="panel-tag"
-          title="Relance la même fonction déterministe d'Analyste-0 qui a produit la vraie métrique de l'insight, sur une entrée hypothétique que tu choisis -- un chiffre recalculé, pas une supposition de LLM."
-        >
-          scénario contrefactuel
+        <h2>{t("panels.whatif.title")}</h2>
+        <span className="panel-tag" title={t("panels.whatif.tagTitle")}>
+          {t("panels.whatif.tag")}
         </span>
       </div>
 
       {!matchId || candidates.length === 0 ? (
         <div className="empty-state">
           <span className="empty-icon" aria-hidden="true">🔁</span>
-          <p>
-            {matchId
-              ? "Pas encore d'insight de menace (xT), de décision arbitrale ou de tendance sur lequel tester un scénario."
-              : "Lance d'abord un match, puis teste un scénario alternatif sur l'un de ses insights."}
-          </p>
+          <p>{t(matchId ? "panels.whatif.emptyNoInsight" : "panels.whatif.emptyNoMatch")}</p>
         </div>
       ) : (
         <>
           <div className="whatif-row">
             <select
               className="whatif-select"
-              aria-label="Insight à tester"
+              aria-label={t("panels.whatif.selectAria")}
               value={selectedId}
               onChange={(e) => {
                 setSelectedId(e.target.value);
                 setResult(null);
               }}
             >
-              <option value="">Choisis un insight…</option>
+              <option value="">{t("panels.whatif.choose")}</option>
               {candidates.map((p) => (
                 <option key={p.source_insight_id} value={p.source_insight_id}>
-                  [{triggerFr(p.graphic_type)}] {p.narrative_text.slice(0, 60)}
+                  [{triggerLabel(i18n, p.graphic_type)}] {p.narrative_text.slice(0, 60)}
                   {p.narrative_text.length > 60 ? "…" : ""}
                 </option>
               ))}
@@ -112,11 +145,11 @@ export function WhatIfPanel({ matchId, insights }: Props) {
               {selected.graphic_type === "xt_surge" && (
                 <>
                   <label>
-                    x d'arrivée
+                    {t("panels.whatif.endX")}
                     <input type="number" min={0} max={120} value={endX} onChange={(e) => setEndX(Number(e.target.value))} />
                   </label>
                   <label>
-                    y d'arrivée
+                    {t("panels.whatif.endY")}
                     <input type="number" min={0} max={80} value={endY} onChange={(e) => setEndY(Number(e.target.value))} />
                   </label>
                 </>
@@ -124,27 +157,27 @@ export function WhatIfPanel({ matchId, insights }: Props) {
               {selected.graphic_type === "referee_decision" && (
                 <>
                   <label>
-                    distance (m)
+                    {t("panels.whatif.distance")}
                     <input type="number" min={0} max={40} value={distanceM} onChange={(e) => setDistanceM(Number(e.target.value))} />
                   </label>
                   <label>
-                    angle (°)
+                    {t("panels.whatif.angle")}
                     <input type="number" min={0} max={90} value={angleDeg} onChange={(e) => setAngleDeg(Number(e.target.value))} />
                   </label>
                 </>
               )}
               {(selected.graphic_type === "tendency_match" || selected.graphic_type === "tendency_break") && (
                 <label>
-                  action hypothétique
+                  {t("panels.whatif.action")}
                   <select value={action} onChange={(e) => setAction(e.target.value)}>
                     {ACTION_OPTIONS.map((a) => (
-                      <option key={a} value={a}>{ACTION_FR[a] ?? a}</option>
+                      <option key={a} value={a}>{t(`panels.whatif.action.${a}`)}</option>
                     ))}
                   </select>
                 </label>
               )}
               <button className="ask-button" onClick={handleRun} disabled={busy}>
-                {busy ? <span className="spinner" /> : "Lancer le scénario"}
+                {busy ? <span className="spinner" /> : t("panels.whatif.run")}
               </button>
             </div>
           )}
@@ -153,12 +186,12 @@ export function WhatIfPanel({ matchId, insights }: Props) {
 
           {result && (
             <div className="whatif-result commentary-in">
-              <p className="whatif-explanation">{result.explanation}</p>
+              <p className="whatif-explanation">{explain(i18n, result)}</p>
               <div className="whatif-values">
-                <span>réel : {frRaw(result.actual_value)}</span>
-                <span>hypothétique : {frRaw(result.hypothetical_value)}</span>
+                <span>{t("panels.whatif.actual", { v: rawNum(i18n, result.actual_value) })}</span>
+                <span>{t("panels.whatif.hypothetical", { v: rawNum(i18n, result.hypothetical_value) })}</span>
                 <span className={result.delta >= 0 ? "whatif-delta-up" : "whatif-delta-down"}>
-                  {result.delta >= 0 ? "+" : ""}{frRaw(result.delta)}
+                  {result.delta >= 0 ? "+" : ""}{rawNum(i18n, result.delta)}
                 </span>
               </div>
               <VoiceButton audioBase64={result.audioBase64} autoPlay={false} />

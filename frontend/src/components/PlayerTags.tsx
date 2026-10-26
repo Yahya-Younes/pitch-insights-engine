@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchPlayerTags, recentTagsAt } from "../lib/playerTagsApi";
-import type { PlayerPhysical, PlayerTag, PlayerTagKind, PlayerTagsResponse } from "../lib/playerTagsApi";
-import { frNum, frRaw } from "../lib/frLabels";
+import type { PlayerPhysical, PlayerTag, PlayerTagsResponse } from "../lib/playerTagsApi";
+import { useT, type I18n } from "../i18n";
+import { plural, rawNum, rawPct } from "../lib/panelLabels";
 import "./PlayerTags.css";
 
 interface Props {
@@ -17,22 +18,12 @@ interface Props {
 const TICKER_SIZE = 6;
 const PLAYBACK_RATES = [30, 60, 120] as const;
 
-const KIND_LABEL: Record<PlayerTagKind, string> = {
-  sprint: "Sprint",
-  distance_km: "Distance",
-  top_speed: "Vitesse max",
-};
-
-const OUTCOME_FR: Record<string, string> = {
-  goal: "but", saved: "arrêté", blocked: "contré", off_target: "non cadré",
-};
-
-/** French ticker text built from the tag's structured fields (the API label is English). */
-function tagText(tag: PlayerTag, name: string | undefined): string {
+/** Ticker text built from the tag's structured fields (the API label is English-only). */
+function tagText(i18n: I18n, tag: PlayerTag, name: string | undefined): string {
   if (!name) return tag.label;
-  if (tag.kind === "distance_km") return `${name} a parcouru ${tag.value} km`;
-  if (tag.kind === "top_speed") return `Nouvelle vitesse max du match : ${name}, ${frNum(tag.value, 1)} km/h`;
-  return `Sprint de ${name}, ${frNum(tag.value, 1)} km/h`;
+  if (tag.kind === "distance_km") return i18n.t("panels.tags.text.distance", { name, km: rawNum(i18n, tag.value) });
+  if (tag.kind === "top_speed") return i18n.t("panels.tags.text.topSpeed", { name, speed: i18n.num(tag.value, 1) });
+  return i18n.t("panels.tags.text.sprint", { name, speed: i18n.num(tag.value, 1) });
 }
 
 function formatClock(ms: number): string {
@@ -49,6 +40,8 @@ function TeamDot({ team }: { team: string }) {
 }
 
 export function PlayerTags({ matchId, currentTimeMs }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
   const [data, setData] = useState<PlayerTagsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -133,7 +126,7 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
   const playheadMs = external ? currentTimeMs : ownPlayheadMs;
 
   const visibleTags = useMemo<PlayerTag[]>(
-    () => (data ? (milestonesOnly ? data.tags.filter((t) => t.kind !== "sprint") : data.tags) : []),
+    () => (data ? (milestonesOnly ? data.tags.filter((tag) => tag.kind !== "sprint") : data.tags) : []),
     [data, milestonesOnly],
   );
   const ticker = useMemo(() => recentTagsAt(visibleTags, playheadMs, TICKER_SIZE), [visibleTags, playheadMs]);
@@ -152,70 +145,72 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
     setPlaying((p) => !p);
   }
 
+  // The API's `method` is French-only: show the same disclosure from the catalog.
+  const methodTitle = data
+    ? t("panels.tags.method", { max: rawNum(i18n, data.thresholds.max_plausible_kmh) })
+    : t("panels.tags.methodShort");
+
   return (
     <section className="feed-panel player-tags-panel" aria-labelledby="player-tags-heading">
       <div className="panel-heading">
-        <h2 id="player-tags-heading">Vitesse et distance</h2>
-        <span
-          className="panel-tag"
-          title={data?.method ?? "Calculé à partir de la trace de positions synthétique interpolée -- aucun appel LLM."}
-        >
-          Tracking synthétique &middot; sans LLM
+        <h2 id="player-tags-heading">{t("panels.tags.title")}</h2>
+        <span className="panel-tag" title={methodTitle}>
+          {t("panels.tags.tag")}
         </span>
       </div>
 
       {!matchId && (
         <div className="empty-state">
           <span className="empty-icon" aria-hidden="true">&#9201;</span>
-          Lance un match pour voir les distances parcourues, vitesses max, sprints et vitesses de frappe.
+          {t("panels.tags.empty")}
         </div>
       )}
 
       {matchId && loading && (
         <div className="player-tags-loading" role="status">
-          <span className="spinner" aria-hidden="true" /> Calcul des vitesses à partir de la trace de positions&hellip;
+          <span className="spinner" aria-hidden="true" /> {t("panels.tags.loading")}
         </div>
       )}
 
       {matchId && error && (
         <div className="player-tags-error">
-          <p className="error" role="alert">Impossible de charger les étiquettes joueurs : {error}</p>
+          <p className="error" role="alert">{t("panels.tags.error", { error })}</p>
           <button type="button" className="player-tags-button" onClick={() => setReloadKey((k) => k + 1)}>
-            Réessayer
+            {t("panels.retry")}
           </button>
         </div>
       )}
 
       {data && data.players.length === 0 && (
-        <div className="empty-state">Aucune position de joueur n'a été enregistrée pour ce match.</div>
+        <div className="empty-state">{t("panels.tags.noPlayers")}</div>
       )}
 
       {data && data.players.length > 0 && (
         <>
           <div className="player-tags-boards commentary-in">
             <div className="player-tags-card">
-              <h3>Distance parcourue</h3>
-              <ol aria-label="Top 5 des joueurs par distance parcourue">
+              <h3>{t("panels.tags.distanceTitle")}</h3>
+              <ol aria-label={t("panels.tags.distanceAria")}>
                 {byDistance.map((p) => (
                   <li key={p.player_id}>
                     <TeamDot team={p.team} />
                     <span className="player-tags-name">{p.name}</span>
-                    <span className="player-tags-value">{frNum(p.distance_km, 2)} km</span>
+                    <span className="player-tags-value">{i18n.num(p.distance_km, 2)} km</span>
                   </li>
                 ))}
               </ol>
             </div>
 
             <div className="player-tags-card">
-              <h3>Vitesse max</h3>
-              <ol aria-label="Top 5 des joueurs par vitesse max">
+              <h3>{t("panels.tags.speedTitle")}</h3>
+              <ol aria-label={t("panels.tags.speedAria")}>
                 {bySpeed.map((p) => (
                   <li key={p.player_id}>
                     <TeamDot team={p.team} />
                     <span className="player-tags-name">{p.name}</span>
                     <span className="player-tags-value">
-                      {frNum(p.top_speed_kmh, 1)} km/h
-                      <span className="player-tags-sub">{p.sprints} sprint{p.sprints > 1 ? "s" : ""}</span>
+                      {i18n.num(p.top_speed_kmh, 1)} km/h
+                      <span className="player-tags-sub">{plural(i18n, "panels.tags.sprints", p.sprints)}</span>
                     </span>
                   </li>
                 ))}
@@ -223,27 +218,29 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
             </div>
 
             <div className="player-tags-card">
-              <h3>Vitesse du ballon</h3>
+              <h3>{t("panels.tags.ballSpeed")}</h3>
               {data.fastest_shot ? (
-                <div className="player-tags-hero" aria-label="Frappe la plus rapide">
+                <div className="player-tags-hero" aria-label={t("panels.tags.fastestShot")}>
                   <span className="player-tags-hero-value">
-                    {frNum(data.fastest_shot.speed_kmh, 1)}<small> km/h</small>
+                    {i18n.num(data.fastest_shot.speed_kmh, 1)}<small> km/h</small>
                   </span>
                   <span className="player-tags-hero-caption">
-                    Frappe la plus rapide &middot; <TeamDot team={data.fastest_shot.team} />
+                    {t("panels.tags.fastestShot")} &middot; <TeamDot team={data.fastest_shot.team} />
                     {data.fastest_shot.name} &middot; {data.fastest_shot.game_clock}
-                    {data.fastest_shot.outcome ? ` · ${OUTCOME_FR[data.fastest_shot.outcome] ?? data.fastest_shot.outcome.replace("_", " ")}` : ""}
-                    {data.fastest_shot.xg !== null ? ` · xG ${frNum(data.fastest_shot.xg, 2)}` : ""}
+                    {data.fastest_shot.outcome ? ` · ${t(`panels.outcome.${data.fastest_shot.outcome}`)}` : ""}
+                    {data.fastest_shot.xg !== null ? ` · xG ${i18n.num(data.fastest_shot.xg, 2)}` : ""}
                   </span>
                 </div>
               ) : (
-                <p className="player-tags-muted">Aucun tir pour l'instant.</p>
+                <p className="player-tags-muted">{t("panels.tags.noShots")}</p>
               )}
               {data.fastest_pass && (
                 <p className="player-tags-muted">
-                  Passe la plus rapide : <strong>{frNum(data.fastest_pass.speed_kmh, 1)} km/h</strong> par{" "}
-                  {data.fastest_pass.name} ({data.fastest_pass.game_clock}) &middot; {data.shots.length} tirs,{" "}
-                  {data.passes_counted} passes mesurées
+                  {t("panels.tags.fastestPass")} <strong>{i18n.num(data.fastest_pass.speed_kmh, 1)} km/h</strong>{" "}
+                  {t("panels.tags.fastestPassBy", {
+                    name: data.fastest_pass.name, clock: data.fastest_pass.game_clock,
+                    shots: data.shots.length, passes: data.passes_counted,
+                  })}
                 </p>
               )}
             </div>
@@ -251,8 +248,8 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
 
           <div className="player-tags-live">
             <div className="player-tags-live-head">
-              <h3>Étiquettes en direct</h3>
-              <span className="player-tags-clock" aria-label="Chrono du match">{formatClock(playheadMs)}</span>
+              <h3>{t("panels.tags.liveTitle")}</h3>
+              <span className="player-tags-clock" aria-label={t("panels.tags.clockAria")}>{formatClock(playheadMs)}</span>
             </div>
 
             <div className="player-tags-controls">
@@ -262,9 +259,9 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
                     type="button"
                     className="player-tags-button"
                     onClick={togglePlay}
-                    aria-label={playing ? "Mettre en pause les étiquettes" : "Lire les étiquettes en direct"}
+                    aria-label={t(playing ? "panels.tags.pauseAria" : "panels.tags.playAria")}
                   >
-                    {playing ? "Pause" : "Lecture"}
+                    {t(playing ? "panels.tags.pause" : "panels.tags.play")}
                   </button>
                   <input
                     type="range"
@@ -273,13 +270,13 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
                     step={1000}
                     value={Math.min(ownPlayheadMs, totalMs)}
                     onChange={(e) => setOwnPlayheadMs(Number(e.target.value))}
-                    aria-label="Se déplacer dans le match"
+                    aria-label={t("panels.tags.seekAria")}
                     aria-valuetext={formatClock(ownPlayheadMs)}
                   />
                   <select
                     value={rate}
                     onChange={(e) => setRate(Number(e.target.value))}
-                    aria-label="Vitesse de lecture"
+                    aria-label={t("panels.tags.rateAria")}
                   >
                     {PLAYBACK_RATES.map((r) => <option key={r} value={r}>{r}&times;</option>)}
                   </select>
@@ -291,22 +288,22 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
                   checked={milestonesOnly}
                   onChange={(e) => setMilestonesOnly(e.target.checked)}
                 />
-                Jalons uniquement
+                {t("panels.tags.milestones")}
               </label>
             </div>
 
             {ticker.length === 0 ? (
               <p className="player-tags-muted">
-                {playheadMs <= 0 && !external ? "Appuie sur Lecture pour rejouer les étiquettes au fil du match." : "Aucune étiquette à ce stade du match."}
+                {t(playheadMs <= 0 && !external ? "panels.tags.hintPlay" : "panels.tags.noneNow")}
               </p>
             ) : (
-              <ul className="player-tags-ticker" role="log" aria-live={playing ? "off" : "polite"} aria-label="Étiquettes joueurs récentes">
-                {ticker.map((t) => (
-                  <li key={`${t.kind}-${t.player_id}-${t.t_ms}`} className={`player-tags-tag player-tags-tag-${t.kind}`}>
-                    <span className="player-tags-tag-clock">{t.game_clock}</span>
-                    <span className="player-tags-tag-kind">{KIND_LABEL[t.kind]}</span>
-                    <TeamDot team={nameOf.get(t.player_id)?.team ?? "unknown"} />
-                    <span className="player-tags-tag-label">{tagText(t, nameOf.get(t.player_id)?.name)}</span>
+              <ul className="player-tags-ticker" role="log" aria-live={playing ? "off" : "polite"} aria-label={t("panels.tags.tickerAria")}>
+                {ticker.map((tag) => (
+                  <li key={`${tag.kind}-${tag.player_id}-${tag.t_ms}`} className={`player-tags-tag player-tags-tag-${tag.kind}`}>
+                    <span className="player-tags-tag-clock">{tag.game_clock}</span>
+                    <span className="player-tags-tag-kind">{t(`panels.tags.kind.${tag.kind}`)}</span>
+                    <TeamDot team={nameOf.get(tag.player_id)?.team ?? "unknown"} />
+                    <span className="player-tags-tag-label">{tagText(i18n, tag, nameOf.get(tag.player_id)?.name)}</span>
                   </li>
                 ))}
               </ul>
@@ -314,11 +311,12 @@ export function PlayerTags({ matchId, currentTimeMs }: Props) {
           </div>
 
           <p className="player-tags-disclosure">
-            Synthétique, pas un vrai tracking : dérivé de la trace de positions interpolée sur un terrain de{" "}
-            {data.thresholds.pitch_m[0]}&times;{data.thresholds.pitch_m[1]} m, lissée sur 1 s ; sprint &ge;{" "}
-            {frRaw(data.thresholds.sprint_kmh)} km/h ; {frRaw(data.speed_samples_excluded_pct)} % des pas au-dessus de{" "}
-            {frRaw(data.thresholds.max_plausible_kmh)} km/h écartés comme artefacts d'interpolation. Les distances sont
-            bien inférieures aux totaux réels de Premier League ; les vitesses du ballon sont les valeurs propres du simulateur.
+            {t("panels.tags.disclosure", {
+              w: data.thresholds.pitch_m[0], h: data.thresholds.pitch_m[1],
+              sprint: rawNum(i18n, data.thresholds.sprint_kmh),
+              excluded: rawPct(i18n, data.speed_samples_excluded_pct),
+              max: rawNum(i18n, data.thresholds.max_plausible_kmh),
+            })}
           </p>
         </>
       )}

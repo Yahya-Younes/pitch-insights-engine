@@ -1,4 +1,5 @@
 import { useId, useMemo } from "react";
+import { useT, type I18n } from "../i18n";
 import { shortName } from "../lib/liveApi";
 import type { LiveRatingsResponse, Side } from "../lib/liveTypes";
 import { shirtNumber } from "../lib/matchContext";
@@ -28,15 +29,16 @@ interface Alert {
   text: string;
 }
 
-const INSIGHT_KIND: Record<string, { icon: string; label: string }> = {
-  milestone: { icon: "⚽", label: "But" },
-  referee_decision: { icon: "🟨", label: "Décision arbitrale" },
-  tendency_break: { icon: "❗", label: "Rupture de tendance" },
-  tendency_match: { icon: "🎯", label: "Tendance confirmée" },
-  pressure_spike: { icon: "🔥", label: "Pic de pressing" },
-  xt_surge: { icon: "📈", label: "Poussée offensive" },
-  chaos_shift: { icon: "⚡", label: "Contrôle / chaos" },
-  rhythm_change: { icon: "🎵", label: "Changement de rythme" },
+/** Icon per insight type; the label is "suivi.alert.kind.<type>". */
+const INSIGHT_ICON: Record<string, string> = {
+  milestone: "⚽",
+  referee_decision: "🟨",
+  tendency_break: "❗",
+  tendency_match: "🎯",
+  pressure_spike: "🔥",
+  xt_surge: "📈",
+  chaos_shift: "⚡",
+  rhythm_change: "🎵",
 };
 
 function sideOf(playerId: string | undefined): Side | null {
@@ -50,20 +52,21 @@ function truncate(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s;
 }
 
-function buildAlerts(renderEvents: RenderPayload[], ratings: LiveRatingsResponse | null,
+function buildAlerts(i18n: I18n, renderEvents: RenderPayload[], ratings: LiveRatingsResponse | null,
   tags: PlayerTagsResponse | null, maxMinute: number | null): Alert[] {
+  const { t } = i18n;
   const limitS = maxMinute === null ? Infinity : (maxMinute + 1) * 60;
   const out: Alert[] = [];
 
   for (const ev of renderEvents) {
-    const kind = INSIGHT_KIND[ev.graphic_type] ?? { icon: "◆", label: "Analyse" };
+    const known = Object.hasOwn(INSIGHT_ICON, ev.graphic_type);
     const seconds = clockToSeconds(ev.game_clock);
     out.push({
       id: `ev-${ev.render_id}`,
       seconds,
       team: sideOf(ev.linked_players[0]),
-      icon: kind.icon,
-      kind: kind.label,
+      icon: INSIGHT_ICON[ev.graphic_type] ?? "◆",
+      kind: t(known ? `suivi.alert.kind.${ev.graphic_type}` : "suivi.alert.kind.other"),
       text: truncate(ev.narrative_text, 140),
     });
   }
@@ -71,19 +74,19 @@ function buildAlerts(renderEvents: RenderPayload[], ratings: LiveRatingsResponse
   if (tags) {
     const names = new Map(tags.players.map((p) => [p.player_id, p.name]));
     const speedTags = tags.tags
-      .filter((t) => (t.kind === "sprint" || t.kind === "top_speed") && t.t_ms / 1000 < limitS)
+      .filter((tag) => (tag.kind === "sprint" || tag.kind === "top_speed") && tag.t_ms / 1000 < limitS)
       .slice(-MAX_TAG_ALERTS);
-    for (const t of speedTags) {
-      const name = shortName(names.get(t.player_id) ?? t.player_id);
-      const speed = t.value.toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-      const top = t.kind === "top_speed";
+    for (const tag of speedTags) {
+      const name = shortName(names.get(tag.player_id) ?? tag.player_id);
+      const speed = i18n.num(tag.value, 1);
+      const top = tag.kind === "top_speed";
       out.push({
-        id: `tag-${t.kind}-${t.player_id}-${t.t_ms}`,
-        seconds: t.t_ms / 1000,
-        team: sideOf(t.player_id),
+        id: `tag-${tag.kind}-${tag.player_id}-${tag.t_ms}`,
+        seconds: tag.t_ms / 1000,
+        team: sideOf(tag.player_id),
         icon: top ? "🚀" : "💨",
-        kind: top ? "Vitesse max du match" : "Sprint",
-        text: `#${shirtNumber(t.player_id)} ${name} · ${speed} km/h`,
+        kind: t(top ? "suivi.alert.topSpeed" : "suivi.alert.sprint"),
+        text: t("suivi.alert.speedText", { number: shirtNumber(tag.player_id), name, speed }),
       });
     }
   }
@@ -99,8 +102,8 @@ function buildAlerts(renderEvents: RenderPayload[], ratings: LiveRatingsResponse
         seconds: h.minute * 60 + 59.5,
         team: p?.team ?? sideOf(h.player_id),
         icon: "👑",
-        kind: "Homme du match",
-        text: `${i === 0 ? "Premier leader" : "Nouveau leader"} : ${label}`,
+        kind: t("suivi.alert.motm"),
+        text: t(i === 0 ? "suivi.alert.firstLeader" : "suivi.alert.newLeader", { player: label }),
       });
     });
   }
@@ -112,16 +115,18 @@ function buildAlerts(renderEvents: RenderPayload[], ratings: LiveRatingsResponse
 }
 
 export function LiveAlerts({ renderEvents, ratings, tags, maxMinute }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
   const headingId = useId();
   const alerts = useMemo(
-    () => buildAlerts(renderEvents, ratings, tags, maxMinute),
-    [renderEvents, ratings, tags, maxMinute],
+    () => buildAlerts(i18n, renderEvents, ratings, tags, maxMinute),
+    [i18n, renderEvents, ratings, tags, maxMinute],
   );
 
   return (
     <section className="ui-card la" aria-labelledby={headingId}>
-      <h2 id={headingId} className="ui-heading">Alertes en direct</h2>
-      <ol className="la-list" aria-live="polite" aria-relevant="additions" aria-label="Alertes, la plus récente en premier">
+      <h2 id={headingId} className="ui-heading">{t("suivi.alert.title")}</h2>
+      <ol className="la-list" aria-live="polite" aria-relevant="additions" aria-label={t("suivi.alert.listAria")}>
         {alerts.map((a) => (
           <li key={a.id} className={`la-item${a.team ? ` is-${a.team}` : ""}`}>
             <span className={`la-minute${a.team ? ` is-${a.team}` : ""}`}>{Math.floor(a.seconds / 60)}'</span>
@@ -134,7 +139,7 @@ export function LiveAlerts({ renderEvents, ratings, tags, maxMinute }: Props) {
         ))}
       </ol>
       {alerts.length === 0 ? (
-        <p className="sl-empty">Aucune alerte pour l'instant — buts, cartons, sprints et changements de leader s'afficheront ici.</p>
+        <p className="sl-empty">{t("suivi.alert.empty")}</p>
       ) : null}
     </section>
   );

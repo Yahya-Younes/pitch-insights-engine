@@ -2,17 +2,16 @@ import { useId, useRef } from "react";
 import type { ConnectionStatus } from "../hooks/useOverlayFeed";
 import type { Contrast, TextSize } from "../hooks/useA11ySettings";
 import { useFocusTrap } from "../hooks/useFocusTrap";
+import { useT } from "../i18n";
 import { LOCALES } from "../lib/locales";
 import type { LensSummary, Locale, RunMatchResponse } from "../lib/types";
 import { MatchControls } from "./MatchControls";
 
-const TEXT_SIZE_LABEL: Record<TextSize, string> = { md: "normale", lg: "grande", xl: "très grande" };
-
-const FEED_LABEL: Record<ConnectionStatus, { text: string; tone: string }> = {
-  open: { text: "5 agents live", tone: "is-success" },
-  connecting: { text: "Connexion…", tone: "is-gold" },
-  closed: { text: "Flux déconnecté", tone: "is-danger" },
-  error: { text: "Erreur de flux", tone: "is-danger" },
+const FEED_TONE: Record<ConnectionStatus, string> = {
+  open: "is-success",
+  connecting: "is-gold",
+  closed: "is-danger",
+  error: "is-danger",
 };
 
 interface AppBarProps {
@@ -32,19 +31,19 @@ export function AppBar({
   onOpenNewMatch, newMatchOpen,
 }: AppBarProps) {
   const localeId = useId();
-  const feed = FEED_LABEL[feedStatus];
+  const { t } = useT();
   return (
     <header className="app-bar">
       <div className="app-bar-brand">
         <span className="app-bar-dot" aria-hidden="true" />
         <span className="app-bar-name">Pitch Insights</span>
-        <span className={`ui-pill ${feed.tone} app-bar-feed`} role="status">
-          <span aria-hidden="true">●</span> {feed.text}
+        <span className={`ui-pill ${FEED_TONE[feedStatus]} app-bar-feed`} role="status">
+          <span aria-hidden="true">●</span> {t(`shell.feed.${feedStatus}`)}
         </span>
       </div>
 
       <div className="app-bar-actions">
-        <label className="ui-sr-only" htmlFor={localeId}>Langue</label>
+        <label className="ui-sr-only" htmlFor={localeId}>{t("shell.bar.language")}</label>
         <select
           id={localeId}
           className="app-bar-select"
@@ -59,19 +58,19 @@ export function AppBar({
           type="button"
           className="ui-btn app-bar-tool"
           onClick={onCycleTextSize}
-          title="Changer la taille du texte"
+          title={t("shell.bar.textTitle")}
         >
-          A+ <span className="app-bar-tool-label">Texte</span>
-          <span className="ui-sr-only">(taille actuelle : {TEXT_SIZE_LABEL[textSize]})</span>
+          A+ <span className="app-bar-tool-label">{t("shell.bar.text")}</span>
+          <span className="ui-sr-only">{t("shell.bar.textCurrent", { size: t(`shell.bar.size.${textSize}`) })}</span>
         </button>
         <button
           type="button"
           className="ui-btn app-bar-tool"
           onClick={onToggleContrast}
           aria-pressed={contrast === "high"}
-          title="Contraste élevé"
+          title={t("shell.bar.contrastTitle")}
         >
-          <span aria-hidden="true">◐</span> <span className="app-bar-tool-label">Contraste</span>
+          <span aria-hidden="true">◐</span> <span className="app-bar-tool-label">{t("shell.bar.contrast")}</span>
         </button>
         <button
           type="button"
@@ -80,7 +79,7 @@ export function AppBar({
           aria-haspopup="dialog"
           aria-expanded={newMatchOpen}
         >
-          <span aria-hidden="true">▶</span> Nouveau match
+          <span aria-hidden="true">▶</span> {t("shell.newMatch")}
         </button>
       </div>
     </header>
@@ -101,6 +100,7 @@ interface NewMatchDialogProps {
 export function NewMatchDialog({ open, onClose, lenses, onMatchStarted, locale }: NewMatchDialogProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
+  const { t } = useT();
   useFocusTrap(open, panelRef, onClose);
 
   return (
@@ -116,10 +116,10 @@ export function NewMatchDialog({ open, onClose, lenses, onMatchStarted, locale }
       >
         <div className="nm-head">
           <div>
-            <h2 id={titleId} className="ui-heading">Nouveau match</h2>
-            <p className="nm-sub">Choisis un profil de spectateur, une langue et un coach, puis lance le match.</p>
+            <h2 id={titleId} className="ui-heading">{t("shell.newMatch")}</h2>
+            <p className="nm-sub">{t("shell.dialog.sub")}</p>
           </div>
-          <button type="button" className="ui-btn nm-close" onClick={onClose} aria-label="Fermer">
+          <button type="button" className="ui-btn nm-close" onClick={onClose} aria-label={t("common.close")}>
             <span aria-hidden="true">✕</span>
           </button>
         </div>

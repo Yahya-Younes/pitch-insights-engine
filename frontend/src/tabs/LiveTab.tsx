@@ -4,7 +4,7 @@ import { shirtNumber, shortName, useMatch } from "../lib/matchContext";
 import type { Persona, RenderPayload } from "../lib/types";
 import { themeFor } from "../lib/triggerTheme";
 import {
-  clockMinute, clockToMs, isKeyMoment, payloadTeam, prefersReducedMotion, splitHeadline, triggerLabelFr,
+  clockMinute, clockToMs, isKeyMoment, payloadTeam, prefersReducedMotion, splitHeadline, triggerLabel,
   useLiveRoster,
 } from "../lib/momentumApi";
 import { HeroStage } from "../components/HeroStage";
@@ -18,6 +18,7 @@ import { WinProbability } from "../components/WinProbability";
 import { PersonaTabs } from "../components/PersonaTabs";
 import { PersonaFeed } from "../components/PersonaFeed";
 import { AskTheMatch } from "../components/AskTheMatch";
+import { useT } from "../i18n";
 import "./LiveTab.css";
 
 const PERSONAS: readonly Persona[] = ["casual_fan", "analyst", "player_tracker"];
@@ -35,6 +36,8 @@ export function LiveTab() {
   const {
     matchId, homeTeam, awayTeam, renderEvents, personalizedEvents, followedPlayerId, setFollowedPlayerId, openPlayer,
   } = useMatch();
+  const i18n = useT();
+  const { t } = i18n;
   const roster = useLiveRoster(matchId);
   // Selection is tagged with its match so a new match falls back to live
   // mode without a reset effect.
@@ -87,7 +90,7 @@ export function LiveTab() {
     setFollowedPlayerId(followedPlayerId === pid ? null : pid);
   }
 
-  const playerName = (pid: string) => roster.byId.get(pid)?.name ?? `Joueur ${shirtNumber(pid)}`;
+  const playerName = (pid: string) => roster.byId.get(pid)?.name ?? t("live.player.fallback", { num: shirtNumber(pid) });
   const playerLabel = (pid: string) => `#${shirtNumber(pid)} ${shortName(playerName(pid))}`;
   const followedLabel = followedPlayerId ? playerLabel(followedPlayerId) : null;
   const followedFullName = followedPlayerId ? playerName(followedPlayerId) : null;
@@ -122,7 +125,7 @@ export function LiveTab() {
       <div className="lv-root">
         <div className="ui-card lv-empty lv-empty-hero">
           <span className="lv-empty-icon" aria-hidden="true">⚽</span>
-          <p>Lance un match pour commencer : insights vérifiés, terrain animé et commentaire en direct.</p>
+          <p>{t("live.tab.empty")}</p>
         </div>
       </div>
     );
@@ -147,17 +150,18 @@ export function LiveTab() {
                 <Timeline payloads={renderEvents} selectedId={selected.render_id} onSelect={selectManually} />
                 {isBehindLive ? (
                   <button type="button" className="ui-btn ui-btn-primary lv-jump-live" onClick={jumpToLive}>
-                    <span className="lv-live-dot" aria-hidden="true" /> Retour au direct · {newerCount} {newerCount > 1 ? "nouveaux" : "nouveau"}
+                    <span className="lv-live-dot" aria-hidden="true" />{" "}
+                    {t(newerCount > 1 ? "live.tab.backToLiveMany" : "live.tab.backToLiveOne", { count: i18n.num(newerCount) })}
                   </button>
                 ) : (
-                  <span className="ui-pill is-danger lv-live-badge"><span className="lv-live-dot" aria-hidden="true" /> En direct</span>
+                  <span className="ui-pill is-danger lv-live-badge"><span className="lv-live-dot" aria-hidden="true" /> {t("live.tab.onAir")}</span>
                 )}
               </div>
             </>
           ) : (
             <div className="ui-card lv-hero lv-hero-waiting" role="status" aria-live="polite">
               <span className="lv-spinner lv-spinner-lg" aria-hidden="true" />
-              <p>En attente du premier insight vérifié par le Narrator…</p>
+              <p>{t("live.tab.waiting")}</p>
             </div>
           )}
         </div>
@@ -182,10 +186,10 @@ export function LiveTab() {
           />
           {followedPlayerId && followedLabel && (
             <div className={`lv-follow-bar is-${followedPlayerId.startsWith("away") ? "away" : "home"}`} role="status">
-              <span>👁 Suivi : <strong>{followedLabel}</strong> — Échap pour quitter</span>
+              <span>👁 {t("live.follow.prefix")} <strong>{followedLabel}</strong> — {t("live.follow.escHint")}</span>
               <span className="lv-follow-actions">
-                <button type="button" className="ui-btn lv-btn-sm" onClick={() => openPlayer(followedPlayerId)}>Fiche</button>
-                <button type="button" className="ui-btn lv-btn-sm" onClick={() => setFollowedPlayerId(null)}>Quitter</button>
+                <button type="button" className="ui-btn lv-btn-sm" onClick={() => openPlayer(followedPlayerId)}>{t("live.follow.sheet")}</button>
+                <button type="button" className="ui-btn lv-btn-sm" onClick={() => setFollowedPlayerId(null)}>{t("live.follow.quit")}</button>
               </span>
             </div>
           )}
@@ -194,26 +198,26 @@ export function LiveTab() {
         <MomentumBar matchId={matchId} homeTeam={homeTeam} awayTeam={awayTeam} />
       </div>
 
-      <aside className="lv-side" aria-label="Infos du match">
+      <aside className="lv-side" aria-label={t("live.tab.sideAria")}>
         <WinProbability matchId={matchId} homeTeam={homeTeam} awayTeam={awayTeam} />
 
         <section className="ui-card lv-moments" aria-labelledby={momentsTitleId}>
           <div className="lv-card-head">
-            <h2 id={momentsTitleId} className="ui-heading">Temps forts</h2>
+            <h2 id={momentsTitleId} className="ui-heading">{t("live.moments.title")}</h2>
             <button
               type="button"
               className={`ui-pill${showAllMoments ? " is-solid is-gold" : ""}`}
               aria-pressed={showAllMoments}
               onClick={() => setShowAllMoments((v) => !v)}
             >
-              Tous les insights
+              {t("live.moments.all")}
             </button>
           </div>
           {moments.length === 0 ? (
             <p className="lv-muted">
               {renderEvents.length === 0
-                ? "Les buts, cartons et ruptures de tendance apparaîtront ici."
-                : "Pas encore de temps fort majeur — affiche tous les insights pour voir le reste."}
+                ? t("live.moments.emptyNone")
+                : t("live.moments.emptyKey")}
             </p>
           ) : (
             <ul className="lv-moment-list">
@@ -233,7 +237,7 @@ export function LiveTab() {
                       <span className={`lv-moment-min${side ? ` is-${side}` : ""}`}>{clockMinute(p.game_clock)}'</span>
                       <span className="lv-moment-icon" aria-hidden="true">{theme.icon}</span>
                       <span className="lv-moment-text">
-                        <span className="lv-moment-kind">{triggerLabelFr(p.graphic_type)}</span>
+                        <span className="lv-moment-kind">{triggerLabel(i18n, p.graphic_type)}</span>
                         {shortText(p.narrative_text)}
                       </span>
                     </button>
@@ -246,17 +250,17 @@ export function LiveTab() {
 
         <section className="ui-card lv-comment" aria-labelledby={commentTitleId}>
           <div className="lv-card-head">
-            <h2 id={commentTitleId} className="ui-heading">Commentaire</h2>
+            <h2 id={commentTitleId} className="ui-heading">{t("live.comment.title")}</h2>
           </div>
           <PersonaTabs value={effectivePersona} onChange={setPersona} counts={personaCounts} />
           {followedLabel && (
             <div className="lv-focus-row">
-              <span className="ui-pill is-home is-solid">Focus : {followedLabel}</span>
+              <span className="ui-pill is-home is-solid">{t("live.comment.focus", { name: followedLabel })}</span>
               <button
                 type="button"
                 className="lv-link-btn"
                 onClick={() => setFollowedPlayerId(null)}
-                aria-label="Retirer le focus joueur"
+                aria-label={t("live.comment.removeFocus")}
               >
                 ✕
               </button>
@@ -269,8 +273,8 @@ export function LiveTab() {
               autoPlayLatest={false}
               emptyText={
                 personalizedEvents.length === 0
-                  ? "Pas encore de commentaire. Le Concierge prend la parole dès le premier insight."
-                  : "Aucun message pour ce profil dans ce match — essaie un autre profil."
+                  ? t("live.comment.emptyNone")
+                  : t("live.comment.emptyPersona")
               }
             />
           </div>

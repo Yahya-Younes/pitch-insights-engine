@@ -1,9 +1,13 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { FcPlayerCard } from "../components/FcPlayerCard";
 import { HeadToHead } from "../components/HeadToHead";
+import { useT, type I18n } from "../i18n";
+import { breakdownLabel } from "../i18n/backendLabels";
 import { useMatch } from "../lib/matchContext";
 import { usePlayersData } from "../lib/playersApi";
 import {
+  attributeCode,
+  attributeLabel,
   formatPoints,
   formatRating,
   type AttributeKey,
@@ -14,41 +18,49 @@ import "./JoueursTab.css";
 type SortKey = "rating" | Extract<AttributeKey, "pace" | "passing" | "defending" | "involvement">;
 type TeamFilter = "all" | "home" | "away";
 
-const SORTS: { value: SortKey; label: string }[] = [
-  { value: "rating", label: "Note" },
-  { value: "pace", label: "Vitesse" },
-  { value: "passing", label: "Passe" },
-  { value: "defending", label: "Défense" },
-  { value: "involvement", label: "Implication" },
-];
+const SORT_KEYS: readonly SortKey[] = ["rating", "pace", "passing", "defending", "involvement"];
 
-/** Scoring rules of the live note /10 -- mirrors the backend's barème. */
-const SCALE: { rule: string; points: string }[] = [
-  { rule: "But", points: "+1,0 (+0,2 si xG < 0,15)" },
-  { rule: "Passe décisive", points: "+0,6" },
-  { rule: "Passe clé", points: "+0,15" },
-  { rule: "Tir sans but", points: "+0,3 × xG (+0,05 si cadré)" },
-  { rule: "xT créé", points: "+0,5 × xT (plafond +0,8)" },
-  { rule: "Dribble réussi / raté", points: "+0,05 / −0,03" },
-  { rule: "Précision de passe ≥ 85 % (≥ 20 passes)", points: "+0,1" },
-  { rule: "Précision de passe < 65 % (≥ 15 passes)", points: "−0,1" },
-  { rule: "Perte de balle", points: "−0,03" },
-  { rule: "Tacle / interception", points: "+0,06" },
-  { rule: "Duel gagné / perdu", points: "±0,03" },
-  { rule: "Menace stoppée", points: "+0,5 × xT" },
-  { rule: "Arrêt du gardien", points: "+0,15 + 0,1 × xG" },
-  { rule: "But encaissé", points: "gardien −0,3 · défenseurs −0,1" },
-  { rule: "Faute", points: "−0,05" },
-  { rule: "Carton jaune", points: "−0,3" },
-  { rule: "Carton rouge", points: "−1,0" },
-];
+function sortOptions(i18n: I18n): { value: SortKey; label: string }[] {
+  return SORT_KEYS.map((k) => ({
+    value: k,
+    label: k === "rating" ? i18n.t("players.sort.rating") : attributeLabel(i18n, k),
+  }));
+}
 
-const SCALE_NOTES = [
-  "Points défensifs × 1,3 pour les gardiens, défenseurs centraux et latéraux ; points offensifs × 1,2 pour les attaquants.",
-  "Données physiques (vitesse, distance) non comptées : elles viennent de positions synthétiques.",
-  "Note bornée entre 3 et 10.",
-  "Pour prendre le titre d'homme du match, un challenger doit devancer le leader d'au moins 0,1.",
-];
+/** Scoring rules of the live note /10 -- mirrors the backend's barème.
+ * Numbers live here and are formatted per locale; words come from the catalog. */
+function scaleRows(i18n: I18n): { key: string; rule: string; points: string }[] {
+  const { t, num, signed, pct } = i18n;
+  return [
+    { key: "goal", rule: t("players.scale.goal"), points: t("players.scale.goalPts", { p: signed(1, 1), bonus: signed(0.2, 1), x: num(0.15, 2) }) },
+    { key: "assist", rule: t("players.scale.assist"), points: signed(0.6, 1) },
+    { key: "keyPass", rule: t("players.scale.keyPass"), points: signed(0.15, 2) },
+    { key: "shot", rule: t("players.scale.shot"), points: t("players.scale.shotPts", { k: signed(0.3, 1), bonus: signed(0.05, 2) }) },
+    { key: "xt", rule: t("players.scale.xt"), points: t("players.scale.xtPts", { k: signed(0.5, 1), cap: signed(0.8, 1) }) },
+    { key: "dribble", rule: t("players.scale.dribble"), points: `${signed(0.05, 2)} / ${signed(-0.03, 2)}` },
+    { key: "passHigh", rule: t("players.scale.passHigh", { pct: pct(0.85), n: 20 }), points: signed(0.1, 1) },
+    { key: "passLow", rule: t("players.scale.passLow", { pct: pct(0.65), n: 15 }), points: signed(-0.1, 1) },
+    { key: "ballLoss", rule: t("players.scale.ballLoss"), points: signed(-0.03, 2) },
+    { key: "tackle", rule: t("players.scale.tackle"), points: signed(0.06, 2) },
+    { key: "duel", rule: t("players.scale.duel"), points: `±${num(0.03, 2)}` },
+    { key: "threat", rule: t("players.scale.threat"), points: `${signed(0.5, 1)} × xT` },
+    { key: "save", rule: t("players.scale.save"), points: `${signed(0.15, 2)} + ${num(0.1, 1)} × xG` },
+    { key: "conceded", rule: t("players.scale.conceded"), points: t("players.scale.concededPts", { gk: signed(-0.3, 1), def: signed(-0.1, 1) }) },
+    { key: "foul", rule: t("players.scale.foul"), points: signed(-0.05, 2) },
+    { key: "yellow", rule: t("players.scale.yellow"), points: signed(-0.3, 1) },
+    { key: "red", rule: t("players.scale.red"), points: signed(-1, 1) },
+  ];
+}
+
+function scaleNotes(i18n: I18n): string[] {
+  const { t, num } = i18n;
+  return [
+    t("players.scale.note.multipliers", { d: num(1.3, 1), o: num(1.2, 1) }),
+    t("players.scale.note.physical"),
+    t("players.scale.note.bounds", { min: num(3), max: num(10) }),
+    t("players.scale.note.hysteresis", { gap: num(0.1, 1) }),
+  ];
+}
 
 /** Accessible radio pills: role=radiogroup, roving tabindex, arrow keys. */
 function RadioPills<T extends string>({
@@ -119,22 +131,24 @@ function bestOpponent(players: MatchPlayer[], of: MatchPlayer | undefined): stri
 }
 
 function ScaleDisclosure() {
+  const i18n = useT();
+  const { t } = i18n;
   return (
     <details className="jt-scale">
-      <summary className="jt-scale__summary">Voir le barème</summary>
+      <summary className="jt-scale__summary">{t("players.scale.show")}</summary>
       <table className="jt-scale__table">
-        <caption className="ui-sr-only">Barème de la note sur 10</caption>
+        <caption className="ui-sr-only">{t("players.scale.caption")}</caption>
         <thead>
-          <tr><th scope="col">Action</th><th scope="col">Points</th></tr>
+          <tr><th scope="col">{t("players.col.action")}</th><th scope="col">{t("players.col.points")}</th></tr>
         </thead>
         <tbody>
-          {SCALE.map((r) => (
-            <tr key={r.rule}><th scope="row">{r.rule}</th><td>{r.points}</td></tr>
+          {scaleRows(i18n).map((r) => (
+            <tr key={r.key}><th scope="row">{r.rule}</th><td>{r.points}</td></tr>
           ))}
         </tbody>
       </table>
       <ul className="jt-scale__notes">
-        {SCALE_NOTES.map((n) => <li key={n}>{n}</li>)}
+        {scaleNotes(i18n).map((n) => <li key={n}>{n}</li>)}
       </ul>
     </details>
   );
@@ -142,6 +156,8 @@ function ScaleDisclosure() {
 
 export function JoueursTab() {
   const { matchId, homeTeam, awayTeam, openPlayer, followedPlayerId } = useMatch();
+  const i18n = useT();
+  const { t } = i18n;
   const data = usePlayersData(matchId);
   const [sort, setSort] = useState<SortKey>("rating");
   const [team, setTeam] = useState<TeamFilter>("all");
@@ -151,7 +167,7 @@ export function JoueursTab() {
   if (!matchId) {
     return (
       <div className="jt jt--empty ui-card">
-        <p>Lance un match pour voir les notes des joueurs.</p>
+        <p>{t("players.empty.noMatch")}</p>
       </div>
     );
   }
@@ -159,7 +175,7 @@ export function JoueursTab() {
   if (data.status === "loading" || data.status === "idle") {
     return (
       <div className="jt" aria-busy="true">
-        <p className="ui-sr-only" role="status">Chargement des notes des joueurs…</p>
+        <p className="ui-sr-only" role="status">{t("players.loading")}</p>
         <div className="jt__top">
           <div className="jt-skeleton jt-skeleton--motm" />
           <div className="jt-skeleton jt-skeleton--h2h" />
@@ -175,9 +191,9 @@ export function JoueursTab() {
     return (
       <div className="jt">
         <div className="ui-card jt-error" role="alert">
-          <p>Impossible de charger les notes des joueurs.</p>
+          <p>{t("players.error.load")}</p>
           <p className="jt-error__detail">{data.error}</p>
-          <button type="button" className="ui-btn" onClick={data.reload}>Réessayer</button>
+          <button type="button" className="ui-btn" onClick={data.reload}>{t("players.retry")}</button>
         </div>
       </div>
     );
@@ -189,35 +205,37 @@ export function JoueursTab() {
 
   const motmId = data.motm?.player_id ?? data.fallbackMotm?.player_id ?? null;
   const motmPlayer = motmId ? byId.get(motmId) : undefined;
-  // Live reason: sentence(s); fallback (/player-ratings) reason: "a, b, c".
-  const reasons = (data.motm ? data.motm.reason : (data.fallbackMotm?.reason ?? ""))
-    .split(data.motm ? /\s*[;•]\s*|\.\s+/ : /\s*,\s*/)
-    .map((s) => s.trim().replace(/\.$/, ""))
-    .filter(Boolean);
+  // "Why him?" is rebuilt from the breakdown (same top-3 rule as motmReason()):
+  // the backend's own `reason` sentence is French-only, so it is not shown.
   const topItems = motmPlayer
-    ? [...motmPlayer.breakdown].filter((b) => b.points > 0).sort((x, y) => y.points - x.points).slice(0, 3)
+    ? [...motmPlayer.breakdown]
+        .filter((b) => b.label !== "Base" && Number(b.points.toFixed(2)) > 0)
+        .sort((x, y) => y.points - x.points)
+        .slice(0, 3)
     : [];
 
   const visible = players
     .filter((p) => team === "all" || p.team === team)
-    .sort((x, y) => sortValue(y, sort) - sortValue(x, sort) || x.name.localeCompare(y.name, "fr"));
+    .sort((x, y) => sortValue(y, sort) - sortValue(x, sort) || x.name.localeCompare(y.name, i18n.locale));
 
   return (
     <div className="jt">
       {!data.liveAvailable && (
         <p className="jt-banner" role="status">
-          Notes en direct indisponibles pour l'instant — fiches affichées avec « note indisponible ».
+          {t("players.banner.liveUnavailable", { na: t("players.ratingUnavailable") })}
         </p>
       )}
       {data.liveAvailable && data.attrsError && (
-        <p className="jt-banner" role="status">Attributs (radar, PAC/TIR/…) indisponibles pour l'instant.</p>
+        <p className="jt-banner" role="status">
+          {t("players.banner.attrsUnavailable", { codes: `${attributeCode(i18n, "pace")}/${attributeCode(i18n, "shooting")}/` })}
+        </p>
       )}
 
       <div className="jt__top">
         <section className="jt-motm ui-card" aria-labelledby={motmTitleId}>
           <h2 id={motmTitleId} className="ui-heading jt-motm__title">
-            Homme du match
-            {data.minute !== null && <span className="jt-motm__minute"> · à la {data.minute}'</span>}
+            {t("players.motm.title")}
+            {data.minute !== null && <span className="jt-motm__minute"> · {t("players.motm.atMinute", { m: data.minute })}</span>}
           </h2>
           {motmPlayer ? (
             <div className="jt-motm__body">
@@ -229,34 +247,33 @@ export function JoueursTab() {
                 onSelect={openPlayer}
               />
               <div className="jt-motm__why">
-                <h3 className="jt-motm__why-title">Pourquoi lui ?</h3>
+                <h3 className="jt-motm__why-title">{t("players.motm.why")}</h3>
                 <ul className="jt-motm__reasons">
-                  {reasons.map((r) => <li key={r}>{r}</li>)}
                   {topItems.map((b) => (
                     <li key={b.label}>
-                      {b.label}{b.count > 1 ? ` ×${b.count}` : ""}{" "}
-                      <span className="jt-motm__pts">{formatPoints(b.points)}</span>
+                      {breakdownLabel(i18n, b.label)}{b.count > 1 ? ` ×${b.count}` : ""}{" "}
+                      <span className="jt-motm__pts">{formatPoints(i18n, b.points)}</span>
                     </li>
                   ))}
-                  {!reasons.length && !topItems.length && <li>Détail du calcul en attente.</li>}
+                  {!topItems.length && <li>{t("players.motm.pending")}</li>}
                 </ul>
                 {data.motm ? (
                   <p className="jt-motm__leader">
-                    <span aria-hidden="true">★ </span>Leader depuis la {data.motm.leader_since_minute}'
-                    {" "}— note {formatRating(data.motm.rating)}
+                    <span aria-hidden="true">★ </span>
+                    {t("players.motm.leader", { m: data.motm.leader_since_minute, r: formatRating(i18n, data.motm.rating) })}
                   </p>
                 ) : (
                   <p className="jt-motm__leader jt-motm__leader--muted">
-                    Sélection provisoire d'après les attributs du match — note indisponible.
+                    {t("players.motm.provisional")}
                   </p>
                 )}
               </div>
             </div>
           ) : (
-            <p className="jt-muted">Pas encore d'homme du match : le match vient de commencer.</p>
+            <p className="jt-muted">{t("players.motm.none")}</p>
           )}
           <p className="jt-motm__foot">
-            Note /10 recalculée chaque minute (base 6,0) — barème transparent.
+            {t("players.motm.foot", { base: i18n.num(6, 1) })}
           </p>
           <ScaleDisclosure />
         </section>
@@ -272,13 +289,13 @@ export function JoueursTab() {
 
       <section className="jt-ratings" aria-labelledby={gridTitleId}>
         <div className="jt-ratings__head">
-          <h2 id={gridTitleId} className="ui-heading">Notes du match</h2>
+          <h2 id={gridTitleId} className="ui-heading">{t("players.grid.title")}</h2>
           <div className="jt-ratings__controls">
-            <RadioPills label="Trier par" options={SORTS} value={sort} onChange={setSort} />
+            <RadioPills label={t("players.sort.label")} options={sortOptions(i18n)} value={sort} onChange={setSort} />
             <RadioPills<TeamFilter>
-              label="Équipe"
+              label={t("players.team.label")}
               options={[
-                { value: "all", label: "Tous" },
+                { value: "all", label: t("players.team.all") },
                 { value: "home", label: homeTeam },
                 { value: "away", label: awayTeam },
               ]}
@@ -288,7 +305,7 @@ export function JoueursTab() {
           </div>
         </div>
         {visible.length ? (
-          <ul className="jt__grid" aria-label={`${visible.length} joueurs`}>
+          <ul className="jt__grid" aria-label={visible.length === 1 ? t("players.grid.countOne") : t("players.grid.count", { n: visible.length })}>
             {visible.map((p, i) => (
               <li key={p.id} className="jt__grid-item">
                 <FcPlayerCard
@@ -303,7 +320,7 @@ export function JoueursTab() {
             ))}
           </ul>
         ) : (
-          <p className="jt-muted">Aucun joueur à afficher.</p>
+          <p className="jt-muted">{t("players.grid.empty")}</p>
         )}
       </section>
     </div>

@@ -5,7 +5,8 @@ import type { PositionFrame } from "../lib/types";
 import { shirtNumber, shortName } from "../lib/matchContext";
 import { activeTagsAt, fetchPlayerTags } from "../lib/playerTagsApi";
 import type { PlayerTagsResponse } from "../lib/playerTagsApi";
-import { fr1, prefersReducedMotion } from "../lib/momentumApi";
+import { num1, prefersReducedMotion } from "../lib/momentumApi";
+import { useT } from "../i18n";
 import type { RosterPlayer } from "../lib/momentumApi";
 
 export interface SeekRequest {
@@ -127,9 +128,13 @@ function PitchMarkings() {
 }
 
 export function PitchView({
-  matchId, homeTeam = "Domicile", awayTeam = "Extérieur", roster, followedPlayerId = null,
+  matchId, homeTeam: homeTeamProp, awayTeam: awayTeamProp, roster, followedPlayerId = null,
   onToggleFollow, onOpenPlayer, seek = null, children,
 }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
+  const homeTeam = homeTeamProp ?? t("live.team.home");
+  const awayTeam = awayTeamProp ?? t("live.team.away");
   const [frames, setFrames] = useState<PositionFrame[]>([]);
   const [playing, setPlaying] = useState(() => !prefersReducedMotion());
   const [speed, setSpeed] = useState<Speed>(1);
@@ -233,13 +238,13 @@ export function PitchView({
   const frame = useMemo(() => interpolatedFrame(frames, playheadMs), [frames, playheadMs]);
 
   const tagNames = useMemo(() => new Map((tags?.players ?? []).map((p) => [p.player_id, p.name])), [tags]);
-  const nameOf = (pid: string) => roster?.get(pid)?.name ?? tagNames.get(pid) ?? `Joueur ${shirtNumber(pid)}`;
+  const nameOf = (pid: string) => roster?.get(pid)?.name ?? tagNames.get(pid) ?? t("live.player.fallback", { num: shirtNumber(pid) });
   const shortLabel = (pid: string) => `#${shirtNumber(pid)} ${shortName(nameOf(pid))}`;
   const teamOf = (pid: string) => (sideOf(pid) === "home" ? homeTeam : awayTeam);
   const ratingText = (pid: string): string | null => {
     const r = roster?.get(pid);
-    if (r?.liveRating != null) return `note ${fr1(r.liveRating)}`;
-    if (r?.fcRating != null) return `note FC ${r.fcRating}`;
+    if (r?.liveRating != null) return t("live.pitch.rating", { value: num1(i18n, r.liveRating) });
+    if (r?.fcRating != null) return t("live.pitch.ratingFc", { value: r.fcRating });
     return null;
   };
 
@@ -249,23 +254,24 @@ export function PitchView({
     const active = activeTagsAt(tags.tags, playheadMs, windowMs);
     const sprinting = new Set(active.filter((t) => t.kind === "sprint" || t.kind === "top_speed").map((t) => t.player_id));
     const lines: { key: string; text: string; kind: string; t: number }[] = [];
-    for (const t of active) {
-      const who = shortName(tagNames.get(t.player_id) ?? roster?.get(t.player_id)?.name ?? `#${shirtNumber(t.player_id)}`);
-      const text = t.kind === "sprint"
-        ? `⚡ SPRINT ${fr1(t.value)} km/h · ${who}`
-        : t.kind === "top_speed"
-          ? `🚀 VITESSE MAX ${fr1(t.value)} km/h · ${who}`
-          : `📏 ${fr1(t.value)} km parcourus · ${who}`;
-      lines.push({ key: `${t.kind}-${t.player_id}-${t.t_ms}`, text, kind: t.kind, t: t.t_ms });
+    for (const tag of active) {
+      const who = shortName(tagNames.get(tag.player_id) ?? roster?.get(tag.player_id)?.name ?? `#${shirtNumber(tag.player_id)}`);
+      const value = num1(i18n, tag.value);
+      const text = tag.kind === "sprint"
+        ? i18n.t("live.tag.sprint", { speed: value, who })
+        : tag.kind === "top_speed"
+          ? i18n.t("live.tag.topSpeed", { speed: value, who })
+          : i18n.t("live.tag.distance", { km: value, who });
+      lines.push({ key: `${tag.kind}-${tag.player_id}-${tag.t_ms}`, text, kind: tag.kind, t: tag.t_ms });
     }
     for (const s of tags.shots) {
       if (s.t_ms <= playheadMs && s.t_ms > playheadMs - windowMs) {
-        lines.push({ key: `shot-${s.player_id}-${s.t_ms}`, text: `🎯 Tir ${Math.round(s.speed_kmh)} km/h · ${shortName(s.name)}`, kind: "shot", t: s.t_ms });
+        lines.push({ key: `shot-${s.player_id}-${s.t_ms}`, text: i18n.t("live.tag.shot", { speed: i18n.num(Math.round(s.speed_kmh)), who: shortName(s.name) }), kind: "shot", t: s.t_ms });
       }
     }
     lines.sort((a, b) => b.t - a.t);
     return { lines: lines.slice(0, MAX_OVERLAY_TAGS), sprinting };
-  }, [tags, showLabels, playheadMs, windowMs, tagNames, roster]);
+  }, [tags, showLabels, playheadMs, windowMs, tagNames, roster, i18n]);
 
   function scheduleHoverClear() {
     if (hoverTimerRef.current !== null) clearTimeout(hoverTimerRef.current);
@@ -285,9 +291,9 @@ export function PitchView({
 
   const heading = (
     <div className="lv-card-head">
-      <h2 id={titleId} className="ui-heading">Terrain en direct</h2>
-      <span className="ui-tag" title="Positions interpolées à partir des événements du match, pas de vision par ordinateur ni de vrai tracking.">
-        tracking synthétique
+      <h2 id={titleId} className="ui-heading">{t("live.pitch.title")}</h2>
+      <span className="ui-tag" title={t("live.pitch.synthTitle")}>
+        {t("live.pitch.synthTag")}
       </span>
     </div>
   );
@@ -296,7 +302,7 @@ export function PitchView({
     return (
       <section className="ui-card lv-pitch-card" aria-labelledby={titleId}>
         {heading}
-        <p className="lv-muted">Lance un match pour voir le terrain animé.</p>
+        <p className="lv-muted">{t("live.pitch.noMatch")}</p>
       </section>
     );
   }
@@ -318,18 +324,18 @@ export function PitchView({
       {frames.length === 0 ? (
         loadError ? (
           <div className="lv-state">
-            <p className="lv-error" role="alert">Impossible de charger les positions de ce match.</p>
-            <button type="button" className="ui-btn" onClick={() => setReloadKey((k) => k + 1)}>Réessayer</button>
+            <p className="lv-error" role="alert">{t("live.pitch.loadError")}</p>
+            <button type="button" className="ui-btn" onClick={() => setReloadKey((k) => k + 1)}>{t("live.retry")}</button>
           </div>
         ) : (
-          <div className="lv-state" role="status"><span className="lv-spinner" aria-hidden="true" /> Chargement des positions…</div>
+          <div className="lv-state" role="status"><span className="lv-spinner" aria-hidden="true" /> {t("live.pitch.loading")}</div>
         )
       ) : (
         <>
           <div
             className={`lv-pitch${followedPlayerId ? " has-follow" : ""}`}
             role="group"
-            aria-label={`Terrain, ${minute}e minute. ${playerIds.length} joueurs. Tab pour parcourir les joueurs, Entrée pour suivre, F pour ouvrir la fiche.`}
+            aria-label={t("live.pitch.aria", { minute, count: playerIds.length })}
           >
             <PitchMarkings />
 
@@ -422,24 +428,24 @@ export function PitchView({
                   if (r?.liveRating != null) {
                     return (
                       <p className="lv-minicard-rating">
-                        Note live <b>{fr1(r.liveRating)}</b>
+                        {t("live.mini.liveRating")} <b>{num1(i18n, r.liveRating)}</b>
                         {r.delta10 != null && Math.abs(r.delta10) >= 0.05 && (
                           <span className={r.delta10 > 0 ? "is-up" : "is-down"}>
-                            {r.delta10 > 0 ? " ▲ +" : " ▼ "}{fr1(r.delta10)} / 10 min
+                            {r.delta10 > 0 ? " ▲ " : " ▼ "}{i18n.signed(r.delta10, 1)} {t("live.mini.perTenMin")}
                           </span>
                         )}
                       </p>
                     );
                   }
-                  if (r?.fcRating != null) return <p className="lv-minicard-rating">Note FC <b>{r.fcRating}</b></p>;
+                  if (r?.fcRating != null) return <p className="lv-minicard-rating">{t("live.mini.fcRating")} <b>{r.fcRating}</b></p>;
                   return null;
                 })()}
                 <p className="lv-minicard-hint">
-                  {inspectId === followedPlayerId ? "Clic : ne plus suivre" : "Clic : suivre ce joueur"}
+                  {inspectId === followedPlayerId ? t("live.mini.unfollow") : t("live.mini.follow")}
                 </p>
                 {onOpenPlayer && hoverId === inspectId && (
                   <button type="button" className="lv-minicard-link" tabIndex={-1} onClick={() => onOpenPlayer(inspectId)}>
-                    Fiche →
+                    {t("live.mini.sheet")}
                   </button>
                 )}
               </div>
@@ -451,11 +457,11 @@ export function PitchView({
               type="button"
               className="ui-btn lv-btn-icon"
               onClick={() => setPlaying((p) => !p)}
-              aria-label={playing ? "Mettre en pause" : "Lecture"}
+              aria-label={playing ? t("live.pitch.pause") : t("live.pitch.play")}
             >
               <span aria-hidden="true">{playing ? "⏸" : "▶"}</span>
             </button>
-            <div className="lv-segment" role="group" aria-label="Vitesse de lecture">
+            <div className="lv-segment" role="group" aria-label={t("live.pitch.speed")}>
               {SPEEDS.map((s) => (
                 <button
                   key={s}
@@ -469,14 +475,14 @@ export function PitchView({
               ))}
             </div>
             <label className="lv-scrub">
-              <span className="ui-sr-only">Minute de jeu</span>
+              <span className="ui-sr-only">{t("live.pitch.minuteLabel")}</span>
               <input
                 type="range"
                 min={0}
                 max={Math.max(totalMs, 1)}
                 step={1000}
                 value={Math.min(playheadMs, totalMs)}
-                aria-valuetext={`${minute}e minute`}
+                aria-valuetext={t("live.pitch.minuteText", { minute })}
                 onChange={(e) => setPlayheadMs(Number(e.target.value))}
               />
             </label>
@@ -486,13 +492,13 @@ export function PitchView({
               className={`ui-pill${showLabels ? " is-solid is-home" : ""}`}
               aria-pressed={showLabels}
               onClick={() => setShowLabels((v) => !v)}
-              title={tagsFailed ? "Vitesses indisponibles pour ce match" : "Afficher sprints, vitesses de tir et porteur du ballon"}
+              title={tagsFailed ? t("live.pitch.labelsUnavailable") : t("live.pitch.labelsTitle")}
             >
-              Étiquettes
+              {t("live.pitch.labels")}
             </button>
           </div>
           <p className="lv-disclosure">
-            Positions synthétiques interpolées à partir des événements — pas de vision par ordinateur.
+            {t("live.pitch.disclosure")}
           </p>
         </>
       )}

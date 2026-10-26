@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { compareMatch } from "../lib/api";
 import type { CompareResponse } from "../lib/api";
-import { personaFr } from "../lib/frLabels";
+import { useT } from "../i18n";
+import { personaLabel } from "../lib/panelLabels";
 import type { LensSummary } from "../lib/types";
 
 interface Props {
@@ -12,6 +13,8 @@ interface Props {
 const PERSONAS = ["casual_fan", "analyst", "player_tracker"] as const;
 
 export function ComparePersonas({ matchId, lenses }: Props) {
+  const i18n = useT();
+  const { t } = i18n;
   const [personaA, setPersonaA] = useState<string>("casual_fan");
   const [personaB, setPersonaB] = useState<string>("analyst");
   const [lensIdA, setLensIdA] = useState<string>("");
@@ -26,7 +29,7 @@ export function ComparePersonas({ matchId, lenses }: Props) {
     setError(null);
     try {
       const r = await compareMatch(matchId, personaA, personaB, {
-        lensIdA: lensIdA || null, lensIdB: lensIdB || null,
+        lensIdA: lensIdA || null, lensIdB: lensIdB || null, locale: i18n.locale,
       });
       setResult(r);
     } catch (e) {
@@ -40,51 +43,48 @@ export function ComparePersonas({ matchId, lenses }: Props) {
   return (
     <section className="feed-panel compare-personas-panel">
       <div className="panel-heading">
-        <h2>Comparer les profils</h2>
-        <span
-          className="panel-tag"
-          title="Les insights actuels du même match, personnalisés de deux façons côte à côte -- le même appel de récap que la vue à profil unique, simplement lancé deux fois en parallèle."
-        >
-          écran partagé
+        <h2>{t("panels.compare.title")}</h2>
+        <span className="panel-tag" title={t("panels.compare.tagTitle")}>
+          {t("panels.compare.tag")}
         </span>
       </div>
 
       {!matchId ? (
         <div className="empty-state">
           <span className="empty-icon" aria-hidden="true">⇄</span>
-          <p>Lance d'abord un match, puis compare deux façons de le raconter côte à côte.</p>
+          <p>{t("panels.compare.empty")}</p>
         </div>
       ) : (
         <>
           <div className="whatif-knob-row compare-personas-controls">
             <label>
-              Gauche
+              {t("panels.compare.left")}
               <select value={personaA} onChange={(e) => setPersonaA(e.target.value)}>
-                {PERSONAS.map((p) => <option key={p} value={p}>{personaFr(p)}</option>)}
+                {PERSONAS.map((p) => <option key={p} value={p}>{personaLabel(i18n, p)}</option>)}
               </select>
             </label>
             <label>
-              Lentille (gauche)
+              {t("panels.compare.lensLeft")}
               <select value={lensIdA} onChange={(e) => setLensIdA(e.target.value)}>
-                <option value="">Aucune</option>
+                <option value="">{t("panels.compare.none")}</option>
                 {lenses.map((l) => <option key={l.lens_id} value={l.lens_id}>{l.attributed_style_of}</option>)}
               </select>
             </label>
             <label>
-              Droite
+              {t("panels.compare.right")}
               <select value={personaB} onChange={(e) => setPersonaB(e.target.value)}>
-                {PERSONAS.map((p) => <option key={p} value={p}>{personaFr(p)}</option>)}
+                {PERSONAS.map((p) => <option key={p} value={p}>{personaLabel(i18n, p)}</option>)}
               </select>
             </label>
             <label>
-              Lentille (droite)
+              {t("panels.compare.lensRight")}
               <select value={lensIdB} onChange={(e) => setLensIdB(e.target.value)}>
-                <option value="">Aucune</option>
+                <option value="">{t("panels.compare.none")}</option>
                 {lenses.map((l) => <option key={l.lens_id} value={l.lens_id}>{l.attributed_style_of}</option>)}
               </select>
             </label>
             <button className="ask-button" onClick={handleRun} disabled={busy}>
-              {busy ? <span className="spinner" /> : "Comparer"}
+              {busy ? <span className="spinner" /> : t("panels.compare.run")}
             </button>
           </div>
 
@@ -93,11 +93,11 @@ export function ComparePersonas({ matchId, lenses }: Props) {
           {result && (
             <div className="compare-personas-result commentary-in">
               <div className="compare-personas-column">
-                <h3>{personaFr(result.left.persona)}{result.left.lens_id ? ` · ${result.left.lens_id}` : ""}</h3>
+                <h3>{personaLabel(i18n, result.left.persona)}{result.left.lens_id ? ` · ${result.left.lens_id}` : ""}</h3>
                 <p>{result.left.text}</p>
               </div>
               <div className="compare-personas-column">
-                <h3>{personaFr(result.right.persona)}{result.right.lens_id ? ` · ${result.right.lens_id}` : ""}</h3>
+                <h3>{personaLabel(i18n, result.right.persona)}{result.right.lens_id ? ` · ${result.right.lens_id}` : ""}</h3>
                 <p>{result.right.text}</p>
               </div>
             </div>

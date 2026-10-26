@@ -2,6 +2,7 @@
 //   GET /matches/{id}/live-ratings              -> LiveRatingsResponse (note /10)
 //   GET /matches/{id}/player-ratings            -> PlayerRatingsResponse (attributes 0-99)
 //   GET /matches/{id}/players/{pid}/heatmap     -> PlayerHeatmapResponse
+import type { I18n } from "../i18n";
 import { shortName } from "./matchContext";
 
 export type Side = "home" | "away";
@@ -136,50 +137,43 @@ export const ATTRIBUTE_ORDER: readonly AttributeKey[] = [
   "pace", "shooting", "passing", "defending", "work_rate", "involvement",
 ];
 
-export const ATTRIBUTE_META: Record<AttributeKey, { code: string; label: string }> = {
-  pace: { code: "PAC", label: "Vitesse" },
-  shooting: { code: "TIR", label: "Tir" },
-  passing: { code: "PAS", label: "Passe" },
-  defending: { code: "DEF", label: "Défense" },
-  work_rate: { code: "VOL", label: "Volume" },
-  involvement: { code: "IMP", label: "Implication" },
-};
+/** Short code shown on cards / radar axes ("PAC", "SHO"…), per locale. */
+export function attributeCode(i18n: I18n, key: AttributeKey): string {
+  return i18n.t(`players.attr.${key}.code`);
+}
 
-export const POSITION_LABELS: Record<PositionCode, string> = {
-  GK: "Gardien",
-  CB: "Défenseur central",
-  FB: "Latéral",
-  CM: "Milieu",
-  WM: "Milieu excentré",
-  FW: "Attaquant",
-};
+/** Long attribute name ("Pace", "Vitesse"…), per locale. */
+export function attributeLabel(i18n: I18n, key: AttributeKey): string {
+  return i18n.t(`players.attr.${key}.label`);
+}
+
+const POSITION_CODES: readonly PositionCode[] = ["GK", "CB", "FB", "CM", "WM", "FW"];
 
 export function asPosition(value: string | null | undefined): PositionCode | null {
-  return value && value in POSITION_LABELS ? (value as PositionCode) : null;
+  return value && (POSITION_CODES as readonly string[]).includes(value) ? (value as PositionCode) : null;
 }
 
-export function positionLabel(pos: PositionCode | null): string {
-  return pos ? POSITION_LABELS[pos] : "Poste inconnu";
+/** Long position name ("Centre-back", "Défenseur central"…); "unknown position" when null. */
+export function positionLabel(i18n: I18n, pos: PositionCode | null): string {
+  return pos ? i18n.t(`players.pos.${pos}.label`) : i18n.t("players.pos.unknown");
 }
 
-// signDisplay "negative": values that round to zero print "0,0", never "-0,0".
-const FR_1 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "negative" });
-const FR_2 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 2 });
-
-/** 8.4 -> "8,4" */
-export function formatRating(rating: number): string {
-  return FR_1.format(rating);
+/** Short position code for the card ("CB" in en, "DC" in fr…); a dash when null. */
+export function positionCode(i18n: I18n, pos: PositionCode | null): string {
+  return pos ? i18n.t(`players.pos.${pos}.code`) : "—";
 }
 
-/** Signed points: 0.15 -> "+0,15", -0.3 -> "−0,3"; anything that rounds to zero -> "0,0". */
-export function formatPoints(points: number): string {
+/** 8.4 -> "8,4" (fr) / "8.4" (en). */
+export function formatRating(i18n: I18n, rating: number): string {
+  return i18n.num(rating, 1);
+}
+
+/** Signed points with one or two decimals: 0.15 -> "+0,15", -0.3 -> "−0,3";
+ * anything that rounds to zero -> "0,0". */
+export function formatPoints(i18n: I18n, points: number): string {
   const rounded = Math.round(points * 100) / 100;
-  const abs = FR_2.format(Math.abs(rounded));
-  return `${rounded < 0 ? "−" : rounded > 0 ? "+" : ""}${abs}`;
-}
-
-export function formatNumber(value: number, digits = 1): string {
-  return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: digits, signDisplay: "negative" }).format(value);
+  const decimals = Number.isInteger(Math.round(rounded * 100) / 10) ? 1 : 2;
+  return i18n.signed(rounded, decimals);
 }
 
 /** "Rafael Donnelly" -> "R. DONNELLY". Keeps the initial: the simulator

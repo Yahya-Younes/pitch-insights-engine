@@ -1,5 +1,6 @@
 import { shirtNumber, shortName } from "../lib/matchContext";
 import type { RosterPlayer, RosterStatus, Side } from "../lib/momentumApi";
+import { useT } from "../i18n";
 
 interface Props {
   players: RosterPlayer[];
@@ -26,13 +27,14 @@ function bySortKey(a: RosterPlayer, b: RosterPlayer): number {
 
 /** Two team columns of [number + "R. Donnelly"] chips; clicking one follows that player. */
 export function LineupChips({ players, status, homeTeam, awayTeam, followedPlayerId, onToggleFollow }: Props) {
+  const { t } = useT();
   if (status === "loading" && players.length === 0) {
-    return <p className="lv-muted lv-lineup-state" role="status">Chargement des compositions…</p>;
+    return <p className="lv-muted lv-lineup-state" role="status">{t("live.lineup.loading")}</p>;
   }
   if (players.length === 0) {
     return (
       <p className="lv-muted lv-lineup-state">
-        {status === "error" ? "Compositions indisponibles pour ce match." : "Aucune composition pour l'instant."}
+        {status === "error" ? t("live.lineup.error") : t("live.lineup.none")}
       </p>
     );
   }
@@ -40,7 +42,7 @@ export function LineupChips({ players, status, homeTeam, awayTeam, followedPlaye
   const column = (side: Side, teamName: string) => {
     const list = players.filter((p) => p.team === side).sort(bySortKey);
     return (
-      <div className={`lv-lineup-col is-${side}`} role="group" aria-label={`Composition ${teamName}`}>
+      <div className={`lv-lineup-col is-${side}`} role="group" aria-label={t("live.lineup.aria", { team: teamName })}>
         <h3 className="lv-lineup-team">{teamName}</h3>
         <ul className="lv-lineup-list">
           {list.map((p) => {
@@ -52,7 +54,7 @@ export function LineupChips({ players, status, homeTeam, awayTeam, followedPlaye
                   type="button"
                   className={`lv-chip${followed ? " is-followed" : ""}`}
                   aria-pressed={followed}
-                  aria-label={`#${num} ${p.name}${p.position ? `, ${p.position}` : ""} — ${followed ? "ne plus suivre" : "suivre"}`}
+                  aria-label={`#${num} ${p.name}${p.position ? `, ${p.position}` : ""} — ${followed ? t("live.lineup.unfollow") : t("live.lineup.follow")}`}
                   onClick={() => onToggleFollow(p.playerId)}
                 >
                   <span className="lv-chip-num" aria-hidden="true">{num}</span>

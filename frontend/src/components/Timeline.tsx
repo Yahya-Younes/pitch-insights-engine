@@ -1,7 +1,8 @@
 import type { CSSProperties } from "react";
 import type { RenderPayload } from "../lib/types";
 import { clockToSeconds, themeFor } from "../lib/triggerTheme";
-import { triggerLabelFr } from "../lib/momentumApi";
+import { triggerLabel } from "../lib/momentumApi";
+import { useT } from "../i18n";
 
 interface Props {
   payloads: RenderPayload[];
@@ -11,18 +12,19 @@ interface Props {
 
 /** Scrubbable strip of every insight so far, positioned by game clock. */
 export function Timeline({ payloads, selectedId, onSelect }: Props) {
+  const i18n = useT();
   if (payloads.length === 0) return null;
 
   const maxSeconds = Math.max(300, ...payloads.map((p) => clockToSeconds(p.game_clock)));
 
   return (
-    <nav className="lv-timeline" aria-label="Chronologie des insights">
+    <nav className="lv-timeline" aria-label={i18n.t("live.timeline.aria")}>
       <div className="lv-timeline-track">
         {payloads.map((p) => {
           const pct = Math.min(100, (clockToSeconds(p.game_clock) / maxSeconds) * 100);
           const theme = themeFor(p.graphic_type);
           const isSelected = p.render_id === selectedId;
-          const label = `${p.game_clock} — ${triggerLabelFr(p.graphic_type)}`;
+          const label = `${p.game_clock} — ${triggerLabel(i18n, p.graphic_type)}`;
           return (
             <button
               key={p.render_id}

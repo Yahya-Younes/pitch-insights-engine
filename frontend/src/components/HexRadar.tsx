@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ATTRIBUTE_META, ATTRIBUTE_ORDER, type PlayerAttributes } from "../lib/playersTypes";
+import { useT } from "../i18n";
+import { ATTRIBUTE_ORDER, attributeCode, attributeLabel, type PlayerAttributes } from "../lib/playersTypes";
 import "./HexRadar.css";
 
 export interface RadarSeries {
@@ -78,11 +79,15 @@ export function HexRadar({ series, size = 260, className }: HexRadarProps) {
   const shown = series.slice(0, 2);
   const target = shown.flatMap((s) => ATTRIBUTE_ORDER.map((k) => s.values[k]));
   const tweened = useTweened(target);
+  const i18n = useT();
 
   const label =
-    "Radar des attributs (sur 99). " +
+    `${i18n.t("players.radar.label")} ` +
     shown
-      .map((s) => `${s.name} : ${ATTRIBUTE_ORDER.map((k) => `${ATTRIBUTE_META[k].label} ${s.values[k]}`).join(", ")}`)
+      .map((s) => i18n.t("players.radar.series", {
+        name: s.name,
+        values: ATTRIBUTE_ORDER.map((k) => `${attributeLabel(i18n, k)} ${s.values[k]}`).join(", "),
+      }))
       .join(". ");
 
   return (
@@ -118,7 +123,7 @@ export function HexRadar({ series, size = 260, className }: HexRadarProps) {
         const [x, y] = point(i, R + 26);
         return (
           <g key={k} className="hex-radar__label" aria-hidden="true">
-            <text x={x} y={y - 4} textAnchor="middle" className="hex-radar__code">{ATTRIBUTE_META[k].code}</text>
+            <text x={x} y={y - 4} textAnchor="middle" className="hex-radar__code">{attributeCode(i18n, k)}</text>
             <text x={x} y={y + 12} textAnchor="middle" className="hex-radar__values">
               {shown.map((s, si) => (
                 <tspan key={s.id} className={`hex-radar__value hex-radar__value--${s.tone}`}>

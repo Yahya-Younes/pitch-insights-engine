@@ -3,15 +3,18 @@
 // the Tactical Evolution panel. Depth is left-to-right from this team's
 // own attacking direction -- "defensive"/"attacking" here means relative
 // to the team, not an absolute pitch side.
-const DEPTH_LABELS = ["sa surface", "défense profonde", "tiers défensif", "milieu de terrain", "tiers offensif", "dernier tiers"];
-const WIDTH_LABELS = ["couloir gauche", "axe gauche", "axe droit", "couloir droit"];
+import type { I18n } from "../i18n";
 
-export function describeZone(zoneLabel: string): string {
+const DEPTHS = 6;
+const WIDTHS = 4;
+
+export function describeZone(i18n: I18n, zoneLabel: string): string {
   const match = /^z(\d+)_(\d+)$/.exec(zoneLabel);
   if (!match) return zoneLabel;
   const col = Number(match[1]);
   const row = Number(match[2]);
-  const depth = DEPTH_LABELS[col] ?? zoneLabel;
-  const width = WIDTH_LABELS[row] ?? "";
-  return width ? `${depth}, ${width}` : depth;
+  if (col >= DEPTHS) return zoneLabel;
+  const depth = i18n.t(`panels.zone.depth.${col}`);
+  if (row >= WIDTHS) return depth;
+  return i18n.t("panels.zone.format", { depth, width: i18n.t(`panels.zone.width.${row}`) });
 }

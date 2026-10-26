@@ -1,5 +1,6 @@
 import { shortName } from "../lib/matchContext";
 import type { PersonalizedMessage } from "../lib/types";
+import { useT } from "../i18n";
 import { VoiceButton } from "./VoiceButton";
 
 const PERSONA_AVATAR: Record<string, string> = {
@@ -8,11 +9,8 @@ const PERSONA_AVATAR: Record<string, string> = {
   player_tracker: "🎯",
 };
 
-const PERSONA_LABEL: Record<string, string> = {
-  casual_fan: "Fan",
-  analyst: "Analyste",
-  player_tracker: "Joueur suivi",
-};
+/** Same names as the persona tabs ("shell.persona.<value>"). */
+const KNOWN_PERSONAS: ReadonlySet<string> = new Set(["casual_fan", "analyst", "player_tracker"]);
 
 interface Props {
   messages: PersonalizedMessage[];
@@ -25,17 +23,18 @@ interface Props {
 }
 
 function mentions(text: string, term: string): boolean {
-  const hay = text.toLocaleLowerCase("fr");
+  const hay = text.toLocaleLowerCase();
   const short = shortName(term);
-  return hay.includes(term.toLocaleLowerCase("fr")) || (short !== term && hay.includes(short.toLocaleLowerCase("fr")));
+  return hay.includes(term.toLocaleLowerCase()) || (short !== term && hay.includes(short.toLocaleLowerCase()));
 }
 
 export function PersonaFeed({ messages, focusTerm = null, autoPlayLatest = true, emptyText }: Props) {
+  const { t } = useT();
   if (messages.length === 0) {
     return (
       <div className="lv-empty">
         <span className="lv-empty-icon" aria-hidden="true">💬</span>
-        <p>{emptyText ?? "Pas encore de commentaire. Le Concierge prend la parole dès le premier insight."}</p>
+        <p>{emptyText ?? t("live.comment.emptyNone")}</p>
       </div>
     );
   }
@@ -48,7 +47,7 @@ export function PersonaFeed({ messages, focusTerm = null, autoPlayLatest = true,
   const latestIndex = messages.length - 1;
 
   return (
-    <ul className="lv-feed" aria-live="polite" aria-relevant="additions" aria-label="Commentaire en direct">
+    <ul className="lv-feed" aria-live="polite" aria-relevant="additions" aria-label={t("live.feed.aria")}>
       {ordered.map(({ m, i }) => {
         const focused = term !== null && mentions(m.text, term);
         return (
@@ -56,8 +55,8 @@ export function PersonaFeed({ messages, focusTerm = null, autoPlayLatest = true,
             <span className="lv-feed-avatar" aria-hidden="true">{PERSONA_AVATAR[m.persona] ?? "🗣️"}</span>
             <div className="lv-feed-bubble">
               <div className="lv-feed-meta">
-                <span className="lv-feed-persona">{PERSONA_LABEL[m.persona] ?? m.persona.replace(/_/g, " ")}</span>
-                {focused && <span className="ui-pill is-home lv-feed-focus">Focus</span>}
+                <span className="lv-feed-persona">{KNOWN_PERSONAS.has(m.persona) ? t(`shell.persona.${m.persona}`) : m.persona.replace(/_/g, " ")}</span>
+                {focused && <span className="ui-pill is-home lv-feed-focus">{t("live.feed.focus")}</span>}
               </div>
               <p>{m.text}</p>
               <VoiceButton audioBase64={m.audio_base64} autoPlay={autoPlayLatest && i === latestIndex} className="lv-btn-sm" />

@@ -4,6 +4,7 @@ import { fetchMatchStatus, resumeMatch, runMatch } from "../lib/api";
 import { LOCALES } from "../lib/locales";
 import { PersonaTabs } from "./PersonaTabs";
 import { LensPicker } from "./LensPicker";
+import { useT } from "../i18n";
 
 interface Props {
   lenses: LensSummary[];
@@ -14,6 +15,7 @@ interface Props {
 
 
 export function MatchControls({ lenses, onMatchStarted, defaultLocale = "en" }: Props) {
+  const { t } = useT();
   const [persona, setPersona] = useState<Persona>("casual_fan");
   const [lensId, setLensId] = useState<string | null>(null);
   const [locale, setLocale] = useState<Locale>(defaultLocale);
@@ -83,17 +85,17 @@ export function MatchControls({ lenses, onMatchStarted, defaultLocale = "en" }: 
     <div className="control-deck">
       <div className="control-row">
         <div className="control-label-row">
-          <span className="control-label">Viewer Persona</span>
+          <span className="control-label">{t("shell.controls.persona")}</span>
         </div>
-        <PersonaTabs value={persona} onChange={setPersona} />
+        <PersonaTabs value={persona} onChange={setPersona} label={t("shell.controls.persona")} />
       </div>
 
       <div className="control-row">
         <div className="control-label-row">
-          <span className="control-label">Commentary Language</span>
-          <span className="control-hint">the live commentary panel only -- the broadcast overlay stays in English, like a canonical studio feed</span>
+          <span className="control-label">{t("shell.controls.language")}</span>
+          <span className="control-hint">{t("shell.controls.languageHint")}</span>
         </div>
-        <div className="locale-tabs" role="tablist" aria-label="Commentary language">
+        <div className="locale-tabs" role="tablist" aria-label={t("shell.controls.language")}>
           {LOCALES.map((l) => (
             <button
               key={l.value}
@@ -111,8 +113,8 @@ export function MatchControls({ lenses, onMatchStarted, defaultLocale = "en" }: 
 
       <div className="control-row">
         <div className="control-label-row">
-          <span className="control-label">Coach Lens</span>
-          <span className="control-hint">reframes which insights lead &amp; how they're told</span>
+          <span className="control-label">{t("shell.controls.lens")}</span>
+          <span className="control-hint">{t("shell.controls.lensHint")}</span>
         </div>
         <LensPicker lenses={lenses} selected={lensId} onSelect={setLensId} />
       </div>
@@ -122,32 +124,32 @@ export function MatchControls({ lenses, onMatchStarted, defaultLocale = "en" }: 
           {busy ? (
             <>
               <span className="spinner" />
-              Generating match...
+              {t("shell.controls.generating")}
             </>
           ) : (
             <>
               <span className="run-icon" aria-hidden="true">▶</span>
-              Run New Match
+              {t("shell.controls.run")}
             </>
           )}
         </button>
-        <label className="fault-toggle" title="Deliberately corrupts the first insight's narration with a fabricated stat, so you can watch the live grounding check catch and auto-correct it.">
+        <label className="fault-toggle" title={t("shell.controls.faultTitle")}>
           <input type="checkbox" checked={injectFault} onChange={(e) => setInjectFault(e.target.checked)} />
-          Demo: inject a false claim
+          {t("shell.controls.fault")}
         </label>
-        <label className="fault-toggle" title="Deliberately crashes mid-match so you can watch the workflow resume from its last checkpoint instead of losing the run -- a live demo of real crash recovery, not just a claim.">
+        <label className="fault-toggle" title={t("shell.controls.crashTitle")}>
           <input type="checkbox" checked={injectCrash} onChange={(e) => setInjectCrash(e.target.checked)} />
-          Demo: crash + recover mid-match
+          {t("shell.controls.crash")}
         </label>
         {crashedMatchId && (
           <button className="run-button resume-button" onClick={handleResume} disabled={resuming}>
             {resuming ? (
               <>
                 <span className="spinner" />
-                Resuming from checkpoint...
+                {t("shell.controls.resuming")}
               </>
             ) : (
-              <>⟲ Resume crashed match from checkpoint</>
+              <><span aria-hidden="true">⟲</span> {t("shell.controls.resume")}</>
             )}
           </button>
         )}

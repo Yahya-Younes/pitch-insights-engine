@@ -102,10 +102,20 @@ export interface LiveStatusResponse {
   away_team?: string;
 }
 
+/** A failed request, kept structured so its wording follows the UI language. */
+export interface LiveError {
+  /** HTTP status when the server answered, else null. */
+  status: number | null;
+  /** The API could not be reached at all. */
+  network: boolean;
+  /** Raw message, shown only when nothing better is known. */
+  message: string;
+}
+
 /** One polled endpoint: last good payload (kept across transient failures) + last error. */
 export interface Resource<T> {
   data: T | null;
-  error: string | null;
+  error: LiveError | null;
 }
 
 export type StatsWindow = "match" | "last15";

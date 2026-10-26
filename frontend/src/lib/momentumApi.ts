@@ -4,6 +4,7 @@
 //   GET /matches/{id}/live-ratings    (may 404 on older backends -- optional)
 //   GET /matches/{id}/player-tags     (fallback roster names only)
 import { useEffect, useMemo, useState } from "react";
+import type { I18n } from "../i18n";
 import { fetchPlayerTags } from "./playerTagsApi";
 import type { DataPoint, RenderPayload } from "./types";
 
@@ -220,16 +221,18 @@ export function useLiveRoster(matchId: string | null): LiveRoster {
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
-// signDisplay "negative": values that round to zero print "0,0", never "-0,0".
-const FR_1 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1, signDisplay: "negative" });
-const FR_2 = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2, signDisplay: "negative" });
-
-export function fr1(n: number): string {
-  return FR_1.format(n);
+/** Locale-aware fixed-decimal number; values that round to zero print "0,0"
+ * / "0.0", never "-0,0". */
+export function fmtNum(i18n: I18n, n: number, decimals: number): string {
+  return i18n.num(Number(n.toFixed(decimals)) || 0, decimals);
 }
 
-export function fr2(n: number): string {
-  return FR_2.format(n);
+export function num1(i18n: I18n, n: number): string {
+  return fmtNum(i18n, n, 1);
+}
+
+export function num2(i18n: I18n, n: number): string {
+  return fmtNum(i18n, n, 2);
 }
 
 /** "63:12" -> 63 (match minute, 0-based like the clock). */
@@ -249,20 +252,15 @@ export function payloadTeam(points: DataPoint[]): Side | null {
   return team === "home" || team === "away" ? team : null;
 }
 
-/** French labels for the broadcaster's trigger types. */
-const TRIGGER_FR: Record<string, string> = {
-  milestone: "But",
-  pressure_spike: "Pressing",
-  chaos_shift: "Contrôle / chaos",
-  rhythm_change: "Rythme",
-  xt_surge: "Poussée offensive",
-  referee_decision: "Arbitrage",
-  tendency_match: "Tendance confirmée",
-  tendency_break: "Rupture de tendance",
-};
+/** Broadcaster trigger types that have a translated label ("live.trigger.*"). */
+const TRIGGER_TYPES: ReadonlySet<string> = new Set([
+  "milestone", "goal", "pressure_spike", "chaos_shift", "rhythm_change", "xt_surge",
+  "referee_decision", "tendency_match", "tendency_break",
+]);
 
-export function triggerLabelFr(graphicType: string): string {
-  return TRIGGER_FR[graphicType] ?? "Insight";
+/** Translated label for a broadcaster trigger type ("Insight" when unknown). */
+export function triggerLabel(i18n: I18n, graphicType: string): string {
+  return i18n.t(TRIGGER_TYPES.has(graphicType) ? `live.trigger.${graphicType}` : "live.trigger.default");
 }
 
 /** Trigger types worth surfacing as "temps forts". */

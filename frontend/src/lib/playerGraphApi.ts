@@ -2,6 +2,7 @@
 // (service/routers/player_graph.py, agents/analyst0/player_graph.py).
 // Types, fetchers and a small per-params response cache for the Relations tab.
 
+import type { I18n } from "../i18n";
 import { shortName as initialName } from "./matchContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -162,44 +163,42 @@ export type GraphSelection =
   | { kind: "pair"; a: string; b: string; edge: "pass" | "duel" }
   | null;
 
-const nf = new Map<number, Intl.NumberFormat>();
+/** Signed xT in the active locale, e.g. "+0,21 xT" / "+0.21 xT"; values that
+ * round to zero print without a sign. */
+export function fmtXt(i18n: I18n, v: number): string {
+  return `${i18n.signed(v, 2)} xT`;
+}
 
-/** French number formatting ("0,71", "1 204"). */
-export function fmtNum(v: number, digits = 0): string {
-  let f = nf.get(digits);
-  if (!f) {
-    f = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: digits, maximumFractionDigits: digits });
-    nf.set(digits, f);
+const pluralRules = new Map<string, Intl.PluralRules>();
+
+/** "one" / "other" for a count in the active locale (French treats 0 as singular). */
+export function pluralForm(i18n: I18n, n: number): "one" | "other" {
+  let rules = pluralRules.get(i18n.locale);
+  if (!rules) {
+    rules = new Intl.PluralRules(i18n.locale);
+    pluralRules.set(i18n.locale, rules);
   }
-  return f.format(roundClean(v, digits));
+  return rules.select(n) === "one" ? "one" : "other";
 }
 
-/** Rounds to `digits` decimals and drops the sign of anything that rounds to
- * zero, so -0.001 prints "0,00" rather than "-0,00". */
-function roundClean(v: number, digits: number): number {
-  const p = 10 ** digits;
-  const r = Math.round(v * p) / p;
-  return r === 0 ? 0 : r;
-}
-
-/** Signed xT, e.g. "+0,21 xT"; values that round to zero print "0,00 xT". */
-export function fmtXt(v: number): string {
-  const r = roundClean(v, 2);
-  const sign = r > 0 ? "+" : r < 0 ? "−" : "";
-  return `${sign}${fmtNum(Math.abs(r), 2)} xT`;
+/** Picks the ".one" / ".other" variant of a "{n} …" key for a count. */
+export function countLabel(i18n: I18n, key: string, n: number): string {
+  return i18n.t(`${key}.${pluralForm(i18n, n)}`, { n: i18n.num(n) });
 }
 
 /** Short display name: "R. Donnelly" (the simulator reuses surnames within a
- * squad, so the initial is kept), or "N°10" when the API only knows the id. */
-export function shortName(node: { id: string; name: string } | undefined, fallbackId = ""): string {
-  if (!node) return fallbackId ? shortFromId(fallbackId) : "?";
-  if (!node.name || node.name === node.id) return shortFromId(node.id);
+ * squad, so the initial is kept), or a shirt-number label when the API only knows the id. */
+export function shortName(
+  i18n: I18n, node: { id: string; name: string } | undefined, fallbackId = "",
+): string {
+  if (!node) return fallbackId ? shortFromId(i18n, fallbackId) : "?";
+  if (!node.name || node.name === node.id) return shortFromId(i18n, node.id);
   return initialName(node.name);
 }
 
-function shortFromId(id: string): string {
+function shortFromId(i18n: I18n, id: string): string {
   const num = id.split("_").pop();
-  return num && /^\d+$/.test(num) ? `N°${num}` : id;
+  return num && /^\d+$/.test(num) ? i18n.t("relations.shirtNo", { n: num }) : id;
 }
 
 export function edgeKey(e: { kind: string; source: string; target: string }): string {

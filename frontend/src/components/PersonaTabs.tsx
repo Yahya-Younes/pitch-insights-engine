@@ -1,6 +1,7 @@
 import { useRef } from "react";
 import type { KeyboardEvent } from "react";
 import type { Persona } from "../lib/types";
+import { useT } from "../i18n";
 
 interface Props {
   value: Persona;
@@ -10,14 +11,16 @@ interface Props {
   label?: string;
 }
 
-const PERSONAS: { value: Persona; label: string; description: string }[] = [
-  { value: "casual_fan", label: "Fan", description: "Les temps forts, en langage simple" },
-  { value: "analyst", label: "Analyste", description: "Chaque insight, chiffres bruts" },
-  { value: "player_tracker", label: "Joueur suivi", description: "Filtré sur un joueur" },
+/** Labels come from "shell.persona.<value>" and "shell.persona.<value>.desc". */
+const PERSONAS: readonly { value: Persona }[] = [
+  { value: "casual_fan" },
+  { value: "analyst" },
+  { value: "player_tracker" },
 ];
 
 /** Persona switch rendered as a pill radio group (arrow keys move the choice). */
-export function PersonaTabs({ value, onChange, counts, label = "Profil de commentaire" }: Props) {
+export function PersonaTabs({ value, onChange, counts, label }: Props) {
+  const { t } = useT();
   const refs = useRef<(HTMLButtonElement | null)[]>([]);
 
   function onKeyDown(e: KeyboardEvent<HTMLButtonElement>, index: number) {
@@ -33,7 +36,7 @@ export function PersonaTabs({ value, onChange, counts, label = "Profil de commen
   }
 
   return (
-    <div className="lv-persona-tabs" role="radiogroup" aria-label={label}>
+    <div className="lv-persona-tabs" role="radiogroup" aria-label={label ?? t("shell.persona.group")}>
       {PERSONAS.map((p, i) => {
         const active = value === p.value;
         const count = counts?.[p.value];
@@ -48,10 +51,10 @@ export function PersonaTabs({ value, onChange, counts, label = "Profil de commen
             className={`ui-pill${active ? " is-solid is-home" : ""}`}
             onClick={() => onChange(p.value)}
             onKeyDown={(e) => onKeyDown(e, i)}
-            title={p.description}
+            title={t(`shell.persona.${p.value}.desc`)}
           >
-            {p.label}
-            {count !== undefined && <span className="lv-persona-count" aria-label={`${count} messages`}>{count}</span>}
+            {t(`shell.persona.${p.value}`)}
+            {count !== undefined && <span className="lv-persona-count" aria-label={t("shell.persona.count", { n: count })}>{count}</span>}
           </button>
         );
       })}

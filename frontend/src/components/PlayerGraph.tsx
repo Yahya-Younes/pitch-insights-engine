@@ -4,7 +4,8 @@ import {
   computeForceLayout, computePitchLayout, curvedEdgePath, interpolatePositions, pitchRect, radiusForTouches,
 } from "../lib/forceLayout";
 import type { LayoutBox, LayoutLink, LayoutNode, Point } from "../lib/forceLayout";
-import { edgeKey, fmtNum, fmtXt, shortName } from "../lib/playerGraphApi";
+import { useT } from "../i18n";
+import { countLabel, edgeKey, fmtXt, shortName } from "../lib/playerGraphApi";
 import type { GraphEdge, GraphNode, GraphSelection, PlayerGraphResponse } from "../lib/playerGraphApi";
 import { shirtNumber } from "../lib/matchContext";
 import "./PlayerGraph.css";
@@ -61,6 +62,8 @@ export function PlayerGraph({
   const rawId = useId();
   const uid = rawId.replace(/[^a-zA-Z0-9_-]/g, "");
   const reduced = useReducedMotion();
+  const i18n = useT();
+  const { t, num: fmtNum } = i18n;
   const [hover, setHover] = useState<Hover>(null);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -152,14 +155,14 @@ export function PlayerGraph({
   };
 
   const teamName = (t: GraphNode["team"]) => (t === "home" ? homeTeam : awayTeam);
-  const nameOf = (id: string) => shortName(nodesById.get(id), id);
+  const nameOf = (id: string) => shortName(i18n, nodesById.get(id), id);
 
   const edgeSummary = (e: GraphEdge): string => {
     if (e.kind === "pass") {
-      return `${nameOf(e.source)} → ${nameOf(e.target)} · ${fmtNum(e.count)} passe${e.count > 1 ? "s" : ""}`
-        + ` · ${fmtNum(e.completed_count)} réussie${e.completed_count > 1 ? "s" : ""} · ${fmtXt(e.xt_added)}`;
+      return `${nameOf(e.source)} → ${nameOf(e.target)} · ${countLabel(i18n, "relations.edge.passes", e.count)}`
+        + ` · ${countLabel(i18n, "relations.edge.completed", e.completed_count)} · ${fmtXt(i18n, e.xt_added)}`;
     }
-    return `${nameOf(e.source)} ⚔ ${nameOf(e.target)} · ${fmtNum(e.count)} duel${e.count > 1 ? "s" : ""}`
+    return `${nameOf(e.source)} ⚔ ${nameOf(e.target)} · ${countLabel(i18n, "relations.edge.duels", e.count)}`
       + ` · ${e.won_by_source}–${e.won_by_target}`;
   };
 
@@ -221,12 +224,12 @@ export function PlayerGraph({
               {n.name} <span className="pg-tip-num">#{shirtNumber(n.id)}</span>
             </span>
             <span className="pg-tip-line">
-              {fmtNum(n.passes_made)} passes données · {fmtNum(n.passes_received)} reçues
+              {t("relations.tip.passes", { made: fmtNum(n.passes_made), received: fmtNum(n.passes_received) })}
             </span>
             <span className="pg-tip-line">
-              Centralité {fmtNum(n.betweenness, 2)} · {fmtNum(n.touches)} ballons touchés
+              {t("relations.tip.centrality", { c: fmtNum(n.betweenness, 2), touches: fmtNum(n.touches) })}
             </span>
-            <span className="pg-tip-hint">Entrée : fiche · Espace : sélection</span>
+            <span className="pg-tip-hint">{t("relations.tip.hint")}</span>
           </>
         ),
       };
@@ -243,7 +246,7 @@ export function PlayerGraph({
           viewBox={`0 0 ${W} ${H}`}
           preserveAspectRatio="xMidYMid meet"
           role="group"
-          aria-label={`Graphe des relations : ${data.nodes.length} joueurs, ${passEdges.length} liens de passes, ${duelEdges.length} duels. Tabulation pour parcourir les joueurs, Échap pour effacer la sélection.`}
+          aria-label={t("relations.svg.aria", { players: data.nodes.length, links: passEdges.length, duels: duelEdges.length })}
           onClick={(ev) => {
             if (ev.target === ev.currentTarget) onSelect(null);
           }}
@@ -346,9 +349,12 @@ export function PlayerGraph({
               const isSelected = selection?.kind === "node" && selection.id === n.id;
               const lit = nodeIsLit(n.id);
               const num = shirtNumber(n.id);
-              const label = `${n.name}, numéro ${num}, ${teamName(n.team)}${isHub ? ", pivot" : ""}${isFollowed ? ", suivi" : ""}. `
-                + `${n.passes_made} passes données, ${n.passes_received} reçues, centralité ${fmtNum(n.betweenness, 2)}. `
-                + "Entrée pour ouvrir la fiche, Espace pour sélectionner.";
+              const flags = (isHub ? `, ${t("relations.panel.hub")}` : "")
+                + (isFollowed ? `, ${t("relations.panel.followed")}` : "");
+              const label = t("relations.node.aria", {
+                name: n.name, num, team: teamName(n.team), flags,
+                made: fmtNum(n.passes_made), received: fmtNum(n.passes_received), c: fmtNum(n.betweenness, 2),
+              });
               return (
                 <g
                   key={n.id}
@@ -372,8 +378,8 @@ export function PlayerGraph({
                   <circle r={r + 3} className="pg-node-focus" />
                   <circle r={r} className="pg-node-disc" />
                   <text className="pg-node-num" dy="0.35em" fontSize={Math.max(11, r * 0.78)}>{num}</text>
-                  <text className="pg-node-label" y={r + 15}>{shortName(n)}</text>
-                  {isHub && <text className="pg-node-hub" y={-r - 10}>Pivot</text>}
+                  <text className="pg-node-label" y={r + 15}>{shortName(i18n, n)}</text>
+                  {isHub && <text className="pg-node-hub" y={-r - 10}>{t("relations.hub")}</text>}
                 </g>
               );
             })}
@@ -395,15 +401,16 @@ export function PlayerGraph({
       </div>
 
       <div className="pg-legend">
-        <ul className="pg-legend-items" aria-label="Légende">
-          <li><span className="pg-key pg-key-pass" aria-hidden="true" />Passes (épaisseur = volume)</li>
-          <li><span className="pg-key pg-key-duel" aria-hidden="true" />Duels</li>
-          <li><span className="pg-key pg-key-size" aria-hidden="true" />Taille = implication</li>
-          <li><span className="pg-key pg-key-hub" aria-hidden="true" />Pivot (centralité)</li>
-          {followedPlayerId && <li><span className="pg-key pg-key-followed" aria-hidden="true" />Joueur suivi</li>}
+        <ul className="pg-legend-items" aria-label={t("relations.legend.aria")}>
+          <li><span className="pg-key pg-key-pass" aria-hidden="true" />{t("relations.legend.passes")}</li>
+          <li><span className="pg-key pg-key-duel" aria-hidden="true" />{t("relations.duels")}</li>
+          <li><span className="pg-key pg-key-size" aria-hidden="true" />{t("relations.legend.size")}</li>
+          <li><span className="pg-key pg-key-hub" aria-hidden="true" />{t("relations.legend.hub")}</li>
+          {followedPlayerId && <li><span className="pg-key pg-key-followed" aria-hidden="true" />{t("relations.legend.followed")}</li>}
         </ul>
         <span className="pg-legend-hint">
-          <kbd>Tab</kbd> parcourir · <kbd>Espace</kbd> sélectionner · <kbd>Entrée</kbd> fiche · <kbd>Échap</kbd> effacer
+          <kbd>{t("relations.kbd.tab")}</kbd> {t("relations.kbd.browse")} · <kbd>{t("relations.kbd.space")}</kbd> {t("relations.kbd.select")}
+          {" · "}<kbd>{t("relations.kbd.enter")}</kbd> {t("relations.kbd.profile")} · <kbd>{t("relations.kbd.esc")}</kbd> {t("relations.kbd.clear")}
         </span>
         <button
           type="button"
@@ -412,37 +419,37 @@ export function PlayerGraph({
           aria-controls={`${uid}-table`}
           onClick={() => setShowTable((v) => !v)}
         >
-          {showTable ? "Masquer le tableau" : "Voir en tableau"}
+          {showTable ? t("relations.table.hide") : t("relations.table.show")}
         </button>
       </div>
 
       <div className={showTable ? "pg-table-wrap" : "ui-sr-only"} id={`${uid}-table`}>
         <table className="pg-table">
           <caption>
-            Liens du graphe ({data.window.from_min}' → {data.window.to_min}') — passes et duels
+            {t("relations.table.caption", { from: data.window.from_min, to: data.window.to_min })}
           </caption>
           <thead>
             <tr>
-              <th scope="col">De</th>
-              <th scope="col">Vers</th>
-              <th scope="col">Type</th>
-              <th scope="col">Volume</th>
-              <th scope="col">Réussies / bilan</th>
-              <th scope="col">xT</th>
+              <th scope="col">{t("relations.table.from")}</th>
+              <th scope="col">{t("relations.table.to")}</th>
+              <th scope="col">{t("relations.table.type")}</th>
+              <th scope="col">{t("relations.table.volume")}</th>
+              <th scope="col">{t("relations.table.result")}</th>
+              <th scope="col">{t("relations.table.xt")}</th>
             </tr>
           </thead>
           <tbody>
             {sortedTableEdges.length === 0 && (
-              <tr><td colSpan={6}>Aucun lien dans cette fenêtre.</td></tr>
+              <tr><td colSpan={6}>{t("relations.table.empty")}</td></tr>
             )}
             {sortedTableEdges.map((e) => (
               <tr key={edgeKey(e)}>
                 <td>{nodesById.get(e.source)?.name ?? e.source}</td>
                 <td>{nodesById.get(e.target)?.name ?? e.target}</td>
-                <td>{e.kind === "pass" ? "Passes" : "Duels"}</td>
+                <td>{e.kind === "pass" ? t("relations.passes") : t("relations.duels")}</td>
                 <td>{fmtNum(e.count)}</td>
                 <td>{e.kind === "pass" ? fmtNum(e.completed_count) : `${e.won_by_source}–${e.won_by_target}`}</td>
-                <td>{e.kind === "pass" ? fmtXt(e.xt_added) : "—"}</td>
+                <td>{e.kind === "pass" ? fmtXt(i18n, e.xt_added) : "—"}</td>
               </tr>
             ))}
           </tbody>

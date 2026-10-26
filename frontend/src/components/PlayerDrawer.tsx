@@ -2,11 +2,12 @@ import { useEffect, useId, useState } from "react";
 import { FcPlayerCard } from "./FcPlayerCard";
 import { HexRadar, type RadarSeries } from "./HexRadar";
 import { PlayerHeatmap } from "./PlayerHeatmap";
+import { useT } from "../i18n";
+import { breakdownLabel } from "../i18n/backendLabels";
 import { shirtNumber, useMatch } from "../lib/matchContext";
 import { usePlayersData } from "../lib/playersApi";
 import { fetchPlayerTags, type PlayerPhysical } from "../lib/playerTagsApi";
 import {
-  formatNumber,
   formatPoints,
   formatRating,
   positionLabel,
@@ -43,8 +44,10 @@ function RatingSparkline({
 }: {
   series: RatingPoint[]; leaderSince: number | null; currentMinute: number | null; name: string;
 }) {
+  const i18n = useT();
+  const { t } = i18n;
   if (series.length < 2) {
-    return <p className="pd-muted">Évolution disponible après quelques minutes de jeu.</p>;
+    return <p className="pd-muted">{t("players.drawer.evoLater")}</p>;
   }
   const ratings = series.map((p) => p.rating);
   const lo = Math.max(3, Math.min(6, ...ratings) - 0.4);
@@ -61,9 +64,15 @@ function RatingSparkline({
   const minR = Math.min(...ratings);
   const maxR = Math.max(...ratings);
   const label =
-    `Évolution de la note de ${name} : ${formatRating(first?.rating ?? 0)} à la ${first?.minute ?? 0}', ` +
-    `${formatRating(last?.rating ?? 0)} à la ${last?.minute ?? 0}' (minimum ${formatRating(minR)}, maximum ${formatRating(maxR)}).` +
-    (leaderSince !== null ? ` Homme du match depuis la ${leaderSince}'.` : "");
+    t("players.drawer.sparkLabel", {
+      name,
+      r1: formatRating(i18n, first?.rating ?? 0),
+      m1: first?.minute ?? 0,
+      r2: formatRating(i18n, last?.rating ?? 0),
+      m2: last?.minute ?? 0,
+      min: formatRating(i18n, minR),
+      max: formatRating(i18n, maxR),
+    }) + (leaderSince !== null ? t("players.drawer.sparkLeader", { m: leaderSince }) : "");
 
   return (
     <figure className="pd-spark">
@@ -71,11 +80,11 @@ function RatingSparkline({
         {leaderSince !== null && (
           <g className="pd-spark__leader">
             <rect x={x(leaderSince)} y={0} width={Math.max(2, x(leaderEnd) - x(leaderSince))} height={SPARK_H} />
-            <text x={x(leaderSince) + 4} y={11}>★ Leader</text>
+            <text x={x(leaderSince) + 4} y={11}>★ {t("players.drawer.leaderTag")}</text>
           </g>
         )}
         <line className="pd-spark__base" x1={0} x2={SPARK_W} y1={y(6)} y2={y(6)} />
-        <text className="pd-spark__base-label" x={SPARK_W - 2} y={y(6) - 3} textAnchor="end">6,0</text>
+        <text className="pd-spark__base-label" x={SPARK_W - 2} y={y(6) - 3} textAnchor="end">{i18n.num(6, 1)}</text>
         <path className="pd-spark__area" d={area} />
         <path className="pd-spark__line" d={path} />
         {last && <circle className="pd-spark__dot" cx={x(last.minute)} cy={y(last.rating)} r={3.5} />}
@@ -89,34 +98,42 @@ function RatingSparkline({
 }
 
 function BreakdownTable({ player }: { player: MatchPlayer }) {
+  const i18n = useT();
+  const { t } = i18n;
   if (player.rating === null) {
-    return <p className="pd-muted">Note indisponible — le détail du calcul apparaîtra avec les notes en direct.</p>;
+    return <p className="pd-muted">{t("players.drawer.calcUnavailable")}</p>;
   }
   const rows = [...player.breakdown].sort((a, b) => Math.abs(b.points) - Math.abs(a.points));
   return (
     <table className="pd-table">
-      <caption className="ui-sr-only">Détail du calcul de la note de {player.name}</caption>
+      <caption className="ui-sr-only">{t("players.drawer.calcCaption", { name: player.name })}</caption>
       <thead>
-        <tr><th scope="col">Action</th><th scope="col">Nb</th><th scope="col">Points</th></tr>
+        <tr>
+          <th scope="col">{t("players.col.action")}</th>
+          <th scope="col">{t("players.col.count")}</th>
+          <th scope="col">{t("players.col.points")}</th>
+        </tr>
       </thead>
       <tbody>
-        <tr className="pd-table__base"><th scope="row">Base</th><td>—</td><td>6,0</td></tr>
+        <tr className="pd-table__base">
+          <th scope="row">{breakdownLabel(i18n, "Base")}</th><td>—</td><td>{i18n.num(6, 1)}</td>
+        </tr>
         {rows.map((r) => (
           <tr key={r.label}>
-            <th scope="row">{r.label}</th>
-            <td>{r.count}</td>
-            <td className={r.points < 0 ? "is-neg" : r.points > 0 ? "is-pos" : undefined}>{formatPoints(r.points)}</td>
+            <th scope="row">{breakdownLabel(i18n, r.label)}</th>
+            <td>{i18n.num(r.count)}</td>
+            <td className={r.points < 0 ? "is-neg" : r.points > 0 ? "is-pos" : undefined}>{formatPoints(i18n, r.points)}</td>
           </tr>
         ))}
         {!rows.length && (
-          <tr><td colSpan={3} className="pd-muted">Aucune action notée pour l'instant.</td></tr>
+          <tr><td colSpan={3} className="pd-muted">{t("players.drawer.noActions")}</td></tr>
         )}
       </tbody>
       <tfoot>
         <tr>
-          <th scope="row">Note (bornée 3–10)</th>
+          <th scope="row">{t("players.drawer.total", { min: i18n.num(3), max: i18n.num(10) })}</th>
           <td />
-          <td>{formatRating(player.rating)}</td>
+          <td>{formatRating(i18n, player.rating)}</td>
         </tr>
       </tfoot>
     </table>
@@ -127,6 +144,8 @@ function BreakdownTable({ player }: { player: MatchPlayer }) {
 export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
   const { matchId, homeTeam, awayTeam, renderEvents, followedPlayerId, setFollowedPlayerId } = useMatch();
   const data = usePlayersData(matchId);
+  const i18n = useT();
+  const { t } = i18n;
   const [compareId, setCompareId] = useState<string>("");
   const [physical, setPhysical] = useState<PhysicalState | null>(null);
   const titleId = useId();
@@ -167,25 +186,25 @@ export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
         <div>
           <h2 id={titleId} className="pd-header__name">{player?.name ?? playerId}</h2>
           <p className="pd-header__meta">
-            <span className="ui-sr-only">Numéro {player?.number ?? shirtNumber(playerId)}, </span>
-            {player ? `${teamName} · ${positionLabel(player.position)}` : "Fiche joueur"}
+            <span className="ui-sr-only">{t("players.drawer.number", { n: player?.number ?? shirtNumber(playerId) })}</span>
+            {player ? `${teamName} · ${positionLabel(i18n, player.position)}` : t("players.drawer.profile")}
           </p>
         </div>
       </div>
       <button type="button" className="ui-btn pd-header__close" onClick={onClose}>
-        <span aria-hidden="true">✕ </span>Fermer (Échap)
+        <span aria-hidden="true">✕ </span>{t("players.drawer.close")}
       </button>
     </header>
   );
 
   if (!matchId) {
-    return <div className="pd">{header}<p className="pd-muted">Aucun match en cours.</p></div>;
+    return <div className="pd">{header}<p className="pd-muted">{t("players.drawer.noMatch")}</p></div>;
   }
   if (data.status === "loading" || data.status === "idle") {
     return (
       <div className="pd" aria-busy="true">
         {header}
-        <p className="pd-muted" role="status">Chargement de la fiche…</p>
+        <p className="pd-muted" role="status">{t("players.drawer.loading")}</p>
       </div>
     );
   }
@@ -194,14 +213,14 @@ export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
       <div className="pd">
         {header}
         <div role="alert" className="pd-error">
-          <p>Impossible de charger la fiche du joueur.</p>
-          <button type="button" className="ui-btn" onClick={data.reload}>Réessayer</button>
+          <p>{t("players.drawer.error")}</p>
+          <button type="button" className="ui-btn" onClick={data.reload}>{t("players.retry")}</button>
         </div>
       </div>
     );
   }
   if (!player) {
-    return <div className="pd">{header}<p className="pd-muted">Joueur introuvable dans ce match.</p></div>;
+    return <div className="pd">{header}<p className="pd-muted">{t("players.drawer.notFound")}</p></div>;
   }
 
   const series: RadarSeries[] = [];
@@ -216,17 +235,20 @@ export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
   const raw = player.raw;
   const topSpeed = phys?.top_speed_kmh ?? raw?.top_speed_kmh ?? null;
   const sprints = phys?.sprints ?? raw?.sprints ?? null;
-  const chips: { label: string; value: string }[] = raw
+  const chips: { key: string; label: string; value: string }[] = raw
     ? [
         {
-          label: "Passes réussies",
-          value: raw.passes_attempted ? `${formatNumber(raw.pass_pct, 0)} % (${raw.passes_completed}/${raw.passes_attempted})` : "—",
+          key: "passes",
+          label: t("players.stat.passes"),
+          value: raw.passes_attempted
+            ? `${i18n.pct(raw.pass_pct / 100)} (${i18n.num(raw.passes_completed)}/${i18n.num(raw.passes_attempted)})`
+            : "—",
         },
-        { label: "xG", value: formatNumber(raw.xg, 2) },
-        { label: "xT créé", value: formatNumber(raw.xt_added, 2) },
-        { label: "Vitesse max", value: topSpeed !== null ? `${formatNumber(topSpeed, 1)} km/h` : "—" },
-        { label: "Sprints", value: sprints !== null ? String(sprints) : "—" },
-        { label: "Ballons gagnés", value: String(raw.ball_wins) },
+        { key: "xg", label: t("players.stat.xg"), value: i18n.num(raw.xg, 2) },
+        { key: "xt", label: t("players.stat.xt"), value: i18n.num(raw.xt_added, 2) },
+        { key: "speed", label: t("players.stat.topSpeed"), value: topSpeed !== null ? `${i18n.num(topSpeed, 1)} km/h` : "—" },
+        { key: "sprints", label: t("players.stat.sprints"), value: sprints !== null ? i18n.num(sprints) : "—" },
+        { key: "wins", label: t("players.stat.ballWins"), value: i18n.num(raw.ball_wins) },
       ]
     : [];
 
@@ -240,26 +262,26 @@ export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
       {header}
 
       {!data.liveAvailable && (
-        <p className="pd-banner" role="status">Note en direct indisponible pour l'instant.</p>
+        <p className="pd-banner" role="status">{t("players.drawer.liveUnavailable")}</p>
       )}
 
       <div className="pd-hero">
         <FcPlayerCard player={player} motm={isMotm} compact teamName={teamName} followed={isFollowed} />
         <div className="pd-hero__radar">
-          {series.length ? <HexRadar series={series} size={230} /> : <p className="pd-muted">Attributs indisponibles.</p>}
+          {series.length ? <HexRadar series={series} size={230} /> : <p className="pd-muted">{t("players.attrsUnavailable")}</p>}
         </div>
       </div>
 
       <div className="pd-actions">
         <div className="pd-compare">
-          <label htmlFor={compareSelectId} className="pd-label">Comparer avec</label>
+          <label htmlFor={compareSelectId} className="pd-label">{t("players.drawer.compare")}</label>
           <select
             id={compareSelectId}
             className="pd-select"
             value={compare ? compare.id : ""}
             onChange={(e) => setCompareId(e.target.value)}
           >
-            <option value="">— Personne —</option>
+            <option value="">{t("players.drawer.nobody")}</option>
             {playersByTeam.map(([team, list]) =>
               list.length ? (
                 <optgroup key={team} label={team}>
@@ -278,21 +300,21 @@ export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
           onClick={() => setFollowedPlayerId(isFollowed ? null : playerId)}
         >
           <span aria-hidden="true">{isFollowed ? "◉ " : "○ "}</span>
-          {isFollowed ? "Joueur suivi" : "Suivre ce joueur"}
+          {isFollowed ? t("players.drawer.followed") : t("players.drawer.follow")}
         </button>
       </div>
 
       <section className="pd-section" aria-labelledby={`${titleId}-evo`}>
         <h3 id={`${titleId}-evo`} className="pd-section__title">
-          Évolution de la note
+          {t("players.drawer.evo")}
           {player.delta10 !== null && (
             <span className={`pd-delta ${player.delta10 >= 0 ? "is-pos" : "is-neg"}`}>
-              {formatPoints(player.delta10)} sur 10 min
+              {t("players.drawer.delta", { d: formatPoints(i18n, player.delta10) })}
             </span>
           )}
         </h3>
         {player.rating === null ? (
-          <p className="pd-muted">Note indisponible.</p>
+          <p className="pd-muted">{t("players.drawer.ratingUnavailable")}</p>
         ) : (
           <RatingSparkline
             series={player.series}
@@ -304,36 +326,36 @@ export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
       </section>
 
       <section className="pd-section" aria-labelledby={`${titleId}-calc`}>
-        <h3 id={`${titleId}-calc`} className="pd-section__title">Détail du calcul</h3>
+        <h3 id={`${titleId}-calc`} className="pd-section__title">{t("players.drawer.calc")}</h3>
         <BreakdownTable player={player} />
       </section>
 
       <section className="pd-section" aria-labelledby={`${titleId}-heat`}>
-        <h3 id={`${titleId}-heat`} className="pd-section__title">Carte de chaleur</h3>
+        <h3 id={`${titleId}-heat`} className="pd-section__title">{t("players.drawer.heat")}</h3>
         <PlayerHeatmap matchId={matchId} playerId={playerId} playerName={player.name} />
       </section>
 
       <section className="pd-section" aria-labelledby={`${titleId}-stats`}>
-        <h3 id={`${titleId}-stats`} className="pd-section__title">Stats clés</h3>
+        <h3 id={`${titleId}-stats`} className="pd-section__title">{t("players.drawer.stats")}</h3>
         {chips.length ? (
           <ul className="pd-chips">
             {chips.map((c) => (
-              <li key={c.label} className="pd-chip">
+              <li key={c.key} className="pd-chip">
                 <span className="pd-chip__value">{c.value}</span>
                 <span className="pd-chip__label">{c.label}</span>
               </li>
             ))}
           </ul>
         ) : (
-          <p className="pd-muted">Statistiques indisponibles.</p>
+          <p className="pd-muted">{t("players.drawer.statsUnavailable")}</p>
         )}
         <p className="pd-note">
-          Vitesse/distance issues de positions synthétiques — non comptées dans la note.
+          {t("players.drawer.syntheticNote")}
         </p>
       </section>
 
       <section className="pd-section" aria-labelledby={`${titleId}-moments`}>
-        <h3 id={`${titleId}-moments`} className="pd-section__title">Moments clés</h3>
+        <h3 id={`${titleId}-moments`} className="pd-section__title">{t("players.drawer.moments")}</h3>
         {moments.length ? (
           <ol className="pd-moments">
             {moments.map((ev) => (
@@ -344,7 +366,7 @@ export function PlayerDrawer({ playerId, onClose }: PlayerDrawerProps) {
             ))}
           </ol>
         ) : (
-          <p className="pd-muted">Aucun moment clé impliquant ce joueur pour l'instant.</p>
+          <p className="pd-muted">{t("players.drawer.noMoments")}</p>
         )}
       </section>
     </div>
