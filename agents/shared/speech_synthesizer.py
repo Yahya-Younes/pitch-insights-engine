@@ -50,7 +50,16 @@ def _ssml(text: str, voice: str) -> str:
     )
 
 
+def speech_configured() -> bool:
+    return bool(os.environ.get("AZURE_SPEECH_KEY") and os.environ.get("AZURE_SPEECH_REGION"))
+
+
 def synthesize_base64(text: str, locale: str = "en") -> str | None:
+    audio = synthesize_mp3(text, locale)
+    return b64encode(audio).decode("ascii") if audio else None
+
+
+def synthesize_mp3(text: str, locale: str = "en") -> bytes | None:
     key = os.environ.get("AZURE_SPEECH_KEY")
     region = os.environ.get("AZURE_SPEECH_REGION")
     if not key or not region or not text.strip():
@@ -73,4 +82,4 @@ def synthesize_base64(text: str, locale: str = "en") -> str | None:
     except (urllib.error.URLError, TimeoutError) as exc:
         logger.warning("speech synthesis failed for locale=%s: %s", locale, exc)
         return None
-    return b64encode(audio).decode("ascii")
+    return audio or None

@@ -1,6 +1,7 @@
 """Thin publisher wrapping Azure Web PubSub -- pushes every Broadcaster
 RenderPayload and every Concierge personalized text live to the hub so the
-frontend overlay updates as the match plays, instead of polling.
+frontend overlay updates as the match plays, instead of polling. Messages
+carry an audio_url, never the audio itself (see service/audio_clips.py).
 """
 from __future__ import annotations
 
@@ -28,11 +29,11 @@ class WebPubSubPublisher:
         )
 
     def publish_personalized(
-        self, match_id: str, persona: str, text: str, audio_base64: str | None = None,
+        self, match_id: str, persona: str, text: str, audio_url: str | None = None,
     ) -> None:
         self._client.send_to_all(
             message={"kind": "personalized", "data": {
-                "match_id": match_id, "persona": persona, "text": text, "audio_base64": audio_base64,
+                "match_id": match_id, "persona": persona, "text": text, "audio_url": audio_url,
             }},
             content_type="application/json",
         )

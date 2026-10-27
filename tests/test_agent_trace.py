@@ -247,7 +247,7 @@ def test_overlay_feed_payload_matches_live_broadcaster_render(api):
     assert payload["game_clock"] == "10:30"
     assert payload["display"] == {"template": "goal_banner", "duration_ms": 6000, "priority": 1}
     assert payload["narrative_text"] == "Goal!"
-    assert payload["audio_base64"] is None
+    assert payload["audio_url"] is None
 
 
 def test_overlay_feed_404s_unknown_match(api):

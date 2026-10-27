@@ -1,8 +1,11 @@
-import { useBase64Audio } from "../hooks/useBase64Audio";
+import { useNarrationAudio } from "../hooks/useNarrationAudio";
 import { useT } from "../i18n";
 
 interface Props {
-  audioBase64: string | null | undefined;
+  /** Live messages: path of the clip on the API, fetched only when it plays. */
+  audioUrl?: string | null;
+  /** HTTP answers (what-if, Ask the match): the mp3 inline. */
+  audioBase64?: string | null;
   autoPlay: boolean;
   label?: string;
   /** Render a disabled button (instead of nothing) when there's no audio. */
@@ -10,9 +13,9 @@ interface Props {
   className?: string;
 }
 
-export function VoiceButton({ audioBase64, autoPlay, label, showWhenEmpty = false, className }: Props) {
+export function VoiceButton({ audioUrl, audioBase64, autoPlay, label, showWhenEmpty = false, className }: Props) {
   const { t } = useT();
-  const { isPlaying, blocked, play, pause, hasAudio } = useBase64Audio(audioBase64, autoPlay);
+  const { isPlaying, blocked, play, pause, hasAudio } = useNarrationAudio({ url: audioUrl, base64: audioBase64 }, autoPlay);
   const classes = `ui-btn lv-voice${isPlaying ? " is-playing" : ""}${blocked ? " is-blocked" : ""}${className ? ` ${className}` : ""}`;
 
   if (!hasAudio) {

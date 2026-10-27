@@ -59,7 +59,7 @@ export function PersonaFeed({ messages, focusTerm = null, autoPlayLatest = true,
                 {focused && <span className="ui-pill is-home lv-feed-focus">{t("live.feed.focus")}</span>}
               </div>
               <p>{m.text}</p>
-              <VoiceButton audioBase64={m.audio_base64} autoPlay={autoPlayLatest && i === latestIndex} className="lv-btn-sm" />
+              <VoiceButton audioUrl={m.audio_url} autoPlay={autoPlayLatest && i === latestIndex} className="lv-btn-sm" />
             </div>
           </li>
         );

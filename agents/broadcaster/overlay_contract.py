@@ -15,7 +15,7 @@ flag the Broadcaster received, and build_render_payload() is a pure function
 of those -- so re-running it reproduces the live payload field-for-field,
 except two fields that are documented as such: render_id (live = random
 uuid4; here = uuid5 of the source insight id, so the feed is stable across
-downloads) and audio_base64 (attached at publish time only; always null here).
+downloads) and audio_url (attached at publish time only; always null here).
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ from agents.broadcaster.render import (
 from agents.shared.handoff_log import HandoffEntry
 from agents.shared.models import InsightCandidate, RenderPayload
 
-CONTRACT_VERSION = "1.0"
+CONTRACT_VERSION = "2.0"  # 2.0: audio_base64 became audio_url
 _RENDER_ID_NAMESPACE = uuid.uuid5(uuid.NAMESPACE_URL, "pitch-insights-engine/overlay")
 
 
@@ -81,8 +81,8 @@ def overlay_contract() -> dict[str, Any]:
             "source_insight_id": "Stable id of the InsightCandidate -- the join key back to /matches/{id}/handoff.",
             "render_id": "Unique per payload. In the replay feed it is uuid5(source_insight_id), stable across "
                          "downloads; the live Web PubSub payload carries a random uuid4 instead.",
-            "audio_base64": "Optional mp3 narration attached at publish time when Azure AI Speech is configured; "
-                            "always null in the replay feed.",
+            "audio_url": "Optional path of the mp3 narration (GET it from the API: '/audio/<clip_id>'), attached "
+                         "at publish time when Azure AI Speech is configured; always null in the replay feed.",
         },
         "versioning": "Additive changes (new optional fields) keep the major version; removals/renames bump it.",
     }

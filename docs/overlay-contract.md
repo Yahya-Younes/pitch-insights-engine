@@ -1,4 +1,4 @@
-# Overlay contract (v1.0)
+# Overlay contract (v2.0)
 
 Pitch Insights Engine's **Broadcaster** agent turns every narrated insight into a
 timed, machine-readable overlay payload (`RenderPayload`) that a graphics/rendering
@@ -20,12 +20,11 @@ Source of truth: `agents/shared/models.py` (`RenderPayload`, `RenderDisplay`),
 
 - **Live** — Azure Web PubSub. Each overlay arrives as
   `{"kind": "render", "data": <RenderPayload>}`. Messages with `"kind": "personalized"`
-  are persona recaps for the companion app, not overlays. Note: in the current demo
-  service the render messages for a match are pushed when that match's pipeline run
-  completes, not one-by-one as each insight is produced.
+  are persona recaps for the companion app, not overlays. Each message is pushed as
+  soon as its insight is narrated and checked, not at the end of the match.
 - **Replay** — `GET /matches/{match_id}/overlay-feed`. Rebuilt from the shared handoff
   log with the same pure `build_render_payload()` the live Broadcaster uses, so every
-  field matches the live payload except `render_id` and `audio_base64` (see below).
+  field matches the live payload except `render_id` and `audio_url` (see below).
 
 ## Fields
 
@@ -43,7 +42,7 @@ Source of truth: `agents/shared/models.py` (`RenderPayload`, `RenderDisplay`),
 | `linked_players` | string[] | Player ids (e.g. `home_9`) referenced by the insight. |
 | `source_insight_id` | string | Join key back to `GET /matches/{id}/handoff` and the agent trace. |
 | `fact_checked` | bool | `false` means the LLM text failed verification (or the LLM was unavailable) and `narrative_text` is the deterministic fallback, so a renderer may badge it. |
-| `audio_base64` | string \| null | Optional mp3 narration, attached at publish time when Azure AI Speech is configured. Always `null` in the replay feed. |
+| `audio_url` | string \| null | Path of the mp3 narration on the API (`/audio/<clip_id>`), attached at publish time when Azure AI Speech is configured. The clip is synthesized on first request and kept out of the message itself, which stays a few KB. Always `null` in the replay feed. |
 
 There is **no screen-position or layout field**. Placement is the renderer's
 decision, driven by `display.template`.
@@ -82,12 +81,12 @@ that run was the deterministic fallback sentence, not a Foundry call.
   "linked_players": ["away_11"],
   "source_insight_id": "dd8017e53ec340db9e43f4175ab1a4e4",
   "fact_checked": true,
-  "audio_base64": null
+  "audio_url": null
 }
 ```
 
 The replay feed wraps payloads as
-`{"contract_version": "1.0", "match_id": ..., "payload_count": N, "payloads": [...]}`.
+`{"contract_version": "2.0", "match_id": ..., "payload_count": N, "payloads": [...]}`.
 
 ## Versioning
 

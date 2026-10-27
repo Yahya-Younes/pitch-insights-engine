@@ -136,7 +136,7 @@ export function HeroStage({
       )}
 
       <div className="lv-hero-actions">
-        <VoiceButton audioBase64={payload.audio_base64} autoPlay={autoPlayAudio} showWhenEmpty className="ui-btn-primary" />
+        <VoiceButton audioUrl={payload.audio_url} autoPlay={autoPlayAudio} showWhenEmpty className="ui-btn-primary" />
         <button type="button" className="ui-btn" onClick={onWhatIf ?? goToAnalyses}>
           {t("live.hero.whatIf")}
         </button>

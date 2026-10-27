@@ -32,7 +32,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -56,6 +56,7 @@ from datagen.player_profiles import QUALITY_MAX, QUALITY_MIN
 from datagen.trajectory import generate_positions
 from eval.realism_check import run as run_realism_check
 from eval.robustness_suite import run as run_robustness_suite
+from service.audio_clips import AudioClips
 from service.eventhub_consumer import start_background
 from service.mcp_server import mcp
 from service.routers.agent_trace import router as agent_trace_router
@@ -254,19 +255,21 @@ async def _run_and_publish(
 
     # Each overlay / personalized line is published the moment its stage
     # yields it (instead of after the whole match), through one ordered
-    # worker so speech synthesis and the synchronous Web PubSub client never
-    # stall the pipeline or reorder the feed.
+    # worker so the synchronous Web PubSub client never stalls the pipeline
+    # or reorders the feed. The narration audio is not in the message: it
+    # carries an audio_url, synthesized when someone plays it (audio_clips).
     queue: asyncio.Queue = asyncio.Queue()
+    clips = _audio_clips()
 
     async def publish_worker() -> None:
         while (output := await queue.get()) is not None:
             try:
                 if isinstance(output, RenderPayload):
-                    output.audio_base64 = await asyncio.to_thread(synthesize_base64, output.narrative_text, "en")
+                    output.audio_url = clips.register(output.narrative_text, "en")
                     await asyncio.to_thread(publisher.publish_render, output)
                 else:
-                    audio = await asyncio.to_thread(synthesize_base64, output, locale)
-                    await asyncio.to_thread(publisher.publish_personalized, match_id, persona, output, audio)
+                    audio_url = clips.register(output, locale)
+                    await asyncio.to_thread(publisher.publish_personalized, match_id, persona, output, audio_url)
             except Exception:
                 logger.exception("live publish failed for match %s", match_id)
 
@@ -296,6 +299,24 @@ async def _run_and_publish(
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+def _audio_clips() -> AudioClips:
+    return _state.setdefault("audio_clips", AudioClips())
+
+
+@app.get("/audio/{clip_id}")
+async def audio_clip(clip_id: str):
+    """The mp3 behind a live message's audio_url (see service/audio_clips.py)."""
+    clips = _audio_clips()
+    if not clips.known(clip_id):
+        raise HTTPException(status_code=404, detail="unknown or expired audio clip")
+    audio = await clips.get(clip_id)
+    if audio is None:
+        raise HTTPException(status_code=503, detail="speech synthesis unavailable")
+    # The id is a hash of the text, so the clip never changes.
+    return Response(content=audio, media_type="audio/mpeg",
+                    headers={"Cache-Control": "public, max-age=86400, immutable"})
 
 
 @app.get("/negotiate")
