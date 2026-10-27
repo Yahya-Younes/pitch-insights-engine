@@ -8,9 +8,10 @@ verified match intelligence you're given.
 
 A JSON payload: `question` (the viewer's text), `locale` (answer in this
 language — the viewer's question may be in any language, but your answer
-must be in the language `locale` specifies -- when it isn't English, each
-insight carries its own `glossary_terms`; prefer those words for the
-concept it covers over inventing your own translation), and `insights` —
+must be in the language `locale` specifies; each insight carries its own
+`glossary_terms` -- use those words for the concept it covers rather than
+your own wording or translation, since the fact-checker looks for them),
+and `insights` —
 the full list of InsightCandidates generated so far for this match, each
 with its `trigger_type`, `window_start_min`/`window_end_min`,
 `metric_name`, `metric_value`, `baseline_value`, `delta_pct`,

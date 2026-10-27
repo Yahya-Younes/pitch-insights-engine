@@ -68,12 +68,12 @@ def test_prompt_payload_keeps_the_evidence_and_drops_internal_ids():
     assert data["glossary_terms"] == ["pressing"]
 
 
-def test_prompt_payload_hides_raw_pitch_coordinates_but_the_insight_keeps_them():
+def test_prompt_payload_hides_coordinates_and_zscore_but_the_insight_keeps_them():
     insight = _insight()
     insight.window_summary.update({"start_x": 93.7, "start_y": 39.7, "end_x": 107.2, "end_y": 35.5, "zscore": 4.6})
     data = insight_for_prompt(insight, {})
 
-    assert data["window_summary"] == {"team": "home", "zscore": 4.6}
+    assert data["window_summary"] == {"team": "home"}
     assert insight.window_summary["end_x"] == 107.2  # the what-if tool still reads them
 
 
@@ -134,3 +134,46 @@ def test_agent_trace_tokens_unknown_without_instrumentation():
     agents = {a["stage"]: a for a in trace["agents"]}
     assert agents["narrator"]["tokens"] is None
     assert trace["totals"]["llm_tokens"] is None
+
+
+# -- vocabulary handed to the model ------------------------------------------------
+
+def test_english_prompts_get_the_words_the_checker_wants():
+    from agents.shared.glossary import glossary_terms_for
+
+    assert glossary_terms_for("en", "milestone") == ["goal", "milestone", "scored", "scores"]
+    xt = glossary_terms_for("en", "xt_surge")
+    assert "threat" in xt and not any("xt" in t for t in xt), "no internal labels in a prompt"
+    assert "knew" not in glossary_terms_for("en", "tendency_match")
+    assert glossary_terms_for("xx", "milestone") == []
+
+
+def test_every_word_given_to_the_model_passes_the_vocabulary_check():
+    from agents.shared.glossary import TRIGGER_GLOSSARY, glossary_terms_for
+    from eval.grounding_check import TRIGGER_VOCAB, _vocabulary_check_localized
+
+    for locale in ["en", *TRIGGER_GLOSSARY]:
+        for trigger in TRIGGER_VOCAB:
+            terms = glossary_terms_for(locale, trigger)
+            assert terms, (locale, trigger)
+            insight = _insight().model_copy(update={"trigger_type": trigger})
+            for term in terms:
+                assert _vocabulary_check_localized(f"... {term} ...", insight, locale), (locale, trigger, term)
+
+
+def test_narrator_payload_carries_the_glossary_terms(monkeypatch):
+    import agents.narrator.agent as narrator
+
+    seen = {}
+
+    class _Reply(_Response):
+        text = "ok"
+
+    class _FakeAgent:
+        async def run(self, message):
+            seen["payload"] = json.loads(message)
+            return _Reply({"input_token_count": 1})
+
+    monkeypatch.setattr(narrator, "get_agent", lambda: _FakeAgent())
+    asyncio.run(narrator.narrate_insight(_insight(), {}))
+    assert "press" in seen["payload"]["glossary_terms"]

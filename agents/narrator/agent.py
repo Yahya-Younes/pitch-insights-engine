@@ -22,6 +22,7 @@ from agent_framework_foundry import FoundryChatClient
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
+from agents.shared.glossary import glossary_terms_for
 from agents.shared.llm import chat_options, insight_for_prompt, report_usage, to_wire
 from agents.shared.models import InsightCandidate
 
@@ -67,7 +68,9 @@ async def narrate_insight(insight: InsightCandidate, player_names: dict[str, str
     rule is enforced downstream by eval/grounding_check.check_grounding, not
     by this function.
     """
-    payload = insight_for_prompt(insight, player_names or {})
+    payload = insight_for_prompt(
+        insight, player_names or {}, glossary_terms=glossary_terms_for("en", insight.trigger_type),
+    )
 
     agent = get_agent()
     async with _semaphore:

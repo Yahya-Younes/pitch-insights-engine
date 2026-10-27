@@ -82,11 +82,10 @@ async def personalize(
         "lens": lens.model_dump() if lens else None,
         "player_id": player_id,
         "insights": [
-            # glossary_terms is empty for "en" (TRIGGER_VOCAB already covers
-            # English) or an unsupported locale -- it steers the model toward
-            # vocabulary the locale-aware grounding check
+            # glossary_terms steers the model toward vocabulary the
+            # locale-aware grounding check
             # (eval.grounding_check.check_grounding_multi) will actually
-            # recognize, instead of translating freeform and failing it.
+            # recognize, instead of paraphrasing freeform and failing it.
             insight_for_prompt(c, player_names, glossary_terms=glossary_terms_for(locale, c.trigger_type))
             for c in selected
         ],

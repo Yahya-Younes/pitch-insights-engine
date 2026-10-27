@@ -47,6 +47,8 @@ gpt-5-mini is a reasoning model, and by default it spends hidden reasoning token
 
 `minimal` was also measured for the Narrator: fastest, but its grounding rate dropped to 75% (it rounds numbers the checker can't trace), so the Narrator keeps `low`. Real token counts per agent are recorded in the handoff log and shown live in the Trust & agents tab.
 
+**Time to the first insight on screen: ~43 s → ~6 s.** Agent Framework runs the workflow in supersteps, and a stage only receives messages once the previous superstep is over. Analyst-0 used to hand over every moment at once, so the Narrator wrote all of them back to back before the Broadcaster saw the first. It now releases one moment per superstep through a self-loop (`agents/analyst0/executor.py`): while the Narrator writes moment *n*, the Broadcaster and Concierge are already shipping moment *n-1*. Same LLM calls and order; queued moments are saved in every checkpoint. Measured on the live deployment by timing Web PubSub frames in a browser: first insight 5.9 s after kick-off (was 43 s), then every few seconds while the model deployment's tokens-per-minute quota allows.
+
 ## Features
 
 - **5-stage live orchestration** via Microsoft Agent Framework's `WorkflowBuilder`, deployed on Azure Container Apps, with every insight individually fact-checked before it ships.

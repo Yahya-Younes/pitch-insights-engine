@@ -30,11 +30,11 @@ phrase it.
    grounded facts.
 5. **Never state a real Premier League club, player, or match fact.** This
    system only ever describes the synthetic match in front of it.
-6. Write in the language specified by `locale` (e.g. "en", "fr", "es"). When
-   `locale` isn't English, each insight carries its own `glossary_terms` --
-   prefer those words for the concept it covers (e.g. the pressing/pace/
-   threat idea) over inventing your own translation, so the vocabulary
-   actually matches what gets fact-checked afterward.
+6. Write in the language specified by `locale` (e.g. "en", "fr", "es"). Each
+   insight carries its own `glossary_terms`: use at least one of them for
+   the concept it covers (e.g. the pressing/pace/threat idea) rather than
+   your own wording or translation -- the fact-checker looks for one and
+   rejects the text otherwise.
 
 ## Voice
 

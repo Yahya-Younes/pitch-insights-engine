@@ -94,8 +94,23 @@ TRIGGER_GLOSSARY: dict[str, dict[str, set[str]]] = {
 }
 
 
+# Patterns the vocabulary check accepts but that make bad prompt words:
+# internal labels, a bare stem ("deviat" matches deviated/deviation), and
+# "knew", which the Narrator is told never to claim.
+_NOT_FOR_PROMPTS = {"xt surge", "deviat", "knew"}
+
+
 def glossary_terms_for(locale: str, trigger_type: str) -> list[str]:
-    """Terms for one trigger_type in one non-English locale, for steering a
-    prompt -- empty for "en" (TRIGGER_VOCAB already covers English, and the
-    prompts never needed this) or an unsupported locale."""
-    return sorted(TRIGGER_GLOSSARY.get(locale, {}).get(trigger_type, set()))
+    """Words the live vocabulary check (eval.grounding_check) accepts for one
+    trigger_type in one locale, to hand the model in its prompt. English
+    included: without them the model wrote "finds the net" for a goal, and
+    the check -- which wants "goal"/"scored" -- rejected it (live, ~1 in 4
+    narrations and half the recaps fell back to templates). Empty for an
+    unsupported locale."""
+    if locale == "en":
+        # Lazy: eval.grounding_check imports this module.
+        from eval.grounding_check import TRIGGER_VOCAB
+        terms = TRIGGER_VOCAB.get(trigger_type, set())
+    else:
+        terms = TRIGGER_GLOSSARY.get(locale, {}).get(trigger_type, set())
+    return sorted(t for t in terms if "_" not in t and t not in _NOT_FOR_PROMPTS)
