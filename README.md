@@ -2,13 +2,19 @@
 
 [![CI](https://github.com/Yahya-Younes/pitch-insights-engine/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Yahya-Younes/pitch-insights-engine/actions/workflows/ci.yml)
 
+**Live football commentary from AI agents, where every stat is fact-checked before it airs.**
+
 A live football-match-intelligence system built on **Microsoft Agent Framework** and **Azure AI Foundry** for Microsoft + Premier League's "Inside the Game" Developer Hackathon.
 
 A synthetic match plays out event-by-event through a 5-stage multi-agent pipeline — **Scout → Analyst-0 → Narrator → {Broadcaster, Concierge}** — that turns raw events into fact-checked, persona-aware commentary, live on screen, with every claim verified against the data that produced it before it ever reaches a viewer.
 
-**Live demo:** https://ambitious-sand-0eeec890f.2.azurestaticapps.net
+| | |
+|---|---|
+| **Live demo** | https://ambitious-sand-0eeec890f.2.azurestaticapps.net |
+| **Pitch video** (1:47, narrated) | [`pitch.mp4`](pitch.mp4) |
+| **Screenshots** | [below](#screenshots), or the [`screenshots/`](screenshots) folder |
 
-**Pitch video (1:47, narrated):** [`pitch.mp4`](pitch.mp4). It shows a live match from kickoff with no cuts:
+The pitch video shows a live match from kickoff with no cuts:
 - the five agents at work and the first fact-checked insight on screen in seconds;
 - the match centre;
 - the trust figures, measured live;
@@ -20,7 +26,7 @@ A synthetic match plays out event-by-event through a 5-stage multi-agent pipelin
 
 Most AI sports-commentary demos either hallucinate stats or read like a press release. This project's whole premise is **explainability you can check**: every number the system states traces back to a specific `InsightCandidate` it computed; every claim is run through a live grounding checker before publication; and the headline accuracy numbers below are computed by the running system on every page load, not asserted in this file.
 
-## The pipeline
+## How it works
 
 | Stage | Agent | What it does |
 |---|---|---|
@@ -32,6 +38,21 @@ Most AI sports-commentary demos either hallucinate stats or read like a press re
 
 Every stage's input/output is recorded to a shared handoff log (Cosmos DB in production), giving a concrete, inspectable orchestration trace per match — see `GET /matches/{id}/handoff`.
 
+## Screenshots
+
+Captured on the live deployment. Full-size images are in [`screenshots/`](screenshots).
+
+| | |
+|---|---|
+| <a href="screenshots/01-landing.png"><img src="screenshots/01-landing.png" alt="Landing"></a><br>**Landing**: An animated preview of what a live insight looks like. | <a href="screenshots/02-new-match.png"><img src="screenshots/02-new-match.png" alt="New match"></a><br>**New match**: Pick a viewer profile, one of 6 languages and a coaching lens. |
+| <a href="screenshots/03-agents-at-work.png"><img src="screenshots/03-agents-at-work.png" alt="Agents at work"></a><br>**Agents at work**: Real progress from the agent trace, until the first verified insight (~6 s). | <a href="screenshots/04-live-insight.png"><img src="screenshots/04-live-insight.png" alt="Live insight"></a><br>**Live insight**: The current moment, verified by the fact-checker, next to the live win probability. |
+| <a href="screenshots/05-live-pitch-and-commentary.png"><img src="screenshots/05-live-pitch-and-commentary.png" alt="Pitch and commentary"></a><br>**Pitch and commentary**: Synthetic tracking, key moments, and the commentary rewritten for the viewer's profile. | <a href="screenshots/06-match-tracker.png"><img src="screenshots/06-match-tracker.png" alt="Match tracker"></a><br>**Match tracker**: Minute-by-minute stats, player of the match, momentum and shot map. |
+| <a href="screenshots/07-players.png"><img src="screenshots/07-players.png" alt="Players"></a><br>**Players**: FC-style ratings recalculated as the match goes, with a head-to-head comparison. | <a href="screenshots/08-connections.png"><img src="screenshots/08-connections.png" alt="Connections"></a><br>**Connections**: Passing network and partnerships, replayable over the match. |
+| <a href="screenshots/09-tactics.png"><img src="screenshots/09-tactics.png" alt="Tactics"></a><br>**Tactics**: Formations detected live, and a Monte-Carlo Tactics Lab. | <a href="screenshots/10-analysis.png"><img src="screenshots/10-analysis.png" alt="Analysis"></a><br>**Analysis**: Threat and shot maps, and "what if?" scenarios recomputed by Analyst-0. |
+| <a href="screenshots/11-trust-and-agents.png"><img src="screenshots/11-trust-and-agents.png" alt="Trust & agents"></a><br>**Trust & agents**: Trust figures measured live, and each agent's calls, tokens and latency. | <a href="screenshots/12-make-it-lie.png"><img src="screenshots/12-make-it-lie.png" alt="Make it lie"></a><br>**Make it lie**: Plant a fake number: the live checker rejects it and a verified fallback goes on air. |
+
+<p align="center"><img src="screenshots/13-phone.png" alt="The live view on a phone" width="300"><br><b>On a phone</b>: the same live view, responsive down to 360 px.</p>
+
 ## Live, checkable numbers
 
 `GET /stats` (and the badges at the top of the live demo) report four numbers computed fresh by the running system, not hardcoded:
@@ -40,24 +61,6 @@ Every stage's input/output is recorded to a shared handoff log (Cosmos DB in pro
 - **Grounding pass rate** — the real pass/fail rate of the live grounding checker (`eval/grounding_check.py`) across actual Narrator/Concierge output from live-run matches, not an offline-only test.
 - **Fact-checking scorecard** — deliberately corrupted narrations (fabricated numbers, wrong-but-real player names, off-topic phrasing) run through the same live grounding checker on every request, reporting a real catch rate and false-positive rate.
 - **Real-match realism scorecard** — our synthetic generator's basic match statistics (pressing intensity, pass completion, shot volume, possession split) compared against the literal min-max range observed across a real sample of StatsBomb Open Data Premier League matches (2003/04 + 2015/16 seasons — `eval/real_data_validation.py`, `tools/fetch_real_data_validation.py`), not a hand-typed table of publicly reported numbers. Reported **honestly either way**, and the sample size/provenance ships in the response itself rather than being asserted in prose.
-
-## Cost and latency, measured
-
-gpt-5-mini is a reasoning model, and by default it spends hidden reasoning tokens on every call: ~830 for the Narrator to write two sentences. They are billed, slow, and count against the deployment's tokens-per-minute limit. `tools/bench_llm.py` narrates the same real insights under each setting and checks every output with the live grounding checker. The shipped settings (`agents/shared/llm.py`, overridable per stage with `LLM_REASONING_EFFORT_<STAGE>`):
-
-| Per insight (Narrator + Concierge) | Model default | Shipped (`low` / `minimal`) |
-|---|---|---|
-| Wall time (p50) | ~18.6 s | ~6.1 s |
-| Output tokens (incl. hidden reasoning) | ~1,980 | ~400 |
-| Input tokens (compact payload, no internal ids) | ~2,930 | ~2,600 |
-| Est. cost at list price | ~$0.0043 | ~$0.0011 |
-| Grounding pass rate (Narrator / Concierge) | 100% / 80% | 100% / 88% |
-
-`minimal` was also measured for the Narrator: fastest, but its grounding rate dropped to 75% (it rounds numbers the checker can't trace), so the Narrator keeps `low`. Real token counts per agent are recorded in the handoff log and shown live in the Trust & agents tab.
-
-**Time to the first insight on screen: ~43 s → ~6 s.** Agent Framework runs the workflow in supersteps, and a stage only receives messages once the previous superstep is over. Analyst-0 used to hand over every moment at once, so the Narrator wrote all of them back to back before the Broadcaster saw the first. It now releases one moment per superstep through a self-loop (`agents/analyst0/executor.py`): while the Narrator writes moment *n*, the Broadcaster and Concierge are already shipping moment *n-1*. Same LLM calls and order; queued moments are saved in every checkpoint. Measured on the live deployment by timing Web PubSub frames in a browser: first insight 5.9 s after kick-off (was 43 s), then every few seconds while the model deployment's tokens-per-minute quota allows. At 10k tokens per minute, throttling (HTTP 429) stretched a 10-insight match to 101 s. At 100k there were no 429s, and all 9 insights of a match were on screen within 43 s.
-
-**Live messages stay a few KB.** Web PubSub bills every 2 KB of every message, once per connected viewer. With the narration mp3 inline (~100 KB in base64), one match cost ~2 MB per viewer and used up the Free tier's daily quota. Live messages now carry only an `audio_url` (`service/audio_clips.py`). The clip is synthesized the first time someone plays it, then cached, so a line nobody listens to costs no speech call either.
 
 ## Features
 
@@ -78,11 +81,6 @@ gpt-5-mini is a reasoning model, and by default it spends hidden reasoning token
 - **Live match analytics querying** (`GET /matches/{id}/analytics`, `agents/analyst0/live_analytics.py`) — ad-hoc, time-bucketed PPDA/possession/shots/goals/tempo over a match's event stream, queryable by bucket size, built from data we already generate.
 - **A red-team robustness eval** (`eval/robustness_suite.py`, `eval.grounding_check._real_world_leak_check`) — deliberately corrupted and adversarial narrations run through the live grounding checker on every request, not asserted once. Closes a gap we'd already honestly disclosed but never actually enforced: Narrator's system prompt says never to mention a real Premier League club or player, but nothing checked that automatically until now — a small, curated blocklist of real-club/player identifiers now fails grounding if the model ever name-drops one.
 
-## What this deliberately does not claim
-
-- **No computer vision on real match video.** This is an event-based synthetic simulator; there is no video input pipeline and no match footage.
-- **Our fine-tuning data is honestly synthetic, not real match data.** Our training examples are real in a narrower sense: genuine outputs from our own production Narrator model, kept only when they passed a live, automated grounding check, not hand-written templates — but the underlying match data they're grounded in is still synthetic.
-
 ## Microsoft Foundry usage
 
 Foundry isn't a side integration here — it's the thing the whole pipeline is built on top of, for development, orchestration, *and* management:
@@ -96,6 +94,29 @@ Foundry isn't a side integration here — it's the thing the whole pipeline is b
 ## Architecture
 
 Azure Container Apps (orchestrator + FastAPI + MCP server) · Cosmos DB (handoff log) · Event Hubs (the genuine stage-(a) ingestion transport) · Web PubSub (live frontend overlay) · Azure Static Web Apps (frontend) · Azure AI Foundry (gpt-5-mini production + a fine-tuned gpt-4.1-mini) · Azure AI Speech · Application Insights. See `infra/main.bicep` for the deployable definition, and `infra/snapshot/` for a point-in-time export of what's actually live.
+
+## Cost and latency, measured
+
+gpt-5-mini is a reasoning model, and by default it spends hidden reasoning tokens on every call: ~830 for the Narrator to write two sentences. They are billed, slow, and count against the deployment's tokens-per-minute limit. `tools/bench_llm.py` narrates the same real insights under each setting and checks every output with the live grounding checker. The shipped settings (`agents/shared/llm.py`, overridable per stage with `LLM_REASONING_EFFORT_<STAGE>`):
+
+| Per insight (Narrator + Concierge) | Model default | Shipped (`low` / `minimal`) |
+|---|---|---|
+| Wall time (p50) | ~18.6 s | ~6.1 s |
+| Output tokens (incl. hidden reasoning) | ~1,980 | ~400 |
+| Input tokens (compact payload, no internal ids) | ~2,930 | ~2,600 |
+| Est. cost at list price | ~$0.0043 | ~$0.0011 |
+| Grounding pass rate (Narrator / Concierge) | 100% / 80% | 100% / 88% |
+
+`minimal` was also measured for the Narrator: fastest, but its grounding rate dropped to 75% (it rounds numbers the checker can't trace), so the Narrator keeps `low`. Real token counts per agent are recorded in the handoff log and shown live in the Trust & agents tab.
+
+**Time to the first insight on screen: ~43 s → ~6 s.** Agent Framework runs the workflow in supersteps, and a stage only receives messages once the previous superstep is over. Analyst-0 used to hand over every moment at once, so the Narrator wrote all of them back to back before the Broadcaster saw the first. It now releases one moment per superstep through a self-loop (`agents/analyst0/executor.py`): while the Narrator writes moment *n*, the Broadcaster and Concierge are already shipping moment *n-1*. Same LLM calls and order; queued moments are saved in every checkpoint. Measured on the live deployment by timing Web PubSub frames in a browser: first insight 5.9 s after kick-off (was 43 s), then every few seconds while the model deployment's tokens-per-minute quota allows. At 10k tokens per minute, throttling (HTTP 429) stretched a 10-insight match to 101 s. At 100k there were no 429s, and all 9 insights of a match were on screen within 43 s.
+
+**Live messages stay a few KB.** Web PubSub bills every 2 KB of every message, once per connected viewer. With the narration mp3 inline (~100 KB in base64), one match cost ~2 MB per viewer and used up the Free tier's daily quota. Live messages now carry only an `audio_url` (`service/audio_clips.py`). The clip is synthesized the first time someone plays it, then cached, so a line nobody listens to costs no speech call either.
+
+## What this deliberately does not claim
+
+- **No computer vision on real match video.** This is an event-based synthetic simulator; there is no video input pipeline and no match footage.
+- **Our fine-tuning data is honestly synthetic, not real match data.** Our training examples are real in a narrower sense: genuine outputs from our own production Narrator model, kept only when they passed a live, automated grounding check, not hand-written templates — but the underlying match data they're grounded in is still synthetic.
 
 ## Running locally
 
