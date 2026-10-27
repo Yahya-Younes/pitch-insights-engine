@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchAgentTrace, overlayFeedUrl, overlaySchemaUrl } from "../lib/agentTraceApi";
-import type { AgentKind, AgentTraceAgent, AgentTraceResponse, HandoffPath } from "../lib/agentTraceTypes";
+import type { AgentKind, AgentTokens, AgentTraceAgent, AgentTraceResponse, HandoffPath } from "../lib/agentTraceTypes";
 import { useT, type I18n } from "../i18n";
 import { personaLabel, plural, triggerLabel } from "../lib/panelLabels";
 import "./AgentTeam.css";
@@ -77,6 +77,12 @@ function formatMs(i18n: I18n, ms: number | null): string {
   return `${i18n.num(ms / 1000, 1)} s`;
 }
 
+function formatTokens(i18n: I18n, tokens: AgentTokens | null | undefined): string {
+  if (!tokens) return "--";
+  const total = tokens.input_tokens + tokens.output_tokens;
+  return total >= 1000 ? `${i18n.num(total / 1000, 1)}k` : i18n.num(total, 0);
+}
+
 function AgentCard({ agent, active }: { agent: AgentTraceAgent; active: boolean }) {
   const i18n = useT();
   const { t } = i18n;
@@ -102,6 +108,9 @@ function AgentCard({ agent, active }: { agent: AgentTraceAgent; active: boolean 
         <div><dt>{outputsLabel}</dt><dd>{agent.outputs}</dd></div>
         <div><dt>{t("agents.llmCalls")}</dt><dd>{agent.llm_calls ?? "--"}</dd></div>
         <div><dt>{t("agents.card.avgTime")}</dt><dd>{formatMs(i18n, agent.avg_duration_ms)}</dd></div>
+        {isLlm && (
+          <div title={t("agents.tokensHint")}><dt>{t("agents.tokens")}</dt><dd>{formatTokens(i18n, agent.tokens)}</dd></div>
+        )}
       </dl>
       {(agent.fallbacks > 0 || agent.grounding_failures > 0 || agent.llm_outages > 0) && (
         <div className="agent-flags">
@@ -197,6 +206,7 @@ export function AgentTeam({ matchId, running = false }: Props) {
             <div><dt>{t("agents.totals.verified")}</dt><dd>{trace.totals.verified}</dd></div>
             <div><dt>{t("agents.totals.fellBack")}</dt><dd>{trace.totals.fell_back}</dd></div>
             <div><dt>{t("agents.llmCalls")}</dt><dd>{trace.totals.llm_calls ?? "--"}</dd></div>
+            <div title={t("agents.tokensHint")}><dt>{t("agents.tokens")}</dt><dd>{formatTokens(i18n, trace.totals.llm_tokens)}</dd></div>
             <div><dt>{t("agents.totals.overlays")}</dt><dd>{trace.totals.overlays}</dd></div>
             <div><dt>{t("agents.totals.handoffs")}</dt><dd>{trace.totals.handoffs}</dd></div>
           </dl>

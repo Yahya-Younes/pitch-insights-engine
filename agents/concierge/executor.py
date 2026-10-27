@@ -31,6 +31,7 @@ from agents.concierge.agent import personalize
 from agents.concierge.lens import CoachLens
 from agents.concierge.persona_filter import Persona
 from agents.shared.handoff_log import HandoffLog
+from agents.shared.llm import collect_usage, total_usage
 from agents.shared.models import InsightCandidate, NarratedInsight
 from agents.shared.output_hook import OutputHook, emit
 from agents.shared.tracing import current_trace_id
@@ -92,7 +93,8 @@ class ConciergeExecutor(Executor):
         started = time.perf_counter()
         attempts: list[int] = []
         grounding_failed = False
-        text = await self._personalize_with_retry(insight, attempts)
+        with collect_usage() as usage:
+            text = await self._personalize_with_retry(insight, attempts)
         if text is None:
             # Both attempts failed -- previously this just dropped the
             # insight entirely (no output, no log entry). Now it still
@@ -121,6 +123,7 @@ class ConciergeExecutor(Executor):
             "duration_ms": round((time.perf_counter() - started) * 1000, 2),
             "path": "llm" if fact_checked else "fallback",
             "llm_attempts": len(attempts), "grounding_failed": grounding_failed,
+            **total_usage(usage),
         })
         await ctx.yield_output(text)
         await emit(self._on_output, text)

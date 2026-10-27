@@ -15,7 +15,6 @@ module can be imported in tests/offline contexts without Azure credentials.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from pathlib import Path
 
@@ -27,6 +26,7 @@ from dotenv import load_dotenv
 from agents.concierge.lens import CoachLens
 from agents.concierge.persona_filter import Persona, filter_for_persona
 from agents.shared.glossary import glossary_terms_for
+from agents.shared.llm import chat_options, insight_for_prompt, report_usage, to_wire
 from agents.shared.models import InsightCandidate
 
 _PROMPTS_DIR = Path(__file__).parent / "prompts"
@@ -48,7 +48,10 @@ def _build_agent(persona: Persona) -> Agent:
     # DefaultAzureCredential falls back through az-login locally and the
     # Container App's user-assigned managed identity (AZURE_CLIENT_ID) when deployed.
     client = FoundryChatClient(project_endpoint=endpoint, model=model, credential=DefaultAzureCredential())
-    return Agent(client=client, instructions=system_prompt, name=f"Concierge-{persona}")
+    return Agent(
+        client=client, instructions=system_prompt, name=f"Concierge-{persona}",
+        default_options=chat_options("concierge") or None,
+    )
 
 
 def get_agent(persona: Persona) -> Agent:
@@ -79,23 +82,19 @@ async def personalize(
         "lens": lens.model_dump() if lens else None,
         "player_id": player_id,
         "insights": [
-            {
-                **c.model_dump(),
-                "related_player_names": {pid: player_names.get(pid, pid) for pid in c.related_players},
-                # Empty for "en" (TRIGGER_VOCAB already covers English) or
-                # an unsupported locale -- steers the model toward
-                # vocabulary the restored, locale-aware grounding check
-                # (eval.grounding_check.check_grounding_multi) will
-                # actually recognize, instead of translating freeform and
-                # then failing that check.
-                "glossary_terms": glossary_terms_for(locale, c.trigger_type),
-            }
+            # glossary_terms is empty for "en" (TRIGGER_VOCAB already covers
+            # English) or an unsupported locale -- it steers the model toward
+            # vocabulary the locale-aware grounding check
+            # (eval.grounding_check.check_grounding_multi) will actually
+            # recognize, instead of translating freeform and failing it.
+            insight_for_prompt(c, player_names, glossary_terms=glossary_terms_for(locale, c.trigger_type))
             for c in selected
         ],
     }
     agent = get_agent(persona)
     async with _semaphore:
-        response = await agent.run(json.dumps(payload, indent=2))
+        response = await agent.run(to_wire(payload))
+    report_usage(response)
     return response.text.strip()
 
 

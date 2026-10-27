@@ -23,6 +23,7 @@ from agent_framework import Executor, WorkflowContext, handler
 from agents.narrator.agent import narrate_insight
 from agents.narrator.fallback import fallback_narration
 from agents.shared.handoff_log import HandoffLog
+from agents.shared.llm import collect_usage, total_usage
 from agents.shared.models import InsightCandidate, NarratedInsight
 from agents.shared.tracing import current_trace_id
 from eval.grounding_check import check_grounding
@@ -91,7 +92,8 @@ class NarratorExecutor(Executor):
         started = time.perf_counter()
         attempts: list[int] = []
         grounding_failed = False
-        text = await self._narrate_with_retry(insight, attempts)
+        with collect_usage() as usage:
+            text = await self._narrate_with_retry(insight, attempts)
         if text is None:
             # Both attempts failed -- previously this just dropped the
             # insight entirely (no downstream message, no log entry). Now it
@@ -127,6 +129,7 @@ class NarratorExecutor(Executor):
             "duration_ms": round((time.perf_counter() - started) * 1000, 2),
             "path": "llm" if fact_checked else "fallback",
             "llm_attempts": len(attempts), "grounding_failed": grounding_failed,
+            **total_usage(usage),
         })
         # A second, fuller record alongside the one above -- the "narrator"
         # entry stays a short preview for the handoff trace UI, but the "Ask

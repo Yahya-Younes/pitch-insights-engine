@@ -14,7 +14,6 @@ module can be imported in tests/offline contexts without Azure credentials.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from pathlib import Path
 
@@ -23,6 +22,7 @@ from agent_framework_foundry import FoundryChatClient
 from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
+from agents.shared.llm import chat_options, insight_for_prompt, report_usage, to_wire
 from agents.shared.models import InsightCandidate
 
 _PROMPT_PATH = Path(__file__).parent / "prompts" / "narrator_system.md"
@@ -38,7 +38,7 @@ def _build_agent() -> Agent:
     # DefaultAzureCredential falls back through az-login locally and the
     # Container App's user-assigned managed identity (AZURE_CLIENT_ID) when deployed.
     client = FoundryChatClient(project_endpoint=endpoint, model=model, credential=DefaultAzureCredential())
-    return Agent(client=client, instructions=system_prompt, name="Narrator")
+    return Agent(client=client, instructions=system_prompt, name="Narrator", default_options=chat_options("narrator") or None)
 
 
 _agent: Agent | None = None
@@ -67,13 +67,12 @@ async def narrate_insight(insight: InsightCandidate, player_names: dict[str, str
     rule is enforced downstream by eval/grounding_check.check_grounding, not
     by this function.
     """
-    player_names = player_names or {}
-    payload = insight.model_dump()
-    payload["related_player_names"] = {pid: player_names.get(pid, pid) for pid in insight.related_players}
+    payload = insight_for_prompt(insight, player_names or {})
 
     agent = get_agent()
     async with _semaphore:
-        response = await agent.run(json.dumps(payload, indent=2))
+        response = await agent.run(to_wire(payload))
+    report_usage(response)
     return response.text.strip()
 
 

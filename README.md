@@ -33,6 +33,20 @@ Every stage's input/output is recorded to a shared handoff log (Cosmos DB in pro
 - **Fact-checking scorecard** — deliberately corrupted narrations (fabricated numbers, wrong-but-real player names, off-topic phrasing) run through the same live grounding checker on every request, reporting a real catch rate and false-positive rate.
 - **Real-match realism scorecard** — our synthetic generator's basic match statistics (pressing intensity, pass completion, shot volume, possession split) compared against the literal min-max range observed across a real sample of StatsBomb Open Data Premier League matches (2003/04 + 2015/16 seasons — `eval/real_data_validation.py`, `tools/fetch_real_data_validation.py`), not a hand-typed table of publicly reported numbers. Reported **honestly either way**, and the sample size/provenance ships in the response itself rather than being asserted in prose.
 
+## Cost and latency, measured
+
+gpt-5-mini is a reasoning model, and by default it spends hidden reasoning tokens on every call: ~830 for the Narrator to write two sentences. They are billed, slow, and count against the deployment's tokens-per-minute limit. `tools/bench_llm.py` narrates the same real insights under each setting and checks every output with the live grounding checker. The shipped settings (`agents/shared/llm.py`, overridable per stage with `LLM_REASONING_EFFORT_<STAGE>`):
+
+| Per insight (Narrator + Concierge) | Model default | Shipped (`low` / `minimal`) |
+|---|---|---|
+| Wall time (p50) | ~18.6 s | ~6.1 s |
+| Output tokens (incl. hidden reasoning) | ~1,980 | ~400 |
+| Input tokens (compact payload, no internal ids) | ~2,930 | ~2,600 |
+| Est. cost at list price | ~$0.0043 | ~$0.0011 |
+| Grounding pass rate (Narrator / Concierge) | 100% / 80% | 100% / 88% |
+
+`minimal` was also measured for the Narrator: fastest, but its grounding rate dropped to 75% (it rounds numbers the checker can't trace), so the Narrator keeps `low`. Real token counts per agent are recorded in the handoff log and shown live in the Trust & agents tab.
+
 ## Features
 
 - **5-stage live orchestration** via Microsoft Agent Framework's `WorkflowBuilder`, deployed on Azure Container Apps, with every insight individually fact-checked before it ships.
@@ -43,7 +57,7 @@ Every stage's input/output is recorded to a shared handoff log (Cosmos DB in pro
 - **5 real-manager Coach Lenses** (Ferguson, Guardiola, Klopp, Mourinho, Wenger) that reframe which insights lead and how they're told, sourced from each manager's documented tactical philosophy.
 - **Referee Decision Analytics** — positioning-quality scoring grounded in the Diagonal System of Control, with an IFAB Law citation, an estimated-impact heuristic, and an honest "too close to call" band instead of always presenting a confident verdict.
 - **Player Tendency Profiles**, inferred purely from observed events (never from hidden ground truth) and scored against that ground truth only for the offline accuracy report above. Uncapped, tendency detection would flood the feed (~150 mostly "player did what they usually do" insights per match), so the live feed emits only the 5 most striking `tendency_break` moments per match (`TENDENCY_MAX_PER_MATCH` in `agents/analyst0/insight_generator.py`).
-- **Multi-language narration and Q&A** (EN/FR/ES/DE) via Azure AI Speech voice synthesis, with a per-locale football glossary (`agents/shared/glossary.py`) that both steers translation and restores real vocabulary fact-checking for non-English output — previously, non-English narration had that check silently skipped entirely.
+- **Multi-language narration and Q&A** (EN/FR/ES/DE/IT/PT) via Azure AI Speech voice synthesis, with a per-locale football glossary (`agents/shared/glossary.py`) that both steers translation and restores real vocabulary fact-checking for non-English output — previously, non-English narration had that check silently skipped entirely.
 - **A grounded "Ask the Match" Q&A agent** that answers only from insights this system has actually verified for that match, and says so honestly when something hasn't come up yet rather than guessing.
 - **Live Application Insights tracing** (OpenTelemetry), with trace IDs correlated into the handoff log so a judge can follow one request end-to-end.
 - **A fine-tuned Narrator model** (`gpt-4.1-mini`, Azure AI Foundry Developer-tier — `tools/export_finetune_dataset.py`, `tools/launch_finetune.py`, `tools/deploy_finetuned_model.py`) trained via self-distillation: 752 real training examples collected by running 15 full synthetic matches through the actual live pipeline, keeping only the insight narrations that passed the live grounding check, never a hand-written template. Job `ftjob-866c5084b75b48a7b24506aa70fbae46` succeeded; the deployed model passes our own grounding check on fresh unseen input and writes in the Narrator's voice, e.g.: *"Between the 23rd and 26th minute the home side suddenly cranked up the press — their PPDA fell to 4.2, 40.8% below their match baseline of 7.1."* (Developer-tier deployments are evaluation-only and expire after 24h — redeploy with `tools/deploy_finetuned_model.py create <fine_tuned_model_id>` before a live demo if it's been a while.)

@@ -13,7 +13,6 @@ arbitrary question.
 from __future__ import annotations
 
 import asyncio
-import json
 import os
 from pathlib import Path
 
@@ -23,6 +22,7 @@ from azure.identity import DefaultAzureCredential
 from dotenv import load_dotenv
 
 from agents.shared.glossary import glossary_terms_for
+from agents.shared.llm import chat_options, insight_for_prompt, report_usage, to_wire
 from agents.shared.models import InsightCandidate
 from eval.grounding_check import check_grounding_multi
 
@@ -43,7 +43,7 @@ def _build_agent() -> Agent:
     model = os.environ["AZURE_AI_FOUNDRY_CHAT_DEPLOYMENT"]
     system_prompt = _PROMPT_PATH.read_text(encoding="utf-8")
     client = FoundryChatClient(project_endpoint=endpoint, model=model, credential=DefaultAzureCredential())
-    return Agent(client=client, instructions=system_prompt, name="QA")
+    return Agent(client=client, instructions=system_prompt, name="QA", default_options=chat_options("qa") or None)
 
 
 def get_agent() -> Agent:
@@ -68,21 +68,18 @@ async def ask(
         "question": question,
         "locale": locale,
         "insights": [
-            {
-                **c.model_dump(),
-                "related_player_names": {pid: player_names.get(pid, pid) for pid in c.related_players},
-                "glossary_terms": glossary_terms_for(locale, c.trigger_type),
-            }
+            insight_for_prompt(c, player_names, glossary_terms=glossary_terms_for(locale, c.trigger_type))
             for c in insights
         ],
     }
     agent = get_agent()
     try:
         async with _semaphore:
-            response = await asyncio.wait_for(agent.run(json.dumps(payload, indent=2)), timeout=_CALL_TIMEOUT_S)
+            response = await asyncio.wait_for(agent.run(to_wire(payload)), timeout=_CALL_TIMEOUT_S)
     except Exception:
         return NO_ANSWER_FALLBACK, False
 
+    report_usage(response)
     text = response.text.strip()
     result = check_grounding_multi(text, insights, player_names, locale=locale)
     if not result.passed:

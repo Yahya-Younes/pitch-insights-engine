@@ -44,6 +44,14 @@ _FAILED_STAGES = {"narrator_failed": "narrator", "concierge_failed": "concierge"
 DEFAULT_TIMELINE_LIMIT = 50
 
 
+_TOKEN_KEYS = ("input_tokens", "output_tokens", "reasoning_tokens")
+
+
+def _sum_tokens(parts: list[dict[str, int] | None]) -> dict[str, int] | None:
+    known = [p for p in parts if p is not None]
+    return {k: sum(p[k] for p in known) for k in _TOKEN_KEYS} if known else None
+
+
 def _num(value: Any) -> float | None:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else None
 
@@ -90,7 +98,8 @@ def build_agent_trace(
     acc: dict[str, dict[str, Any]] = {
         stage: {"processed": 0, "outputs": 0, "llm_calls": 0, "llm_calls_known": False,
                 "fallbacks": 0, "grounding_failures": 0, "hard_failures": 0,
-                "durations": [], "last": None}
+                "durations": [], "last": None, "tokens": dict.fromkeys(_TOKEN_KEYS, 0),
+                "tokens_known": False}
         for stage in PIPELINE_STAGES
     }
     insight_ids: set[str] = set()
@@ -126,6 +135,10 @@ def build_agent_trace(
             a["grounding_failures"] += 1
         if (dur := _num(s.get("duration_ms"))) is not None:
             a["durations"].append(dur)
+        if any(k in s for k in _TOKEN_KEYS):
+            a["tokens_known"] = True
+            for k in _TOKEN_KEYS:
+                a["tokens"][k] += int(_num(s.get(k)) or 0)
         a["last"] = e.timestamp
 
         row: dict[str, Any] = {
@@ -153,6 +166,9 @@ def build_agent_trace(
             "fallbacks": a["fallbacks"], "grounding_failures": a["grounding_failures"],
             "llm_outages": a["hard_failures"],
             "avg_duration_ms": round(sum(durations) / len(durations), 2) if durations else None,
+            # Real token counts reported by the model (None before
+            # instrumentation, 0 for deterministic agents by construction).
+            "tokens": (dict(a["tokens"]) if a["tokens_known"] else None) if is_llm else dict.fromkeys(_TOKEN_KEYS, 0),
             "last_activity_ts": a["last"],
         })
 
@@ -167,6 +183,7 @@ def build_agent_trace(
         "grounding_failures": narrator["grounding_failures"] + concierge["grounding_failures"],
         "llm_outages": narrator["hard_failures"] + concierge["hard_failures"],
         "llm_calls": sum(llm_known) if llm_known else None,
+        "llm_tokens": _sum_tokens([by[s]["tokens"] for s in ("narrator", "concierge")]),
         "overlays": acc["broadcaster"]["outputs"],
         "handoffs": len(timeline),
         "elapsed_s": round(rows[-1].timestamp - start_ts, 3) if rows and start_ts is not None else 0,

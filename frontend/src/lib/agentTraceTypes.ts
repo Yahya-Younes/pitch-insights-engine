@@ -16,7 +16,15 @@ export interface AgentTraceAgent {
   grounding_failures: number;
   llm_outages: number;
   avg_duration_ms: number | null;
+  /** Real token counts reported by the model; null before instrumentation. */
+  tokens?: AgentTokens | null;
   last_activity_ts: number | null;
+}
+
+export interface AgentTokens {
+  input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
 }
 
 export interface AgentTraceTimelineRow {
@@ -36,6 +44,7 @@ export interface AgentTraceTotals {
   grounding_failures: number;
   llm_outages: number;
   llm_calls: number | null;
+  llm_tokens?: AgentTokens | null;
   overlays: number;
   handoffs: number;
   elapsed_s: number;
