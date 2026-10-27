@@ -27,9 +27,14 @@ interface Props {
   onFollowPlayer?: (playerId: string) => void;
 }
 
+/** A z-score means nothing to a viewer, so it is never the headline figure:
+ * a tempo change shows its actions per minute instead. */
+const Z_SCORE_LABELS = new Set(["zscore", "tempo_zscore"]);
+
 function pickHeadlineStat(points: DataPoint[]): DataPoint | null {
   const byLabel = (label: string) => points.find((p) => p.label === label);
-  return byLabel("delta_pct") ?? byLabel("positioning_quality") ?? points.find((p) => typeof p.value === "number") ?? null;
+  return byLabel("delta_pct") ?? byLabel("positioning_quality") ?? byLabel("tempo_actions_per_min")
+    ?? points.find((p) => typeof p.value === "number" && !Z_SCORE_LABELS.has(p.label)) ?? null;
 }
 
 /** Translated data-point label ("live.dp.<label>"), else the raw key de-snaked. */
@@ -102,7 +107,7 @@ export function HeroStage({
                 <span className="ui-stat-value lv-hero-stat-value">
                   {isPercent
                     ? `${shownValue > 0 ? "+" : ""}${i18n.pct(Number((shownValue / 100).toFixed(3)) || 0, 1)}`
-                    : stat.label === "zscore" ? num2(i18n, shownValue) : num1(i18n, shownValue)}
+                    : num1(i18n, shownValue)}
                 </span>
                 <span className="lv-hero-stat-label">{humanLabel(i18n, stat.label)}</span>
               </div>
