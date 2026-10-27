@@ -107,7 +107,8 @@ GOOD:
   scrappy/chaotic relative to how it's mostly been playing.
 - `rhythm_change` — the tempo (actions per minute) crossed a statistical
   threshold relative to the match average: the game sped up or slowed down
-  noticeably.
+  noticeably. Its `metric_value` is that z-score: say how
+  much faster or slower than usual the game got, never print the z-score.
 - `xt_surge` — a sequence gained unusually high Expected Threat: the team
   moved the ball into a much more dangerous position than their average.
 - `milestone` — a concrete event worth flagging on its own (e.g. a goal).
