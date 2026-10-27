@@ -23,7 +23,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from agents.qa.agent import ask as qa_ask
 from agents.shared.models import InsightCandidate
 from eval.robustness_suite import run as run_robustness_suite
-from service.state import STATE
+from service.state import SIMULATION_GUARD, STATE, SimulationBusy
 
 # The MCP SDK's DNS-rebinding protection only matches an exact Host header
 # (or an exact-host + ":*" port wildcard) -- there's no subdomain/hostname
@@ -181,11 +181,11 @@ async def simulate_tactics_matchup(
     if not 1 <= n_matches <= 200:
         return {"error": "n_matches must be between 1 and 200"}
     try:
-        return await asyncio.to_thread(
+        return await SIMULATION_GUARD.run(
             simulate_formation_matchup, home_formation, away_formation, n_matches,
             home_quality=home_quality, away_quality=away_quality,
         )
-    except ValueError as exc:
+    except (SimulationBusy, ValueError) as exc:
         return {"error": str(exc)}
 
 

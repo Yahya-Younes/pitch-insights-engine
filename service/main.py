@@ -68,8 +68,15 @@ from service.routers.player_graph import router as player_graph_router
 from service.routers.player_ratings import router as player_ratings_router
 from service.routers.player_tags import router as player_tags_router
 from service.routers.win_probability import router as win_probability_router
+from service.state import (
+    SIMULATION_GUARD,
+    SimulationBusy,
+    build_checkpoint_storage,
+    build_handoff_log,
+    build_publisher,
+    register_match,
+)
 from service.state import STATE as _state
-from service.state import build_checkpoint_storage, build_handoff_log, build_publisher
 from service.stats import (
     compute_finetuned_narrator_comparison,
     compute_formation_detection_accuracy,
@@ -464,10 +471,12 @@ async def tactics_lab_simulate(request: Request, req: TacticsLabRequest):
     shoestring-budget one in the same formation. Pure CPU simulation, no
     LLM calls, so this stays fast even at the full 200-match cap."""
     try:
-        return await asyncio.to_thread(
+        return await SIMULATION_GUARD.run(
             simulate_formation_matchup, req.home_formation, req.away_formation, req.n_matches,
             home_quality=req.home_quality, away_quality=req.away_quality,
         )
+    except SimulationBusy as exc:
+        raise HTTPException(429, str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -668,6 +677,8 @@ async def run_demo_match(request: Request, req: RunMatchRequest):
         if e.type == "match_metadata" or e.match_clock_ms <= cutoff_ms
     ]
     player_names = {p.player_id: p.player_name for p in [*result.home_profiles, *result.away_profiles]}
+    # Caps how many matches stay in memory (oldest dropped first) -- see register_match.
+    register_match(_state, match_id)
     _state.setdefault("player_roles_by_match", {})[match_id] = {
         p.player_id: p.position for p in [*result.home_profiles, *result.away_profiles]
     }

@@ -42,6 +42,19 @@ def STATE():  # noqa: N802 -- named after the object it guards
     state.update(saved)
 
 
+@pytest.fixture(autouse=True)
+def _fresh_simulation_guard(monkeypatch):
+    # The Tactics Lab guard counts calls process-wide; without a fresh one
+    # per test, simulations from earlier tests would eat into its budget.
+    from service import main, mcp_server, state
+    from service.state import SimulationGuard
+
+    guard = SimulationGuard()
+    for module in (state, main, mcp_server):
+        monkeypatch.setattr(module, "SIMULATION_GUARD", guard)
+    yield guard
+
+
 async def _fake_narrate(insight, player_names=None):
     # Built on fallback_narration so it passes the live grounding check.
     from agents.narrator.fallback import fallback_narration

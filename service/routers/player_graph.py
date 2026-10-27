@@ -11,11 +11,11 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Query
 
 from agents.analyst0.player_graph import compute_player_graph
-from service.state import STATE
+from service.state import PLAYER_GRAPH_CACHE_KEY, STATE
 
 router = APIRouter(tags=["player-graph"])
 
-_CACHE_KEY = "player_graph_cache"
+_CACHE_KEY = PLAYER_GRAPH_CACHE_KEY
 _CACHE_MAX = 256
 
 
