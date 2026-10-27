@@ -8,6 +8,14 @@ A synthetic match plays out event-by-event through a 5-stage multi-agent pipelin
 
 **Live demo:** https://ambitious-sand-0eeec890f.2.azurestaticapps.net
 
+**Pitch video (1:47, narrated):** [`pitch.mp4`](pitch.mp4). It shows a live match from kickoff with no cuts:
+- the five agents at work and the first fact-checked insight on screen in seconds;
+- the match centre;
+- the trust figures, measured live;
+- an attempt to make the narrator lie.
+
+[![Pitch video: a live match with fact-checked commentary](docs/pitch-thumbnail.jpg)](pitch.mp4)
+
 ## Why this exists
 
 Most AI sports-commentary demos either hallucinate stats or read like a press release. This project's whole premise is **explainability you can check**: every number the system states traces back to a specific `InsightCandidate` it computed; every claim is run through a live grounding checker before publication; and the headline accuracy numbers below are computed by the running system on every page load, not asserted in this file.
