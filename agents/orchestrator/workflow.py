@@ -6,6 +6,8 @@ orchestration trace.
 """
 from __future__ import annotations
 
+import logging
+
 from agent_framework import CheckpointStorage, Workflow, WorkflowBuilder
 
 from agents.analyst0.executor import Analyst0Executor
@@ -27,6 +29,7 @@ from agents.shared.output_hook import OutputHook
 # and any test using one stay in sync with what the workflow actually
 # carries, rather than two hand-maintained copies drifting apart.
 CHECKPOINT_ALLOWED_TYPES: list[str] = [
+    "agents.analyst0.executor:ReleaseNextInsight",
     "agents.scout.executor:RawMatchFeed",
     "agents.scout.executor:ValidatedMatchEvents",
     "agents.shared.models:InsightCandidate",
@@ -48,6 +51,24 @@ CHECKPOINT_ALLOWED_TYPES: list[str] = [
     "datagen.schema:FoulEvent",
     "datagen.schema:CardEvent",
 ]
+
+
+# Analyst-0 releases one insight per superstep, so a match needs about
+# (insights + 4) supersteps; Agent Framework's default cap of 100 would cut
+# a long match short. The self-loop always drains, so this is only a guard.
+MAX_SUPERSTEPS = 5000
+
+
+class _IntentionalSelfLoopFilter(logging.Filter):
+    """Agent Framework warns about every self-loop on every build (i.e. every
+    match). Analyst-0's is intentional and always drains, so drop just that
+    one warning; any other self-loop still gets reported."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return "Executor 'analyst0' connects to itself" not in record.getMessage()
+
+
+logging.getLogger("agent_framework._workflows._validation").addFilter(_IntentionalSelfLoopFilter())
 
 
 class WorkflowCrashed(RuntimeError):
@@ -102,8 +123,13 @@ def build_workflow(
     )
 
     workflow = (
-        WorkflowBuilder(start_executor=scout, checkpoint_storage=checkpoint_storage)
+        WorkflowBuilder(
+            start_executor=scout, checkpoint_storage=checkpoint_storage, max_iterations=MAX_SUPERSTEPS,
+        )
         .add_edge(scout, analyst0)
+        # Self-loop: Analyst-0 releases one candidate per superstep so the
+        # stages pipeline (see agents/analyst0/executor.py).
+        .add_edge(analyst0, analyst0)
         .add_edge(analyst0, narrator)
         .add_fan_out_edges(narrator, [broadcaster, concierge])
         .build()

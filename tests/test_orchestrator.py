@@ -278,3 +278,87 @@ def test_a_failing_on_output_never_breaks_the_pipeline():
     ))
 
     assert any(isinstance(o, RenderPayload) for o in result.get_outputs())
+
+
+# -- pipelining: Analyst-0 releases one insight per superstep ---------------------
+
+def _candidates(n, match_id="M-PIPE"):
+    from agents.shared.models import InsightCandidate
+    return [
+        InsightCandidate(
+            match_id=match_id, window_start_min=float(i), window_end_min=float(i) + 3,
+            trigger_type="pressure_spike", metric_name="ppda_home", metric_value=4.0,
+            baseline_value=6.0, delta_pct=-33.3, related_players=[], related_events=[],
+            window_summary={"team": "home"},
+        )
+        for i in range(n)
+    ]
+
+
+def _fixed_candidates(monkeypatch, candidates):
+    monkeypatch.setattr(
+        "agents.analyst0.executor.generate_insight_candidates",
+        lambda events, match_id, duration_ms, tendency_profiles=None: list(candidates),
+    )
+
+
+def test_first_insight_is_published_before_the_last_one_is_narrated(monkeypatch):
+    # The fix for ~40 s of blank screen: the Broadcaster ships moment 1 while
+    # the Narrator is still on later ones, instead of after the whole batch.
+    candidates = _candidates(5)
+    _fixed_candidates(monkeypatch, candidates)
+    events = []
+
+    async def narrate(insight, player_names=None):
+        events.append(("narrate", insight.insight_id))
+        return await _fake_narrate(insight, player_names)
+
+    async def on_output(output):
+        if isinstance(output, RenderPayload):
+            events.append(("render", output.source_insight_id))
+
+    asyncio.run(run_match(
+        raw_events=[_metadata_dict(), _goal_dict()], match_id="M-PIPE", duration_ms=90 * 60000,
+        narrate_fn=narrate, personalize_fn=_fake_personalize, on_output=on_output,
+    ))
+
+    narrated = [i for kind, i in events if kind == "narrate"]
+    rendered = [i for kind, i in events if kind == "render"]
+    assert narrated == rendered == [c.insight_id for c in candidates], "same insights, same order"
+    assert events.index(("render", candidates[0].insight_id)) < events.index(("narrate", candidates[-1].insight_id))
+
+
+def test_resume_releases_every_insight_still_queued_at_the_crash(monkeypatch):
+    candidates = _candidates(4, "M-PIPE-CRASH")
+    _fixed_candidates(monkeypatch, candidates)
+    storage = InMemoryCheckpointStorage()
+    log = InMemoryHandoffLog()
+    try:
+        asyncio.run(run_match(
+            raw_events=[_metadata_dict(), _goal_dict()], match_id="M-PIPE-CRASH", duration_ms=90 * 60000,
+            narrate_fn=_fake_narrate, personalize_fn=_fake_personalize,
+            inject_crash=True, checkpoint_storage=storage, handoff_log=log,
+        ))
+        raise AssertionError("expected run_match to raise WorkflowCrashed")
+    except WorkflowCrashed as exc:
+        checkpoint_id = exc.checkpoint_id
+
+    result, _ = asyncio.run(run_match(
+        raw_events=None, match_id="M-PIPE-CRASH", duration_ms=90 * 60000,
+        narrate_fn=_fake_narrate, personalize_fn=_fake_personalize,
+        checkpoint_id=checkpoint_id, checkpoint_storage=storage, handoff_log=log,
+    ))
+    rendered = [o.source_insight_id for o in result.get_outputs() if isinstance(o, RenderPayload)]
+    assert rendered == [c.insight_id for c in candidates]
+
+
+def test_a_long_match_is_not_cut_short_by_the_superstep_cap(monkeypatch):
+    # One insight per superstep: 150 insights is well past Agent Framework's
+    # default cap of 100 supersteps.
+    candidates = _candidates(150, "M-PIPE-LONG")
+    _fixed_candidates(monkeypatch, candidates)
+    result, _ = asyncio.run(run_match(
+        raw_events=[_metadata_dict(), _goal_dict()], match_id="M-PIPE-LONG", duration_ms=90 * 60000,
+        narrate_fn=_fake_narrate, personalize_fn=_fake_personalize,
+    ))
+    assert sum(isinstance(o, RenderPayload) for o in result.get_outputs()) == 150

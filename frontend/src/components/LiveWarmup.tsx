@@ -25,10 +25,9 @@ function clock(seconds: number): string {
 /** What the agents are doing before the first verified insight lands: the
  * real counters from the agent trace (events validated, moments detected,
  * moments narrated and checked, drafts rejected by the fact-checker),
- * polled while this is on screen. The workflow hands the Broadcaster a whole
- * batch of narrated moments at once, so "x/y written" is exactly how far the
- * first on-air insight is. Mount with key={matchId} so the clock restarts
- * per match. */
+ * polled while this is on screen. Analyst-0 releases moments one at a time,
+ * so the first goes on air as soon as it is narrated and checked. Mount with
+ * key={matchId} so the clock restarts per match. */
 export function LiveWarmup({ matchId }: { matchId: string }) {
   const i18n = useT();
   const { t } = i18n;
@@ -83,7 +82,7 @@ export function LiveWarmup({ matchId }: { matchId: string }) {
     },
     {
       id: "narrator", name: "Narrator",
-      state: moments > 0 && narrated >= moments ? "done" : moments > 0 ? "active" : "pending",
+      state: narrated > 0 ? "done" : moments > 0 ? "active" : "pending",
       label: t("live.warmup.narrator"),
       detail: moments > 0
         ? t("live.warmup.narratorProgress", { done: i18n.num(Math.min(narrated, moments)), total: i18n.num(moments) })
@@ -92,14 +91,13 @@ export function LiveWarmup({ matchId }: { matchId: string }) {
     },
     {
       id: "broadcaster", name: "Broadcaster",
-      state: moments > 0 && narrated >= moments ? "active" : "pending",
+      state: narrated > 0 ? "active" : "pending",
       label: t("live.warmup.broadcaster"),
       detail: null,
     },
   ];
-  // Weighted the way the wait actually splits: nearly all of it is narration.
-  const progress = (validated > 0 ? 0.08 : 0.02) + (moments > 0 ? 0.08 : 0)
-    + (moments > 0 ? 0.76 * Math.min(1, narrated / moments) : 0);
+  // Weighted the way the wait splits: most of it is the first narration.
+  const progress = (validated > 0 ? 0.15 : 0.04) + (moments > 0 ? 0.15 : 0) + (narrated > 0 ? 0.6 : 0);
 
   return (
     <div className="ui-card lv-hero lv-warmup">
