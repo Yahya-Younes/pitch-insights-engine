@@ -47,6 +47,13 @@ def chat_options(stage: str) -> dict[str, Any]:
     return {} if effort == "default" else {"reasoning": {"effort": effort}}
 
 
+def _tidy(value: Any) -> Any:
+    """A float rounded to 3 decimals. The model copies what it is given, and
+    "pass bias 0.8888888888888888" once went on air; the fact-checker's
+    0.6 tolerance accepts the rounded value."""
+    return round(value, 3) if isinstance(value, float) else value
+
+
 def insight_for_prompt(
     insight: InsightCandidate, player_names: dict[str, str], **extra: Any,
 ) -> dict[str, Any]:
@@ -55,8 +62,10 @@ def insight_for_prompt(
     coordinates and the z-score."""
     data = insight.model_dump(exclude=_INTERNAL_FIELDS)
     data["window_summary"] = {
-        k: v for k, v in data["window_summary"].items() if k not in _HIDDEN_SUMMARY_KEYS
+        k: _tidy(v) for k, v in data["window_summary"].items() if k not in _HIDDEN_SUMMARY_KEYS
     }
+    for key in ("window_start_min", "window_end_min", "metric_value", "baseline_value", "delta_pct"):
+        data[key] = _tidy(data[key])
     data["related_player_names"] = {pid: player_names.get(pid, pid) for pid in insight.related_players}
     data.update(extra)
     return data

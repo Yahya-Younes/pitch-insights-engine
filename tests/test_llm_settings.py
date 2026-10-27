@@ -17,6 +17,7 @@ from agents.shared.llm import (
     total_usage,
 )
 from agents.shared.models import InsightCandidate
+from eval.grounding_check import check_grounding
 
 
 def _insight() -> InsightCandidate:
@@ -75,6 +76,20 @@ def test_prompt_payload_hides_coordinates_and_zscore_but_the_insight_keeps_them(
 
     assert data["window_summary"] == {"team": "home"}
     assert insight.window_summary["end_x"] == 107.2  # the what-if tool still reads them
+
+
+def test_prompt_numbers_are_rounded_and_still_pass_the_fact_checker():
+    insight = _insight()
+    insight.metric_value = 0.1111111111111111
+    insight.window_summary.update({"bias_pass": 0.8888888888888888, "bias_carry": 0.1111111111111111, "n_actions": 9})
+    data = insight_for_prompt(insight, {})
+
+    assert data["metric_value"] == 0.111
+    assert data["window_summary"]["bias_pass"] == 0.889
+    assert data["window_summary"]["n_actions"] == 9
+    assert insight.window_summary["bias_pass"] == 0.8888888888888888  # the insight itself is untouched
+    text = "Pass bias 0.889 against a carry bias of 0.111, with 9 actions in the window."
+    assert check_grounding(text, insight, {}).numeric_ok
 
 
 def test_wire_format_is_compact_and_keeps_accents_readable():
