@@ -2,6 +2,7 @@ import { useId, useRef } from "react";
 import type { ConnectionStatus } from "../hooks/useOverlayFeed";
 import type { Contrast, TextSize } from "../hooks/useA11ySettings";
 import { useFocusTrap } from "../hooks/useFocusTrap";
+import { useMediaQuery } from "../hooks/useMediaQuery";
 import { useT } from "../i18n";
 import { LOCALES } from "../lib/locales";
 import type { LensSummary, Locale, RunMatchResponse } from "../lib/types";
@@ -32,6 +33,8 @@ export function AppBar({
 }: AppBarProps) {
   const localeId = useId();
   const { t } = useT();
+  // Phones get the bare code ("EN") so the whole bar fits on one row.
+  const compact = useMediaQuery("(max-width: 600px)");
   return (
     <header className="app-bar">
       <div className="app-bar-brand">
@@ -51,7 +54,7 @@ export function AppBar({
           onChange={(e) => onLocaleChange(e.target.value as Locale)}
         >
           {LOCALES.map((l) => (
-            <option key={l.value} value={l.value}>{l.short} · {l.label}</option>
+            <option key={l.value} value={l.value}>{compact ? l.short : `${l.short} · ${l.label}`}</option>
           ))}
         </select>
         <button

@@ -68,6 +68,15 @@ def test_prompt_payload_keeps_the_evidence_and_drops_internal_ids():
     assert data["glossary_terms"] == ["pressing"]
 
 
+def test_prompt_payload_hides_raw_pitch_coordinates_but_the_insight_keeps_them():
+    insight = _insight()
+    insight.window_summary.update({"start_x": 93.7, "start_y": 39.7, "end_x": 107.2, "end_y": 35.5, "zscore": 4.6})
+    data = insight_for_prompt(insight, {})
+
+    assert data["window_summary"] == {"team": "home", "zscore": 4.6}
+    assert insight.window_summary["end_x"] == 107.2  # the what-if tool still reads them
+
+
 def test_wire_format_is_compact_and_keeps_accents_readable():
     wire = to_wire({"name": "Kylian Mbappé", "n": [1, 2]})
     assert wire == '{"name":"Kylian Mbappé","n":[1,2]}'

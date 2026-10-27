@@ -7,6 +7,7 @@ import {
 import type { RunMatchResponse } from "../lib/types";
 import { useT } from "../i18n";
 import { TeamCrest } from "./TeamCrest";
+import { CountUpText } from "./CountUp";
 
 const POLL_MS = 3000;
 const TERMINAL: ReadonlySet<string> = new Set(["done", "failed"]);
@@ -147,9 +148,9 @@ export function Scorebug({ match }: { match: RunMatchResponse | null }) {
           )}
         </div>
         <div className="scorebug-wp-labels">
-          <span className="is-home"><abbr title={match.home_team}>{homeCode}</abbr> {wpHome}</span>
-          <span className="is-draw">{t("common.draw")} {wpDraw}</span>
-          <span className="is-away"><abbr title={match.away_team}>{awayCode}</abbr> {wpAway}</span>
+          <span className="is-home"><abbr title={match.home_team}>{homeCode}</abbr> <CountUpText text={wpHome} durationMs={700} /></span>
+          <span className="is-draw">{t("common.draw")} <CountUpText text={wpDraw} durationMs={700} /></span>
+          <span className="is-away"><abbr title={match.away_team}>{awayCode}</abbr> <CountUpText text={wpAway} durationMs={700} /></span>
         </div>
       </div>
     </div>

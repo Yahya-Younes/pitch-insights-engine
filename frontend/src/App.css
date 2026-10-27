@@ -114,6 +114,32 @@
   z-index: 40;
   background: var(--bg-base);
   border-bottom: var(--border-width) solid var(--border-subtle);
+  transition: box-shadow 0.25s ease;
+}
+.app-sticky.is-condensed {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+.app-sticky .scorebug {
+  background: transparent;
+}
+.app-sticky .scorebug,
+.app-sticky .scorebug-score,
+.app-sticky .scorebug-team svg {
+  transition: padding 0.25s ease, font-size 0.25s ease, width 0.25s ease, height 0.25s ease;
+}
+.app-sticky.is-condensed .scorebug {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+.app-sticky.is-condensed .scorebug-score {
+  font-size: 1.75rem;
+}
+.app-sticky.is-condensed .scorebug-team svg {
+  width: 26px;
+  height: 26px;
+}
+.app-sticky.is-condensed .scorebug-wp-labels {
+  display: none;
 }
 
 .scorebug {
@@ -267,6 +293,7 @@
 /* ---------- Tabs ---------- */
 
 .app-tabs {
+  position: relative;
   width: 100%;
   max-width: 1440px;
   margin: 0 auto;
@@ -274,12 +301,49 @@
 }
 
 .app-tabs-list {
+  --fade-l: 0px;
+  --fade-r: 0px;
+  position: relative;
   display: flex;
   gap: var(--space-5);
   overflow-x: auto;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  -webkit-mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
+  mask-image: linear-gradient(to right, transparent 0, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent 100%);
 }
+.app-tabs.has-left .app-tabs-list { --fade-l: 40px; }
+.app-tabs.has-right .app-tabs-list { --fade-r: 40px; }
+
+.app-tabs-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--team-home);
+  box-shadow: 0 0 12px rgba(198, 255, 61, 0.45);
+  transition: transform 0.35s cubic-bezier(0.2, 0.7, 0.2, 1), width 0.35s cubic-bezier(0.2, 0.7, 0.2, 1);
+  pointer-events: none;
+}
+
+.app-tabs-more {
+  position: absolute;
+  top: 0;
+  bottom: 3px;
+  z-index: 1;
+  width: 32px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.app-tabs-more:hover { color: var(--text-primary); }
+.app-tabs-more.is-left { left: calc(var(--space-6) - 12px); text-align: left; }
+.app-tabs-more.is-right { right: calc(var(--space-6) - 12px); text-align: right; }
 .app-tabs-list::-webkit-scrollbar {
   display: none;
 }
@@ -301,25 +365,11 @@
   cursor: pointer;
   transition: color 0.15s ease;
 }
-.app-tab::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 3px;
-  border-radius: 3px 3px 0 0;
-  background: transparent;
-  transition: background 0.15s ease;
-}
 .app-tab:hover {
   color: var(--text-secondary);
 }
 .app-tab.is-selected {
   color: var(--text-primary);
-}
-.app-tab.is-selected::after {
-  background: var(--team-home);
 }
 .app-tab:focus-visible {
   outline-offset: -2px;
@@ -344,6 +394,11 @@
   flex-direction: column;
   gap: var(--space-5);
   min-width: 0;
+  animation: app-panel-in 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes app-panel-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
 }
 .app-tabpanel:focus {
   outline: none;
@@ -388,10 +443,10 @@
 /* ---------- Landing hero ---------- */
 
 .landing-hero {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-4);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-6);
   padding: var(--space-6);
   border-radius: var(--radius-card);
   border: var(--border-width) solid var(--border-subtle);
@@ -399,6 +454,20 @@
     radial-gradient(120% 140% at 100% 0%, rgba(61, 217, 255, 0.10), transparent 55%),
     radial-gradient(100% 120% at 0% 100%, rgba(198, 255, 61, 0.10), transparent 55%),
     var(--bg-card);
+}
+
+.landing-copy {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+@media (min-width: 960px) {
+  .landing-hero {
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 0.95fr);
+  }
 }
 
 .landing-title {
@@ -622,6 +691,11 @@
 }
 
 @media (max-width: 600px) {
+  .app-bar {
+    gap: var(--space-2);
+    padding-top: var(--space-3);
+    padding-bottom: var(--space-2);
+  }
   .app-bar-name {
     font-size: 1.25rem;
   }
@@ -630,9 +704,58 @@
   }
   .app-bar-actions {
     width: 100%;
+    flex-wrap: nowrap;
+  }
+  .app-bar-select {
+    padding: 8px 6px;
   }
   .app-bar-new {
     margin-left: auto;
+    white-space: nowrap;
+  }
+  .app-tabs-more.is-left { left: 4px; }
+  .app-tabs-more.is-right { right: 4px; }
+  .scorebug-team {
+    gap: var(--space-2);
+  }
+  .scorebug-name {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+  .scorebug-team-home .scorebug-name {
+    text-align: right;
+  }
+  /* Scrolled on a phone: the crests' initials name the teams. */
+  .app-sticky.is-condensed .scorebug-name {
+    display: none;
+  }
+  .app-sticky.is-condensed .scorebug-team-home {
+    justify-content: flex-start;
+  }
+  .app-sticky.is-condensed .scorebug-team-away {
+    justify-content: flex-end;
+  }
+  .app-sticky.is-condensed .scorebug-score {
+    font-size: 1.5rem;
+  }
+  .app-sticky.is-condensed .scorebug-team svg {
+    width: 22px;
+    height: 22px;
+  }
+  .pipeline-status {
+    flex-wrap: wrap;
+    gap: var(--space-3) var(--space-4);
+    padding: var(--space-3) var(--space-4);
+  }
+  .pipeline-stage-wrap {
+    flex: 0 0 auto;
+  }
+  .pipeline-connector {
+    display: none;
   }
   .app-bar-tool-label {
     position: absolute;
@@ -1049,8 +1172,7 @@
 .pipeline-stage-wrap {
   display: flex;
   align-items: center;
-  flex: 1;
-  min-width: 0;
+  flex: 1 0 auto;
 }
 
 .pipeline-stage {

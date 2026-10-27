@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { fetchStats } from "../lib/api";
 import { useT, type I18n } from "../i18n";
 import { plural } from "../lib/panelLabels";
+import { CountUpText } from "./CountUp";
 import "./StatsBadge.css";
 
 type Stats = Awaited<ReturnType<typeof fetchStats>>;
@@ -187,7 +188,7 @@ export function StatsBadge() {
     <ul className="trust-tiles" aria-label={t("panels.trust.listAria")}>
       {tiles.map((tile) => (
         <li key={tile.key} className={`trust-tile trust-tile-${tile.tone}`} title={tile.title}>
-          <span className="trust-tile-value">{tile.value}</span>
+          <span className="trust-tile-value"><CountUpText text={tile.value} /></span>
           <span className="trust-tile-label">{tile.label}</span>
           {tile.sub && <span className="trust-tile-sub">{tile.sub}</span>}
         </li>

@@ -9,6 +9,8 @@ import { I18nProvider, makeI18n } from "./i18n";
 import { useFocusTrap } from "./hooks/useFocusTrap";
 import { AppBar, NewMatchDialog } from "./components/AppBar";
 import { Scorebug } from "./components/Scorebug";
+import { LandingPitch } from "./components/LandingPitch";
+import { useCondensedOnScroll } from "./hooks/useCondensedOnScroll";
 import { AppTabPanel, AppTabs, type AppTab } from "./components/AppTabs";
 import { PlayerDrawer } from "./components/PlayerDrawer";
 import { LiveTab } from "./tabs/LiveTab";
@@ -51,6 +53,7 @@ function App() {
   const [drawerPlayerId, setDrawerPlayerId] = useState<string | null>(null);
   const [newMatchOpen, setNewMatchOpen] = useState(false);
   const [tab, setTab] = useState<TabId>(tabFromHash);
+  const [stickySentinel, condensed] = useCondensedOnScroll();
   const { events, status } = useOverlayFeed();
   const { settings, cycleTextSize, toggleContrast, setLocale } = useA11ySettings();
   // App renders the I18nProvider itself, so its own JSX translates directly.
@@ -155,7 +158,8 @@ function App() {
           newMatchOpen={newMatchOpen}
         />
 
-        <div className="app-sticky">
+        <div ref={stickySentinel} className="app-sticky-sentinel" aria-hidden="true" />
+        <div className={`app-sticky${condensed ? " is-condensed" : ""}`}>
           <Scorebug match={lastMatch} />
           <AppTabs tabs={tabs} selected={tab} onSelect={selectTab} />
         </div>
@@ -168,21 +172,24 @@ function App() {
           )}
           {!lastMatch && (
             <section className="landing-hero" aria-labelledby="landing-title">
-              <span className="ui-pill is-home">{t("shell.landing.pill")}</span>
-              <h1 id="landing-title" className="landing-title">
-                {t("shell.landing.title")}
-              </h1>
-              <p className="landing-sub">
-                {t("shell.landing.sub")}
-              </p>
-              <button
-                type="button"
-                className="ui-btn ui-btn-primary landing-cta"
-                onClick={() => setNewMatchOpen(true)}
-                aria-haspopup="dialog"
-              >
-                <span aria-hidden="true">▶</span> {t("shell.newMatch")}
-              </button>
+              <div className="landing-copy">
+                <span className="ui-pill is-home">{t("shell.landing.pill")}</span>
+                <h1 id="landing-title" className="landing-title">
+                  {t("shell.landing.title")}
+                </h1>
+                <p className="landing-sub">
+                  {t("shell.landing.sub")}
+                </p>
+                <button
+                  type="button"
+                  className="ui-btn ui-btn-primary landing-cta"
+                  onClick={() => setNewMatchOpen(true)}
+                  aria-haspopup="dialog"
+                >
+                  <span aria-hidden="true">▶</span> {t("shell.newMatch")}
+                </button>
+              </div>
+              <LandingPitch />
             </section>
           )}
 

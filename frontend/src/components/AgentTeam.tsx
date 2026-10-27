@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { fetchAgentTrace, overlayFeedUrl, overlaySchemaUrl } from "../lib/agentTraceApi";
+import { CountUpText } from "./CountUp";
 import type { AgentKind, AgentTokens, AgentTraceAgent, AgentTraceResponse, HandoffPath } from "../lib/agentTraceTypes";
 import { useT, type I18n } from "../i18n";
 import { personaLabel, plural, triggerLabel } from "../lib/panelLabels";
@@ -202,13 +203,13 @@ export function AgentTeam({ matchId, running = false }: Props) {
           </ol>
 
           <dl className="agent-totals" aria-label={t("agents.totalsAria")}>
-            <div><dt>{t("agents.totals.insights")}</dt><dd>{trace.totals.insights}</dd></div>
-            <div><dt>{t("agents.totals.verified")}</dt><dd>{trace.totals.verified}</dd></div>
-            <div><dt>{t("agents.totals.fellBack")}</dt><dd>{trace.totals.fell_back}</dd></div>
-            <div><dt>{t("agents.llmCalls")}</dt><dd>{trace.totals.llm_calls ?? "--"}</dd></div>
-            <div title={t("agents.tokensHint")}><dt>{t("agents.tokens")}</dt><dd>{formatTokens(i18n, trace.totals.llm_tokens)}</dd></div>
-            <div><dt>{t("agents.totals.overlays")}</dt><dd>{trace.totals.overlays}</dd></div>
-            <div><dt>{t("agents.totals.handoffs")}</dt><dd>{trace.totals.handoffs}</dd></div>
+            <div><dt>{t("agents.totals.insights")}</dt><dd><CountUpText text={String(trace.totals.insights)} /></dd></div>
+            <div><dt>{t("agents.totals.verified")}</dt><dd><CountUpText text={String(trace.totals.verified)} /></dd></div>
+            <div><dt>{t("agents.totals.fellBack")}</dt><dd><CountUpText text={String(trace.totals.fell_back)} /></dd></div>
+            <div><dt>{t("agents.llmCalls")}</dt><dd><CountUpText text={String(trace.totals.llm_calls ?? "--")} /></dd></div>
+            <div title={t("agents.tokensHint")}><dt>{t("agents.tokens")}</dt><dd><CountUpText text={formatTokens(i18n, trace.totals.llm_tokens)} /></dd></div>
+            <div><dt>{t("agents.totals.overlays")}</dt><dd><CountUpText text={String(trace.totals.overlays)} /></dd></div>
+            <div><dt>{t("agents.totals.handoffs")}</dt><dd><CountUpText text={String(trace.totals.handoffs)} /></dd></div>
           </dl>
 
           <div className="agent-timeline-wrap">

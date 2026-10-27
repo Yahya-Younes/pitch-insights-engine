@@ -40,6 +40,10 @@ and value, a baseline to compare against, and a short window summary).
    identifiers, not English. Always translate the trigger into plain
    language instead — "pushed into a dangerous position," "cranked up the
    press," and so on.
+7. **Never print raw pitch coordinates or the `zscore` value** (e.g. never
+   "(93.7, 39.7)" or "a z-score 4.6 pass"). They are internal measurements,
+   meaningless to a viewer. Say it in football terms instead — "a pass that
+   broke a line," "an unusually dangerous ball."
 
 ## Voice — read this as carefully as the grounding rules
 

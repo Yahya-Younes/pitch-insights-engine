@@ -25,6 +25,10 @@ _EFFORTS = {"minimal", "low", "medium", "high"}
 
 # Opaque ids the prompts never use -- they only cost tokens on every call.
 _INTERNAL_FIELDS = {"insight_id", "match_id", "related_events"}
+# Raw pitch coordinates (kept on the insight for the what-if tool). Shown
+# to the model they ended up verbatim in commentary -- "(93.7,39.7)" means
+# nothing to a viewer.
+_HIDDEN_SUMMARY_KEYS = {"start_x", "start_y", "end_x", "end_y"}
 
 
 def reasoning_effort(stage: str) -> str:
@@ -46,8 +50,12 @@ def insight_for_prompt(
     insight: InsightCandidate, player_names: dict[str, str], **extra: Any,
 ) -> dict[str, Any]:
     """The InsightCandidate as the model sees it: every evidence field, the
-    display names of its related players, minus internal ids."""
+    display names of its related players, minus internal ids and raw
+    pitch coordinates."""
     data = insight.model_dump(exclude=_INTERNAL_FIELDS)
+    data["window_summary"] = {
+        k: v for k, v in data["window_summary"].items() if k not in _HIDDEN_SUMMARY_KEYS
+    }
     data["related_player_names"] = {pid: player_names.get(pid, pid) for pid in insight.related_players}
     data.update(extra)
     return data

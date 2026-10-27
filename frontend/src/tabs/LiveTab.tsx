@@ -13,6 +13,7 @@ import { Timeline } from "../components/Timeline";
 import { PitchView } from "../components/PitchView";
 import type { SeekRequest } from "../components/PitchView";
 import { LineupChips } from "../components/LineupChips";
+import { LiveWarmup } from "../components/LiveWarmup";
 import { MomentumBar } from "../components/MomentumBar";
 import { WinProbability } from "../components/WinProbability";
 import { PersonaTabs } from "../components/PersonaTabs";
@@ -159,10 +160,7 @@ export function LiveTab() {
               </div>
             </>
           ) : (
-            <div className="ui-card lv-hero lv-hero-waiting" role="status" aria-live="polite">
-              <span className="lv-spinner lv-spinner-lg" aria-hidden="true" />
-              <p>{t("live.tab.waiting")}</p>
-            </div>
+            <LiveWarmup key={matchId} matchId={matchId} />
           )}
         </div>
 
